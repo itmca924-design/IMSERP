@@ -116,6 +116,19 @@ export interface RoomDialogData {
               <input matInput formControlName="floor" placeholder="e.g. Ground Floor, Science Wing" />
               <mat-icon matSuffix color="primary">layers</mat-icon>
             </mat-form-field>
+
+            <!-- Wi-Fi IP Audio Speaker Configuration -->
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Wi-Fi Speaker IP (e.g. 192.168.1.105)</mat-label>
+              <input matInput formControlName="speakerIp" placeholder="192.168.1.xxx" />
+              <mat-icon matSuffix color="primary">wifi</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="half-width">
+              <mat-label>Speaker Port</mat-label>
+              <input matInput type="number" formControlName="speakerPort" placeholder="80" />
+              <mat-icon matSuffix color="primary">router</mat-icon>
+            </mat-form-field>
           </div>
     
           <!-- Live Preview Card -->
@@ -357,7 +370,9 @@ export class RoomDialogComponent implements OnInit {
       branchId: [this.data.room?.branchId || defaultBranchId, Validators.required],
       roomNumber: [this.data.room?.roomNumber || '', Validators.required],
       capacity: [this.data.room?.capacity || 40, [Validators.required, Validators.min(1)]],
-      floor: [this.data.room?.floor || 'Ground Floor']
+      floor: [this.data.room?.floor || 'Ground Floor'],
+      speakerIp: [this.data.room?.speakerIp || ''],
+      speakerPort: [this.data.room?.speakerPort || 80]
     });
   }
 
@@ -379,7 +394,9 @@ export class RoomDialogComponent implements OnInit {
         roomNumber: formVal.roomNumber.trim(),
         capacity: Number(formVal.capacity),
         floor: formVal.floor?.trim() || null,
-        isActive: this.data.room.isActive
+        isActive: this.data.room.isActive,
+        speakerIp: formVal.speakerIp?.trim() || null,
+        speakerPort: Number(formVal.speakerPort) || 80
       };
 
       this.roomService.updateRoom(this.data.room.id, updateDto).subscribe({
@@ -401,7 +418,9 @@ export class RoomDialogComponent implements OnInit {
         branchId: formVal.branchId,
         roomNumber: formVal.roomNumber.trim(),
         capacity: Number(formVal.capacity),
-        floor: formVal.floor?.trim() || null
+        floor: formVal.floor?.trim() || null,
+        speakerIp: formVal.speakerIp?.trim() || null,
+        speakerPort: Number(formVal.speakerPort) || 80
       };
 
       this.roomService.createRoom(createDto).subscribe({

@@ -90,21 +90,27 @@ public record RoomDto(
     string? Floor,
     bool IsActive,
     DateTime CreatedAt,
-    int ActiveBatchCount = 0
+    int ActiveBatchCount = 0,
+    string? SpeakerIp = null,
+    int? SpeakerPort = 80
 );
 
 public record CreateRoomDto(
     Guid BranchId,
     string RoomNumber,
     int Capacity,
-    string? Floor
+    string? Floor,
+    string? SpeakerIp = null,
+    int? SpeakerPort = 80
 );
 
 public record UpdateRoomDto(
     string RoomNumber,
     int Capacity,
     string? Floor,
-    bool IsActive
+    bool IsActive,
+    string? SpeakerIp = null,
+    int? SpeakerPort = 80
 );
 
 public record RefreshTokenRequestDto(string Token, string RefreshToken);
@@ -429,6 +435,47 @@ public record SchoolPeriodSlotDto(
     bool IsActive,
     DateTime CreatedAt,
     string? SlotType = "Teaching"
+);
+
+public record SmartBellSettingDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    bool IsEnabled,
+    int PreBellWarningMinutes,
+    bool VoiceAnnouncementEnabled,
+    string VoiceLanguage,
+    string BellType,
+    int BellDurationSeconds,
+    int LunchBellDurationSeconds,
+    int DismissalBellDurationSeconds,
+    int Volume,
+    string BroadcastMode,
+    bool SilentOnHolidays,
+    string WarningTemplateHi,
+    string WarningTemplateEn,
+    string PeriodOverTemplateHi,
+    string PeriodOverTemplateEn,
+    DateTime UpdatedAt
+);
+
+public record SaveSmartBellSettingDto(
+    Guid? BranchId,
+    bool IsEnabled,
+    int PreBellWarningMinutes,
+    bool VoiceAnnouncementEnabled,
+    string VoiceLanguage,
+    string BellType,
+    int BellDurationSeconds,
+    int LunchBellDurationSeconds,
+    int DismissalBellDurationSeconds,
+    int Volume,
+    string BroadcastMode,
+    bool SilentOnHolidays,
+    string WarningTemplateHi,
+    string WarningTemplateEn,
+    string PeriodOverTemplateHi,
+    string PeriodOverTemplateEn
 );
 
 public record CreateSchoolPeriodSlotDto(

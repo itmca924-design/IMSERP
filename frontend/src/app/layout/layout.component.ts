@@ -433,7 +433,7 @@ export interface BreadcrumbItem {
                 <div class="search-results">
                   @for (result of headerSearchResults; track result.route) {
                     <a [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
-                      <mat-icon>{{ result.icon }}</mat-icon><span>{{ result.title }}</span>
+                      <mat-icon>{{ result.icon }}</mat-icon><span>{{ translationService.translate(result.title) }}</span>
                     </a>
                   }
                 </div>
@@ -548,7 +548,7 @@ export interface BreadcrumbItem {
               @for (a of dynamicQuickActions; track a.route) {
                 <button mat-menu-item [routerLink]="a.route">
                   <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
-                  <span>{{ a.title }}</span>
+                  <span>{{ translationService.translate(a.title) }}</span>
                 </button>
               }
               @if (dynamicQuickActions.length === 0) {
@@ -670,19 +670,19 @@ export interface BreadcrumbItem {
                 @for (b of breadcrumbs(); track b.url || b.label; let isLast = $last) {
                   <li class="breadcrumb-item">
                     @if (!isLast && b.url) {
-                      <a [routerLink]="b.url" class="breadcrumb-link" [title]="b.label">
+                      <a [routerLink]="b.url" class="breadcrumb-link" [title]="translationService.translate(b.label)">
                         @if (b.icon) {
                           <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
                         }
-                        <span>{{ b.label }}</span>
+                        <span>{{ translationService.translate(b.label) }}</span>
                       </a>
                     }
                     @if (!isLast && !b.url) {
-                      <span (click)="onParentCategoryClick(b)" class="breadcrumb-link parent-category" [title]="b.label">
+                      <span (click)="onParentCategoryClick(b)" class="breadcrumb-link parent-category" [title]="translationService.translate(b.label)">
                         @if (b.icon) {
                           <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
                         }
-                        <span>{{ b.label }}</span>
+                        <span>{{ translationService.translate(b.label) }}</span>
                       </span>
                     }
                     @if (isLast) {
@@ -690,7 +690,7 @@ export interface BreadcrumbItem {
                         @if (b.icon) {
                           <mat-icon class="bc-icon">{{ b.icon }}</mat-icon>
                         }
-                        <span>{{ b.label }}</span>
+                        <span>{{ translationService.translate(b.label) }}</span>
                       </span>
                     }
                     @if (!isLast) {

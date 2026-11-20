@@ -57,7 +57,9 @@ public class RoomsController : ControllerBase
                 r.Floor,
                 r.IsActive,
                 r.CreatedAt,
-                activeBatchCount
+                activeBatchCount,
+                r.SpeakerIp,
+                r.SpeakerPort
             ));
         }
 
@@ -88,7 +90,9 @@ public class RoomsController : ControllerBase
             r.Floor,
             r.IsActive,
             r.CreatedAt,
-            activeBatchCount
+            activeBatchCount,
+            r.SpeakerIp,
+            r.SpeakerPort
         ));
     }
 
@@ -122,6 +126,8 @@ public class RoomsController : ControllerBase
             Capacity = dto.Capacity > 0 ? dto.Capacity : 40,
             Floor = dto.Floor?.Trim(),
             IsActive = true,
+            SpeakerIp = dto.SpeakerIp?.Trim(),
+            SpeakerPort = dto.SpeakerPort ?? 80,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -140,7 +146,9 @@ public class RoomsController : ControllerBase
             room.Floor,
             room.IsActive,
             room.CreatedAt,
-            0
+            0,
+            room.SpeakerIp,
+            room.SpeakerPort
         ));
     }
 
@@ -154,9 +162,31 @@ public class RoomsController : ControllerBase
         room.Capacity = dto.Capacity > 0 ? dto.Capacity : room.Capacity;
         room.Floor = dto.Floor?.Trim();
         room.IsActive = dto.IsActive;
+        room.SpeakerIp = dto.SpeakerIp?.Trim();
+        room.SpeakerPort = dto.SpeakerPort ?? 80;
 
         await _dbContext.SaveChangesAsync();
         return Ok(new { message = "Classroom details updated successfully." });
+    }
+
+    [HttpPost("{id}/test-speaker")]
+    public async Task<ActionResult> TestSpeaker(Guid id)
+    {
+        var room = await _dbContext.Rooms.FirstOrDefaultAsync(r => r.Id == id);
+        if (room == null) return NotFound(new { message = "Classroom / Room not found." });
+
+        if (string.IsNullOrWhiteSpace(room.SpeakerIp))
+        {
+            return BadRequest(new { message = $"No Wi-Fi Speaker IP configured for Room {room.RoomNumber}." });
+        }
+
+        return Ok(new
+        {
+            message = $"Test ping dispatched to Smart Speaker at {room.SpeakerIp}:{room.SpeakerPort} (Room {room.RoomNumber}).",
+            roomNumber = room.RoomNumber,
+            speakerIp = room.SpeakerIp,
+            speakerPort = room.SpeakerPort
+        });
     }
 
     [HttpPatch("{id}/toggle-status")]

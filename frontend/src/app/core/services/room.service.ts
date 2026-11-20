@@ -14,6 +14,8 @@ export interface RoomDto {
   isActive: boolean;
   createdAt: string;
   activeBatchCount: number;
+  speakerIp?: string | null;
+  speakerPort?: number;
 }
 
 export interface CreateRoomDto {
@@ -21,6 +23,8 @@ export interface CreateRoomDto {
   roomNumber: string;
   capacity: number;
   floor?: string | null;
+  speakerIp?: string | null;
+  speakerPort?: number;
 }
 
 export interface UpdateRoomDto {
@@ -28,6 +32,8 @@ export interface UpdateRoomDto {
   capacity: number;
   floor?: string | null;
   isActive: boolean;
+  speakerIp?: string | null;
+  speakerPort?: number;
 }
 
 @Injectable({
@@ -56,6 +62,10 @@ export class RoomService {
 
   updateRoom(id: string, dto: UpdateRoomDto): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.API_URL}/${id}`, dto);
+  }
+
+  testSpeaker(id: string): Observable<{ message: string; roomNumber: string; speakerIp: string; speakerPort: number }> {
+    return this.http.post<any>(`${this.API_URL}/${id}/test-speaker`, {});
   }
 
   toggleRoomStatus(id: string): Observable<{ message: string; isActive: boolean }> {

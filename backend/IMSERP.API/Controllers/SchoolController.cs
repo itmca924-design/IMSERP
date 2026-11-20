@@ -784,6 +784,125 @@ public class SchoolController : ControllerBase
         return Ok(new { message = "Period slot removed successfully." });
     }
 
+    [HttpGet("smart-bell-settings")]
+    public async Task<ActionResult<SmartBellSettingDto>> GetSmartBellSettings([FromQuery] Guid? branchId = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetBranchId = branchId ?? _currentUser.BranchId;
+
+        var setting = await _db.SmartBellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.BranchId == targetBranchId || s.BranchId == null));
+
+        if (setting == null)
+        {
+            return Ok(new SmartBellSettingDto(
+                Guid.Empty,
+                tenantId,
+                targetBranchId,
+                true,
+                2,
+                true,
+                "hi-IN",
+                "ElectricGong",
+                3,
+                8,
+                12,
+                100,
+                "AllCall",
+                true,
+                "ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।",
+                "Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.",
+                "{periodName} का समय समाप्त हो चुका है।",
+                "{periodName} has concluded.",
+                DateTime.UtcNow
+            ));
+        }
+
+        return Ok(new SmartBellSettingDto(
+            setting.Id,
+            setting.TenantId,
+            setting.BranchId,
+            setting.IsEnabled,
+            setting.PreBellWarningMinutes,
+            setting.VoiceAnnouncementEnabled,
+            setting.VoiceLanguage,
+            setting.BellType,
+            setting.BellDurationSeconds,
+            setting.LunchBellDurationSeconds,
+            setting.DismissalBellDurationSeconds,
+            setting.Volume,
+            setting.BroadcastMode,
+            setting.SilentOnHolidays,
+            setting.WarningTemplateHi,
+            setting.WarningTemplateEn,
+            setting.PeriodOverTemplateHi,
+            setting.PeriodOverTemplateEn,
+            setting.UpdatedAt
+        ));
+    }
+
+    [HttpPost("smart-bell-settings")]
+    public async Task<ActionResult<SmartBellSettingDto>> SaveSmartBellSettings([FromBody] SaveSmartBellSettingDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var targetBranchId = dto.BranchId ?? _currentUser.BranchId;
+
+        var setting = await _db.SmartBellSettings
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.BranchId == targetBranchId || (targetBranchId == null && s.BranchId == null)));
+
+        if (setting == null)
+        {
+            setting = new SmartBellSetting
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                BranchId = targetBranchId
+            };
+            _db.SmartBellSettings.Add(setting);
+        }
+
+        setting.IsEnabled = dto.IsEnabled;
+        setting.PreBellWarningMinutes = Math.Clamp(dto.PreBellWarningMinutes, 1, 10);
+        setting.VoiceAnnouncementEnabled = dto.VoiceAnnouncementEnabled;
+        setting.VoiceLanguage = string.IsNullOrWhiteSpace(dto.VoiceLanguage) ? "hi-IN" : dto.VoiceLanguage.Trim();
+        setting.BellType = string.IsNullOrWhiteSpace(dto.BellType) ? "ElectricGong" : dto.BellType.Trim();
+        setting.BellDurationSeconds = Math.Clamp(dto.BellDurationSeconds, 1, 30);
+        setting.LunchBellDurationSeconds = Math.Clamp(dto.LunchBellDurationSeconds, 1, 30);
+        setting.DismissalBellDurationSeconds = Math.Clamp(dto.DismissalBellDurationSeconds, 1, 30);
+        setting.Volume = Math.Clamp(dto.Volume, 0, 100);
+        setting.BroadcastMode = string.IsNullOrWhiteSpace(dto.BroadcastMode) ? "AllCall" : dto.BroadcastMode.Trim();
+        setting.SilentOnHolidays = dto.SilentOnHolidays;
+        setting.WarningTemplateHi = dto.WarningTemplateHi ?? "ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।";
+        setting.WarningTemplateEn = dto.WarningTemplateEn ?? "Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.";
+        setting.PeriodOverTemplateHi = dto.PeriodOverTemplateHi ?? "{periodName} का समय समाप्त हो चुका है।";
+        setting.PeriodOverTemplateEn = dto.PeriodOverTemplateEn ?? "{periodName} has concluded.";
+        setting.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new SmartBellSettingDto(
+            setting.Id,
+            setting.TenantId,
+            setting.BranchId,
+            setting.IsEnabled,
+            setting.PreBellWarningMinutes,
+            setting.VoiceAnnouncementEnabled,
+            setting.VoiceLanguage,
+            setting.BellType,
+            setting.BellDurationSeconds,
+            setting.LunchBellDurationSeconds,
+            setting.DismissalBellDurationSeconds,
+            setting.Volume,
+            setting.BroadcastMode,
+            setting.SilentOnHolidays,
+            setting.WarningTemplateHi,
+            setting.WarningTemplateEn,
+            setting.PeriodOverTemplateHi,
+            setting.PeriodOverTemplateEn,
+            setting.UpdatedAt
+        ));
+    }
+
     private static SchoolActivityTypeDto ToActivityTypeDto(SchoolActivityType a) => new(
         a.Id,
         a.BranchId,

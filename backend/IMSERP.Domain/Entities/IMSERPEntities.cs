@@ -95,6 +95,8 @@ public class Room
     public int Capacity { get; set; } = 40;
     public string? Floor { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? SpeakerIp { get; set; }
+    public int SpeakerPort { get; set; } = 80;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Branch? Branch { get; set; }
@@ -2675,6 +2677,35 @@ public class StudyMaterial
 
     [ForeignKey("BatchId")]
     public Batch? Batch { get; set; }
+}
+
+public class SmartBellSetting
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+
+    public bool IsEnabled { get; set; } = true;
+    public int PreBellWarningMinutes { get; set; } = 2;
+    public bool VoiceAnnouncementEnabled { get; set; } = true;
+    public string VoiceLanguage { get; set; } = "hi-IN";
+    public string BellType { get; set; } = "ElectricGong";
+    public int BellDurationSeconds { get; set; } = 3;
+    public int LunchBellDurationSeconds { get; set; } = 8;
+    public int DismissalBellDurationSeconds { get; set; } = 12;
+    public int Volume { get; set; } = 100;
+    public string BroadcastMode { get; set; } = "AllCall";
+    public bool SilentOnHolidays { get; set; } = true;
+
+    public string WarningTemplateHi { get; set; } = "ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।";
+    public string WarningTemplateEn { get; set; } = "Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.";
+    public string PeriodOverTemplateHi { get; set; } = "{periodName} का समय समाप्त हो चुका है।";
+    public string PeriodOverTemplateEn { get; set; } = "{periodName} has concluded.";
+
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class SchoolPeriodSlot

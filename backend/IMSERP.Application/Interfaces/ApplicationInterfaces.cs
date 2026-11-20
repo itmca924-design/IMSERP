@@ -101,6 +101,7 @@ public interface IIMSERPDbContext
     DbSet<StudentFeeConcession> StudentFeeConcessions { get; }
     DbSet<StudyMaterial> StudyMaterials { get; }
     DbSet<SchoolPeriodSlot> SchoolPeriodSlots { get; }
+    DbSet<SmartBellSetting> SmartBellSettings { get; }
     DbSet<SchoolActivityType> SchoolActivityTypes { get; }
     DbSet<ChatConversation> ChatConversations { get; }
     DbSet<ChatParticipant> ChatParticipants { get; }

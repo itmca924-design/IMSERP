@@ -897,6 +897,16 @@ export class SchoolService {
     return this.http.delete<void>(`${this.apiUrl}/period-slots/${id}`);
   }
 
+  getSmartBellSettings(branchId?: string | null): Observable<SmartBellSettingDto> {
+    const params: any = {};
+    if (branchId) params.branchId = branchId;
+    return this.http.get<SmartBellSettingDto>(`${this.apiUrl}/smart-bell-settings`, { params });
+  }
+
+  saveSmartBellSettings(dto: Partial<SmartBellSettingDto>): Observable<SmartBellSettingDto> {
+    return this.http.post<SmartBellSettingDto>(`${this.apiUrl}/smart-bell-settings`, dto);
+  }
+
   getActivityTypes(branchId?: string | null): Observable<SchoolActivityTypeDto[]> {
     const params: any = {};
     if (branchId) params.branchId = branchId;
@@ -947,6 +957,28 @@ export interface SchoolPeriodSlotDto {
   isActive: boolean;
   createdAt: string;
   slotType?: string;
+}
+
+export interface SmartBellSettingDto {
+  id?: string;
+  tenantId?: string;
+  branchId?: string | null;
+  isEnabled: boolean;
+  preBellWarningMinutes: number;
+  voiceAnnouncementEnabled: boolean;
+  voiceLanguage: string;
+  bellType: string;
+  bellDurationSeconds: number;
+  lunchBellDurationSeconds: number;
+  dismissalBellDurationSeconds: number;
+  volume: number;
+  broadcastMode: string;
+  silentOnHolidays: boolean;
+  warningTemplateHi: string;
+  warningTemplateEn: string;
+  periodOverTemplateHi: string;
+  periodOverTemplateEn: string;
+  updatedAt?: string;
 }
 
 export interface CreateSchoolPeriodSlotDto {

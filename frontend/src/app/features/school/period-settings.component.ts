@@ -1,4 +1,5 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, inject } from '@angular/core';
+import { SmartBellService } from '../../core/services/smart-bell.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -112,6 +113,260 @@ interface PeriodEditorRow {
     
       @if (!loading) {
         <div class="page-content">
+          <!-- 🤖 Smart AI Bell & Voice Automation Control Center -->
+          <mat-card class="smart-bell-card mat-elevation-z1">
+            <div class="smart-bell-header">
+              <div class="smart-bell-icon-wrap" [class.bell-ringing]="smartBell.isPlayingAudio() || smartBell.isSpeaking()">
+                <mat-icon>{{ smartBell.isSpeaking() ? 'record_voice_over' : (smartBell.isPlayingAudio() ? 'notifications_active' : 'notifications') }}</mat-icon>
+              </div>
+              <div class="smart-bell-title-wrap">
+                <div class="smart-bell-headline">
+                  <h3 class="bell-card-title">🤖 Smart Agentic AI Bell & Classroom Voice Broadcast</h3>
+                  <span class="live-status-chip" [class.status-live]="smartBell.currentSlot()" [class.status-standby]="!smartBell.currentSlot()">
+                    <span class="pulse-dot"></span>
+                    {{ smartBell.currentSlot() ? 'Live Period Active' : 'Standby / Tracking' }}
+                  </span>
+                </div>
+                <p class="bell-card-sub">
+                  Fully automated timetable tracking: Agentic AI announces impending period ends beforehand, followed by an automatic school bell.
+                </p>
+              </div>
+
+              <!-- Main Automation Toggle -->
+              <div class="smart-bell-toggle-box">
+                <span class="toggle-label">Auto Bell Engine</span>
+                <mat-slide-toggle
+                  [checked]="smartBell.settings().isEnabled"
+                  (change)="onToggleSmartBell($event.checked)"
+                  color="primary">
+                  {{ smartBell.settings().isEnabled ? 'ON (सक्रिय)' : 'OFF (बंद)' }}
+                </mat-slide-toggle>
+              </div>
+            </div>
+
+            <!-- Live Status & Countdown Banner -->
+            <div class="live-countdown-banner">
+              <div class="live-banner-left">
+                <mat-icon class="banner-icon">{{ smartBell.currentSlot() ? 'timelapse' : 'schedule' }}</mat-icon>
+                <div class="banner-info">
+                  @if (smartBell.currentSlot()) {
+                    <div class="banner-slot-name">
+                      Currently Running: <strong>{{ smartBell.currentSlot()?.name }}</strong>
+                      <span class="slot-time-badge">{{ smartBell.currentSlot()?.timeSlot }}</span>
+                    </div>
+                    <div class="banner-subtext">
+                      Pre-warning will announce at {{ smartBell.settings().preBellWarningMinutes }} mins prior to end.
+                    </div>
+                  } @else {
+                    <div class="banner-slot-name">
+                      No Active Period Running Right Now (School In Standby / Break)
+                    </div>
+                    <div class="banner-subtext">
+                      @if (smartBell.nextSlot()) {
+                        Upcoming: <strong>{{ smartBell.nextSlot()?.name }}</strong> at {{ smartBell.nextSlot()?.startTime }}
+                      } @else {
+                        Schedule tracking in real-time according to configured period slots.
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="live-banner-right">
+                <div class="countdown-clock">
+                  <span class="countdown-label">Time Remaining:</span>
+                  <span class="countdown-val">{{ smartBell.remainingMinutesFormatted() }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configuration & Trigger Controls Grid -->
+            <div class="bell-controls-grid">
+              <!-- Column 1: AI Voice Warning Settings -->
+              <div class="bell-control-panel">
+                <div class="panel-heading">
+                  <mat-icon>record_voice_over</mat-icon>
+                  <span>1. Agentic AI Pre-Bell Warning</span>
+                </div>
+
+                <div class="panel-body">
+                  <div class="control-row">
+                    <label class="c-label">Enable Voice Warning</label>
+                    <mat-slide-toggle
+                      [checked]="smartBell.settings().voiceAnnouncementEnabled"
+                      (change)="updateBellSetting('voiceAnnouncementEnabled', $event.checked)"
+                      color="primary">
+                      {{ smartBell.settings().voiceAnnouncementEnabled ? 'Enabled' : 'Muted' }}
+                    </mat-slide-toggle>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Warning Lead Time</label>
+                    <select
+                      [ngModel]="smartBell.settings().preBellWarningMinutes"
+                      (ngModelChange)="updateBellSetting('preBellWarningMinutes', $event)"
+                      class="bell-select">
+                      <option [ngValue]="1">1 Minute Before Period End</option>
+                      <option [ngValue]="2">2 Minutes Before Period End (Recommended)</option>
+                      <option [ngValue]="3">3 Minutes Before Period End</option>
+                      <option [ngValue]="5">5 Minutes Before Period End</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Voice Language</label>
+                    <select
+                      [ngModel]="smartBell.settings().voiceLanguage"
+                      (ngModelChange)="updateBellSetting('voiceLanguage', $event)"
+                      class="bell-select">
+                      <option value="hi-IN">🇮🇳 Hindi (हिन्दी उद्घोषणा)</option>
+                      <option value="en-IN">🇬🇧 English (Indian Accent)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 2: School Bell Sound Configuration -->
+              <div class="bell-control-panel">
+                <div class="panel-heading">
+                  <mat-icon>campaign</mat-icon>
+                  <span>2. School Bell Acoustics</span>
+                </div>
+
+                <div class="panel-body">
+                  <div class="control-row">
+                    <label class="c-label">Bell Sound Type</label>
+                    <select
+                      [ngModel]="smartBell.settings().bellType"
+                      (ngModelChange)="updateBellSetting('bellType', $event)"
+                      class="bell-select">
+                      <option value="ElectricGong">🔔 Electric School PA Gong (इलेक्ट्रिक घंटी)</option>
+                      <option value="BrassBell">🏫 Classic Heavy Brass Bell (पीतल घंटी)</option>
+                      <option value="MelodicChime">🎶 Westminster Melody Chime (मधुर धुन)</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Standard Period Bell Duration</label>
+                    <select
+                      [ngModel]="smartBell.settings().bellDurationSeconds"
+                      (ngModelChange)="updateBellSetting('bellDurationSeconds', $event)"
+                      class="bell-select">
+                      <option [ngValue]="2">2 Seconds (Quick Strike)</option>
+                      <option [ngValue]="3">3 Seconds (Standard Ring)</option>
+                      <option [ngValue]="5">5 Seconds (Double Strike)</option>
+                      <option [ngValue]="8">8 Seconds (Long Ring)</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Lunch & Recess Bell Duration</label>
+                    <select
+                      [ngModel]="smartBell.settings().lunchBellDurationSeconds"
+                      (ngModelChange)="updateBellSetting('lunchBellDurationSeconds', $event)"
+                      class="bell-select">
+                      <option [ngValue]="5">5 Seconds</option>
+                      <option [ngValue]="8">8 Seconds (Standard Recess)</option>
+                      <option [ngValue]="12">12 Seconds (Extended)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 3: Speaker Broadcast & Test Triggers -->
+              <div class="bell-control-panel">
+                <div class="panel-heading">
+                  <mat-icon>router</mat-icon>
+                  <span>3. Wi-Fi Audio Hardware & Instant Test</span>
+                </div>
+
+                <div class="panel-body">
+                  <div class="control-row">
+                    <label class="c-label">Broadcast Output Mode</label>
+                    <select
+                      [ngModel]="smartBell.settings().broadcastMode"
+                      (ngModelChange)="updateBellSetting('broadcastMode', $event)"
+                      class="bell-select">
+                      <option value="AllCall">📢 All-Call Main PA (Computer Audio / School Amplifier)</option>
+                      <option value="RoomSpeakers">📶 Wi-Fi Room Speakers (कमरा-वार आईपी स्पीकर)</option>
+                    </select>
+                  </div>
+
+                  <!-- Instant Interactive Test Buttons -->
+                  <div class="bell-test-buttons-wrap">
+                    <button type="button" class="btn-test-action" (click)="testVoiceWarning()" matButton="filled">
+                      <mat-icon>record_voice_over</mat-icon>
+                      <span>🔊 Test Voice Warning</span>
+                    </button>
+                    <button type="button" class="btn-test-action" (click)="testSchoolBell()" matButton="filled">
+                      <mat-icon>notifications_active</mat-icon>
+                      <span>🔔 Test School Bell</span>
+                    </button>
+                    <button type="button" class="btn-test-action highlight-btn" (click)="testFullSequence()" matButton="filled">
+                      <mat-icon>bolt</mat-icon>
+                      <span>⚡ Test Full Transition</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Custom Announcement Message Templates -->
+            <div class="template-editor-box">
+              <div class="template-box-header" (click)="showTemplates = !showTemplates">
+                <mat-icon class="tpl-icon">edit_note</mat-icon>
+                <span class="tpl-title">Custom Voice Announcement Templates (कस्टम उद्घोषणा संदेश)</span>
+                <span class="tpl-hint">Placeholders: [periodName], [remainingMinutes]</span>
+                <mat-icon class="tpl-chevron">{{ showTemplates ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </div>
+
+              @if (showTemplates) {
+                <div class="template-inputs-grid">
+                  <div class="tpl-field">
+                    <label class="tpl-label">Hindi Warning Template (हिंदी पूर्व-सूचना)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().warningTemplateHi"
+                      (ngModelChange)="updateBellSetting('warningTemplateHi', $event)"
+                      class="tpl-input" />
+                  </div>
+                  <div class="tpl-field">
+                    <label class="tpl-label">English Warning Template (अंग्रेज़ी पूर्व-सूचना)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().warningTemplateEn"
+                      (ngModelChange)="updateBellSetting('warningTemplateEn', $event)"
+                      class="tpl-input" />
+                  </div>
+                  <div class="tpl-field">
+                    <label class="tpl-label">Hindi Period-Over Template (समय समाप्ति हिंदी)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().periodOverTemplateHi"
+                      (ngModelChange)="updateBellSetting('periodOverTemplateHi', $event)"
+                      class="tpl-input" />
+                  </div>
+                  <div class="tpl-field">
+                    <label class="tpl-label">English Period-Over Template (समय समाप्ति अंग्रेज़ी)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().periodOverTemplateEn"
+                      (ngModelChange)="updateBellSetting('periodOverTemplateEn', $event)"
+                      class="tpl-input" />
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Footer Action Row -->
+            <div class="bell-footer-actions">
+              <div class="footer-note">
+                <mat-icon>info</mat-icon>
+                <span>Timetable syncs in real-time with Indian Standard Time (IST - Asia/Kolkata). Zero-touch operation runs automatically in background.</span>
+              </div>
+              <button color="primary" class="btn-save-bell app-button-save" (click)="saveBellSettings()" [disabled]="savingBell" matButton="filled">
+                <mat-icon>{{ savingBell ? 'hourglass_empty' : 'save' }}</mat-icon>
+                <span>{{ savingBell ? 'Saving Settings...' : 'Save Smart Bell Preferences' }}</span>
+              </button>
+            </div>
+          </mat-card>
+
           <!-- ⚡ 1-Click Smart Timetable Generator Card -->
           <mat-card class="generator-card mat-elevation-z1">
             <div class="gen-header">
@@ -503,7 +758,353 @@ interface PeriodEditorRow {
     `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
-    .page-container {
+    
+    /* 🤖 Smart AI Bell Card */
+    .smart-bell-card {
+      background: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #bfdbfe;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 0;
+      margin-bottom: 20px;
+    }
+
+    .smart-bell-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 1px solid #bfdbfe;
+      flex-wrap: wrap;
+
+      .smart-bell-icon-wrap {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25);
+        mat-icon { font-size: 26px; width: 26px; height: 26px; }
+
+        &.bell-ringing {
+          animation: bell-ring 0.6s infinite alternate ease-in-out;
+          background: #dc2626;
+        }
+      }
+
+      .smart-bell-title-wrap {
+        flex: 1 1 300px;
+        .smart-bell-headline {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          .bell-card-title {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1e3a8a;
+          }
+          .live-status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            &.status-live {
+              background: #dcfce7;
+              color: #15803d;
+              border: 1px solid #86efac;
+              .pulse-dot { background: #22c55e; }
+            }
+            &.status-standby {
+              background: #f1f5f9;
+              color: #475569;
+              border: 1px solid #cbd5e1;
+              .pulse-dot { background: #94a3b8; }
+            }
+            .pulse-dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              display: inline-block;
+            }
+          }
+        }
+        .bell-card-sub {
+          margin: 4px 0 0;
+          font-size: 0.82rem;
+          color: #3b82f6;
+        }
+      }
+
+      .smart-bell-toggle-box {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        .toggle-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #1e40af;
+          letter-spacing: 0.5px;
+        }
+      }
+    }
+
+    @keyframes bell-ring {
+      0% { transform: rotate(-15deg); }
+      100% { transform: rotate(15deg); }
+    }
+
+    .live-countdown-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 20px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      flex-wrap: wrap;
+
+      .live-banner-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        .banner-icon {
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+          color: #2563eb;
+        }
+        .banner-slot-name {
+          font-size: 0.95rem;
+          color: #0f172a;
+          strong { color: #1e3a8a; }
+          .slot-time-badge {
+            margin-left: 8px;
+            padding: 2px 8px;
+            background: #e0e7ff;
+            color: #3730a3;
+            border-radius: 6px;
+            font-size: 0.76rem;
+            font-weight: 600;
+          }
+        }
+        .banner-subtext {
+          font-size: 0.78rem;
+          color: #64748b;
+          margin-top: 2px;
+        }
+      }
+
+      .live-banner-right {
+        .countdown-clock {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          padding: 6px 14px;
+          border-radius: 8px;
+          .countdown-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #1e40af;
+          }
+          .countdown-val {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #1d4ed8;
+            font-family: monospace;
+          }
+        }
+      }
+    }
+
+    .bell-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 0 20px;
+    }
+
+    .bell-control-panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+
+      .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #334155;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
+      }
+
+      .panel-body {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      .c-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #475569;
+      }
+      .bell-select {
+        height: 38px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        padding: 0 10px;
+        font-size: 0.85rem;
+        color: #1e293b;
+        outline: none;
+        &:focus { border-color: #2563eb; }
+      }
+    }
+
+    .bell-test-buttons-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+
+      .btn-test-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 36px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        cursor: pointer;
+        transition: all 0.2s;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+        &:hover {
+          background: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
+        }
+        &.highlight-btn {
+          background: #eff6ff;
+          border-color: #3b82f6;
+          color: #1d4ed8;
+          &:hover {
+            background: #dbeafe;
+          }
+        }
+      }
+    }
+
+    .template-editor-box {
+      margin: 0 20px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #fafafa;
+      overflow: hidden;
+
+      .template-box-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        cursor: pointer;
+        user-select: none;
+        &:hover { background: #f1f5f9; }
+        .tpl-icon { font-size: 20px; width: 20px; height: 20px; color: #64748b; }
+        .tpl-title { font-size: 0.84rem; font-weight: 600; color: #334155; }
+        .tpl-hint { font-size: 0.74rem; color: #94a3b8; margin-left: auto; }
+        .tpl-chevron { font-size: 20px; width: 20px; height: 20px; color: #64748b; }
+      }
+
+      .template-inputs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 14px 16px;
+        border-top: 1px solid #e2e8f0;
+        @media (max-width: 768px) { grid-template-columns: 1fr; }
+        .tpl-field {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          .tpl-label { font-size: 0.76rem; font-weight: 600; color: #475569; }
+          .tpl-input {
+            height: 36px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            padding: 0 10px;
+            font-size: 0.82rem;
+            outline: none;
+            &:focus { border-color: #2563eb; }
+          }
+        }
+      }
+    }
+
+    .bell-footer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 20px 18px;
+      background: #ffffff;
+      border-top: 1px solid #f1f5f9;
+      flex-wrap: wrap;
+
+      .footer-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.78rem;
+        color: #64748b;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #3b82f6; flex-shrink: 0; }
+      }
+
+      .btn-save-bell {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 20px;
+        height: 40px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+    }
+.page-container {
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -1819,6 +2420,69 @@ interface PeriodEditorRow {
   `]
 })
 export class PeriodSettingsComponent implements OnInit {
+  readonly smartBell = inject(SmartBellService);
+  savingBell = false;
+  showTemplates = false;
+
+  updateBellSetting(key: string, val: any): void {
+    const current = { ...this.smartBell.settings() };
+    (current as any)[key] = val;
+    this.smartBell.settings.set(current);
+  }
+
+  onToggleSmartBell(enabled: boolean): void {
+    this.updateBellSetting('isEnabled', enabled);
+    this.saveBellSettings(true);
+  }
+
+  saveBellSettings(silent = false): void {
+    this.savingBell = true;
+    const s = this.smartBell.settings();
+    const branchId = this.effectiveBranchId;
+    this.schoolService.saveSmartBellSettings({ ...s, branchId }).subscribe({
+      next: (res) => {
+        this.savingBell = false;
+        if (res) this.smartBell.settings.set(res);
+        if (!silent) {
+          this.confirmDialog.alert(
+            'Smart Bell Preferences Saved',
+            'AI voice warning and timetable bell automation settings have been safely updated in the database.',
+            'success'
+          );
+        }
+      },
+      error: (err) => {
+        this.savingBell = false;
+        if (!silent) {
+          this.confirmDialog.alert(
+            'Save Failed',
+            err?.error?.message || 'Failed to save smart bell preferences.',
+            'danger'
+          );
+        }
+      }
+    });
+  }
+
+  testVoiceWarning(): void {
+    const s = this.smartBell.settings();
+    const active = this.smartBell.currentSlot() || { name: 'Period 1', startTime: '09:00 AM', endTime: '09:45 AM', timeSlot: '09:00 AM - 09:45 AM', id: 'sample', tenantId: '', isBreak: false, displayOrder: 1, isActive: true, createdAt: '' };
+    this.smartBell.announcePreBellWarning(active, s.preBellWarningMinutes || 2);
+  }
+
+  testSchoolBell(): void {
+    const s = this.smartBell.settings();
+    this.smartBell.playBell(s.bellType || 'ElectricGong', s.bellDurationSeconds || 3, (s.volume || 100) / 100);
+  }
+
+  testFullSequence(): void {
+    const active = this.smartBell.currentSlot() || { name: 'Period 1', startTime: '09:00 AM', endTime: '09:45 AM', timeSlot: '09:00 AM - 09:45 AM', id: 'sample', tenantId: '', isBreak: false, displayOrder: 1, isActive: true, createdAt: '' };
+    this.testVoiceWarning();
+    setTimeout(() => {
+      this.smartBell.triggerPeriodEndBell(active);
+    }, 4500);
+  }
+
   loading = false;
   saving = false;
 

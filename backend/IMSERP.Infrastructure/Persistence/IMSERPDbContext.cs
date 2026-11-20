@@ -107,6 +107,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<StudentFeeConcession> StudentFeeConcessions => Set<StudentFeeConcession>();
     public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
     public DbSet<SchoolPeriodSlot> SchoolPeriodSlots => Set<SchoolPeriodSlot>();
+    public DbSet<SmartBellSetting> SmartBellSettings => Set<SmartBellSetting>();
     public DbSet<SchoolActivityType> SchoolActivityTypes => Set<SchoolActivityType>();
     public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
     public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
@@ -286,6 +287,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
              (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
         modelBuilder.Entity<SchoolPeriodSlot>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext ||
+             (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<SmartBellSetting>().HasQueryFilter(x =>
             (_currentUserService.IsSystemContext ||
              (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));

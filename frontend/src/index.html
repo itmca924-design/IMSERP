@@ -267,16 +267,8 @@
         }
         if (savedLang === 'hi') {
           ensureGoogleTranslateScript();
-        } else {
-          window.addEventListener('load', function() {
-            setTimeout(ensureGoogleTranslateScript, 1000);
-          });
         }
-      } catch (e) {
-        window.addEventListener('load', function() {
-          setTimeout(ensureGoogleTranslateScript, 1000);
-        });
-      }
+      } catch (e) {}
     })();
   </script>
 </body>

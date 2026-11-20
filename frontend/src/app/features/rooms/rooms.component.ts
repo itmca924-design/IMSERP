@@ -164,6 +164,21 @@ import { RoomDialogComponent } from './room-dialog.component';
                   <mat-icon class="batch-icon">groups</mat-icon>
                   <span>{{ r.activeBatchCount }} Active Batch{{ r.activeBatchCount === 1 ? '' : 'es' }} Assigned</span>
                 </div>
+                <div class="batch-badge" style="margin-top: 6px; display: flex; align-items: center;">
+                  <mat-icon class="batch-icon">{{ r.speakerIp ? 'wifi' : 'volume_mute' }}</mat-icon>
+                  <span>
+                    @if (r.speakerIp) {
+                      <strong>Wi-Fi Speaker:</strong> {{ r.speakerIp }}:{{ r.speakerPort || 80 }}
+                    } @else {
+                      <span style="color:#94a3b8;">No Speaker Assigned</span>
+                    }
+                  </span>
+                  @if (r.speakerIp) {
+                    <button type="button" mat-icon-button color="primary" matTooltip="Test Wi-Fi Speaker Ping" (click)="testSpeaker(r); $event.stopPropagation()" style="width:28px;height:28px;line-height:28px;margin-left:auto;">
+                      <mat-icon style="font-size:18px;width:18px;height:18px;">volume_up</mat-icon>
+                    </button>
+                  }
+                </div>
               </div>
               <div class="room-card-footer">
                 <button class="btn-edit app-button-update" (click)="openEditRoomModal(r)" matButton="filled">
@@ -900,6 +915,26 @@ export class RoomsComponent implements OnInit {
             );
           }
         });
+      }
+    });
+  }
+
+  testSpeaker(room: RoomDto): void {
+    if (!room.speakerIp) return;
+    this.roomService.testSpeaker(room.id).subscribe({
+      next: (res) => {
+        this.confirmDialog.alert(
+          'Wi-Fi Speaker Test',
+          `Ping dispatched successfully to Room ${room.roomNumber} (${room.speakerIp}:${room.speakerPort || 80}).`,
+          'success'
+        );
+      },
+      error: (err) => {
+        this.confirmDialog.alert(
+          'Speaker Ping Failed',
+          err?.error?.message || 'Failed to ping speaker.',
+          'danger'
+        );
       }
     });
   }

@@ -78,6 +78,10 @@ export function setHindiGoogleTransCookie(): void {
 }
 
 export const HINDI_MENU_DICTIONARY: Record<string, string> = {
+  // Navigation & Breadcrumbs
+  'Home': 'होम',
+  'Executive Dashboard': 'कार्यकारी डैशबोर्ड',
+
   // Main Categories
   'Dashboard': 'डैशबोर्ड',
   'Master Management': 'मास्टर मैनेजमेंट',
