@@ -58,14 +58,11 @@ export interface AssignmentSlot {
   <div class="page-header">
     <div class="page-header-text">
       <h1 class="page-title"><mat-icon>class</mat-icon> Teacher Assignments & Timetable</h1>
-      @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
-        <p class="page-subtitle">Unified assignment hub: Manage School Class Teachers (कक्षा अध्यापक), Coaching Batches, and Timetable schedules.</p>
+      @if (authService.hasSchoolModule()) {
+        <p class="page-subtitle">School Faculty Assignments: Manage Class Teachers (कक्षा अध्यापक), Sections, Subject Allocations, and Period Timetable routines.</p>
       }
       @if (!authService.hasSchoolModule() && authService.hasCoachingModule()) {
         <p class="page-subtitle">Coaching Faculty Assignments: Manage batch schedules, weekly routines, and period clash detection.</p>
-      }
-      @if (authService.hasSchoolModule() && !authService.hasCoachingModule()) {
-        <p class="page-subtitle">School Faculty Assignments: Manage Class Teachers (कक्षा अध्यापक), section routines, and period timetable.</p>
       }
     </div>
   </div>
@@ -118,31 +115,6 @@ export interface AssignmentSlot {
   }
 
   @if (mainTab === 'TIMETABLE') {
-    <!-- Division Scope Switcher: School Classes vs Consolidated -->
-    @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
-      <div class="scope-switcher-card mat-elevation-z1">
-        <div class="scope-label">
-          <mat-icon>tune</mat-icon>
-          <span>Division Filter:</span>
-        </div>
-        <div class="scope-buttons">
-          <button type="button" class="scope-btn school-btn" [class.active]="selectedScope === 'SCHOOL'" (click)="setScope('SCHOOL')" matButton="filled">
-            <mat-icon>account_balance</mat-icon>
-            <span class="btn-main">School Classes Only (कक्षा 1 to 12)</span>
-            @if (batchCoverage) {
-              <span class="scope-pill">{{totalScopeCount('SCHOOL')}}</span>
-            }
-          </button>
-          <button type="button" class="scope-btn" [class.active]="selectedScope === 'ALL'" (click)="setScope('ALL')" matButton="filled">
-            <mat-icon>dashboard_customize</mat-icon>
-            <span class="btn-main">Consolidated (School + Coaching)</span>
-            @if (batchCoverage) {
-              <span class="scope-pill">{{totalScopeCount('ALL')}}</span>
-            }
-          </button>
-        </div>
-      </div>
-    }
     <!-- Batch & Class Coverage Overview Banner -->
     @if (canManage && batchCoverage) {
       <div class="coverage-alert-banner">
@@ -478,7 +450,7 @@ export interface AssignmentSlot {
             @if (canManage) {
               <button color="primary" class="toggle-btn" (click)="toggleForm()" matButton="filled">
                 <mat-icon>{{showForm ? 'close' : 'add'}}</mat-icon>
-                <span class="btn-text">{{showForm ? 'Cancel' : 'Assign New Batch'}}</span>
+                <span class="btn-text">{{showForm ? 'Cancel' : 'Assign Class & Subject'}}</span>
               </button>
             }
           </div>
@@ -490,8 +462,8 @@ export interface AssignmentSlot {
               <div class="banner-title">
                 <mat-icon color="primary">tune</mat-icon>
                 <div>
-                  <strong>Smart Batch Assignment Builder</strong>
-                  <p>Configure one or more batch slots and save with a single click.</p>
+                  <strong>Smart Class & Subject Allocation Builder</strong>
+                  <p>Configure weekly teaching periods, routines, and subjects for this teacher.</p>
                 </div>
               </div>
               @if (formClassesPerWeek > 0) {
@@ -508,18 +480,12 @@ export interface AssignmentSlot {
                   <div class="slot-card-header">
                     <div class="slot-tag">
                       <span class="slot-index">Slot #{{i + 1}}</span>
+                      <span class="slot-scope-tag">
+                        <mat-icon>school</mat-icon> School Class
+                      </span>
                       <span class="slot-summary-text">
                         {{getSlotSummary(slot)}}
                       </span>
-                    </div>
-                    <!-- Type Selector: School Class vs Coaching Batch -->
-                    <div class="slot-type-pills">
-                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'school'" (click)="setSlotType(slot, 'school')" matButton="filled">
-                        <mat-icon>account_balance</mat-icon> School Class
-                      </button>
-                      <button type="button" class="type-pill-btn" [class.active]="slot.assignmentType === 'coaching'" (click)="setSlotType(slot, 'coaching')" matButton="filled">
-                        <mat-icon>biotech</mat-icon> Coaching Batch
-                      </button>
                     </div>
                     @if (slots.length > 1) {
                       <button color="warn" (click)="removeSlot(i)" matTooltip="Remove this slot" mat-icon-button>
@@ -528,37 +494,7 @@ export interface AssignmentSlot {
                     }
                   </div>
                   <div class="slot-body">
-                    <!-- Row 1: If Coaching -> Select Batch. If School -> Select Class + Section -->
-                    @if (slot.assignmentType === 'coaching') {
-                      <div class="slot-row">
-                        <mat-form-field appearance="outline" class="field-batch">
-                          <mat-label>Select Coaching Batch *</mat-label>
-                          <mat-select [(ngModel)]="slot.batchId" (selectionChange)="onBatchChanged(slot)">
-                            @for (b of batches; track b) {
-                              <mat-option [value]="b.id">
-                                <strong>{{b.name}}</strong> @if (b.subject) {
-                                <span class="opt-subject">({{b.subject}})</span>
-                              }
-                            </mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" class="field-subject">
-                        <mat-label>Teaching Subject *</mat-label>
-                        <mat-select [(ngModel)]="slot.subject" (selectionChange)="onSubjectChanged(slot)" placeholder="Select Subject">
-                          @for (sub of subjects; track sub) {
-                            <mat-option [value]="sub.name">
-                              <span class="sub-name">{{sub.name}}</span>
-                              @if (sub.code) {
-                                <span class="sub-code">[{{sub.code}}]</span>
-                              }
-                            </mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                    </div>
-                  }
-                  @if (slot.assignmentType === 'school') {
+                    <!-- School Class + Section + Subject Allocation -->
                     <div class="slot-row">
                       <mat-form-field appearance="outline" class="field-class">
                         <mat-label>Select School Class *</mat-label>
@@ -596,7 +532,6 @@ export interface AssignmentSlot {
                       </mat-select>
                     </mat-form-field>
                   </div>
-                }
                 <!-- Row 2: Days of Week (Quick Presets + Day Pills) -->
                 <div class="slot-section material-schedule-section">
                   <div class="section-label-bar">
@@ -2958,8 +2893,27 @@ export interface AssignmentSlot {
     .slot-card { background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px; transition:border-color .2s; }
     .slot-card:hover { border-color:#cbd5e1; }
     .slot-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-    .slot-tag { display:flex; align-items:center; gap:10px; }
+    .slot-tag { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .slot-index { background:#1e293b; color:#fff; font-size:.75rem; font-weight:700; padding:3px 10px; border-radius:6px; letter-spacing:.5px; }
+    .slot-scope-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1d4ed8;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 3px 8px;
+      border-radius: 6px;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+    }
     .slot-summary-text { font-size:.92rem; font-weight:600; color:#334155; }
 
     .slot-body { display:flex; flex-direction:column; gap:16px; }
