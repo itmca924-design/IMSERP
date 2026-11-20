@@ -4369,6 +4369,7 @@ export class LayoutComponent implements OnInit {
     this.menuService.getMyMenu(forceRefresh).subscribe({
       next: (menu) => {
         if (menu && menu.length > 0) {
+          this.menuService.saveMenuToStorage(menu);
           this.rawMenu = menu;
           let filtered = this.filterMenuByModules(menu);
           if (this.authService.isStudentOrParent()) {
@@ -4378,15 +4379,36 @@ export class LayoutComponent implements OnInit {
           this.updateActiveMenuPanel();
           if (this.translationService.isHindi()) { this.translationService.retranslate(); }
         } else {
-          this.fallbackMenu();
-          this.updateActiveMenuPanel();
+          this.applyCachedOrSafeMenu();
         }
       },
-      error: () => {
-        this.fallbackMenu();
-        this.updateActiveMenuPanel();
+      error: (err) => {
+        console.warn('[Layout] Could not fetch live menu from server, checking offline cache:', err);
+        this.applyCachedOrSafeMenu();
       }
     });
+  }
+
+  private applyCachedOrSafeMenu(): void {
+    const cached = this.menuService.getMenuFromStorage();
+    if (cached && cached.length > 0) {
+      this.rawMenu = cached;
+      let filtered = this.filterMenuByModules(cached);
+      if (this.authService.isStudentOrParent()) {
+        filtered = this.adjustStudentMenu(filtered);
+      }
+      this.menuTree.set(filtered);
+      this.updateActiveMenuPanel();
+      if (this.translationService.isHindi()) { this.translationService.retranslate(); }
+    } else {
+      const isStudent = this.authService.isStudentOrParent();
+      const safeItems: MenuItem[] = [
+        { id: '1', title: 'Dashboard', routeUrl: '/dashboard', icon: 'dashboard', sortOrder: 1, module: 'Main', isActive: true, children: [] },
+        ...(isStudent ? [{ id: 'my-student-360', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 2, module: 'Master', isActive: true, children: [] }] : [])
+      ];
+      this.menuTree.set(safeItems);
+      this.updateActiveMenuPanel();
+    }
   }
 
   private adjustStudentMenu(menu: MenuItem[]): MenuItem[] {
@@ -4438,177 +4460,6 @@ export class LayoutComponent implements OnInit {
       updated.splice(1, 0, myProfileItem);
     }
     return updated;
-  }
-
-  private fallbackMenu(): void {
-    const isAdmin = this.authService.isAdmin();
-    const isAccountant = this.authService.isAccountant();
-    const isStudentOrParent = this.authService.isStudentOrParent();
-    const hasCoaching = this.authService.hasCoachingModule();
-    const canAccessFinance = isAdmin || isAccountant;
-
-    const rawItems: MenuItem[] = [
-      { id: '1', title: 'Dashboard', routeUrl: '/dashboard', icon: 'dashboard', sortOrder: 1, module: 'Main', isActive: true, children: [] },
-      ...(hasCoaching && !isStudentOrParent ? [{
-        id: 'COACHING0-0000-0000-0000-000000000001', title: 'Coaching Operations', routeUrl: '', icon: 'model_training', sortOrder: 2, module: 'Coaching', isActive: true,
-        children: [
-          { id: 'c1', title: 'Batches & Courses', routeUrl: '/batches', icon: 'category', sortOrder: 1, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c2', title: 'Student Batch Allocation', routeUrl: '/coaching/batch-allocation', icon: 'group_add', sortOrder: 2, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c3', title: 'Batch Daily Attendance', routeUrl: '/coaching/attendance', icon: 'fact_check', sortOrder: 3, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c3_leaves', title: 'Batch Student Leaves', routeUrl: '/students/leaves', icon: 'beach_access', sortOrder: 3.5, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c4', title: 'Tests & Test Series', routeUrl: '/tests', icon: 'quiz', sortOrder: 4, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c5', title: 'DPP & Study Material', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 5, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c6', title: 'Batch Timetable & Routine', routeUrl: '/coaching/timetable', icon: 'calendar_view_week', sortOrder: 6, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c7', title: 'Coaching Student ID Cards', routeUrl: '/coaching/id-cards', icon: 'badge', sortOrder: 7, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c8', title: 'Batch Fee Vouchers & Dues', routeUrl: '/coaching/fee-vouchers', icon: 'receipt_long', sortOrder: 8, module: 'Coaching', isActive: true, children: [] },
-          { id: 'c9', title: 'Coaching Analytics & Reports', routeUrl: '/coaching/analytics', icon: 'insights', sortOrder: 9, module: 'Coaching', isActive: true, children: [] }
-        ]
-      }] : []),
-      {
-        id: '2', title: isStudentOrParent ? 'My Student Center' : 'Master Management', routeUrl: '', icon: 'category', sortOrder: 3, module: 'Master', isActive: true,
-        children: [
-          ...(isStudentOrParent ? [
-            { id: '24my', title: 'My 360° Profile & Wall of Fame', routeUrl: '/students/my-profile', icon: 'military_tech', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-            { id: '24my_leaves', title: 'Apply Student Leave', routeUrl: '/students/leaves', icon: 'beach_access', sortOrder: 2, module: 'Master', isActive: true, children: [] },
-          ] : [
-            { id: '20', title: 'Classes & Sections', routeUrl: '/school/classes', icon: 'domain', sortOrder: 1, module: 'Master', isActive: true, children: [] },
-            { id: '20pt', title: 'Period & Bell Timings', routeUrl: '/school/period-settings', icon: 'alarm_on', sortOrder: 1.5, module: 'Master', isActive: true, children: [] },
-            { id: '22', title: 'Classrooms Master', routeUrl: '/rooms', icon: 'meeting_room', sortOrder: 3, module: 'Master', isActive: true, children: [] },
-            { id: '23', title: 'Subject Master', routeUrl: '/subjects', icon: 'menu_book', sortOrder: 4, module: 'Master', isActive: true, children: [] },
-            { id: '24', title: 'Students Master', routeUrl: '/students', icon: 'people', sortOrder: 5, module: 'Master', isActive: true, children: [] },
-            { id: '24tm', title: 'Teachers Master', routeUrl: '/teachers', icon: 'groups', sortOrder: 5.2, module: 'Master', isActive: true, children: [] },
-            { id: '241', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 6, module: 'Master', isActive: true, children: [] },
-            { id: '25', title: 'Holiday Master', routeUrl: '/holidays', icon: 'event', sortOrder: 7, module: 'Master', isActive: true, children: [] },
-            { id: '26', title: 'Events & Celebrations', routeUrl: '/events', icon: 'celebration', sortOrder: 8, module: 'Master', isActive: true, children: [] }
-          ])
-        ]
-      },
-      {
-        id: '3', title: 'Attendance Management', routeUrl: '', icon: 'event_available', sortOrder: 3, module: 'Attendance', isActive: true,
-        children: [
-          { id: '301', title: 'Student Attendance', routeUrl: '/students/attendance', icon: 'how_to_reg', sortOrder: 1, module: 'Attendance', isActive: true, children: [] },
-          { id: '3011', title: 'Student Leaves', routeUrl: '/students/leaves', icon: 'event_busy', sortOrder: 2, module: 'Attendance', isActive: true, children: [] },
-          { id: '3012', title: 'Student Gate Pass', routeUrl: '/students/gate-pass', icon: 'badge', sortOrder: 3, module: 'Attendance', isActive: true, children: [] },
-          { id: '302', title: 'Staff & Faculty Attendance', routeUrl: '/teachers/attendance', icon: 'co_present', sortOrder: 4, module: 'Attendance', isActive: true, children: [] },
-          { id: '303', title: 'Attendance Reports', routeUrl: '/attendance/reports', icon: 'summarize', sortOrder: 5, module: 'Attendance', isActive: true, children: [] },
-          { id: '304', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 6, module: 'Attendance', isActive: true, children: [] },
-          { id: '305', title: 'Shift & Policy Settings', routeUrl: '/attendance/settings', icon: 'settings_suggest', sortOrder: 7, module: 'Attendance', isActive: true, children: [] }
-        ]
-      },
-      {
-        id: '4', title: 'HRMS & Staff', routeUrl: '', icon: 'badge', sortOrder: 4, module: 'Teachers', isActive: true,
-        children: [
-          { id: '41', title: 'Staff Directory', routeUrl: '/teachers', icon: 'groups', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
-          { id: '44', title: 'Salary Structure', routeUrl: '/teachers/salary', icon: 'account_balance_wallet', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
-          { id: '45', title: 'Salary Payments', routeUrl: '/teachers/payments', icon: 'payments', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
-          { id: '46', title: 'Salary Advances', routeUrl: '/teachers/advances', icon: 'currency_rupee', sortOrder: 4, module: 'Teachers', isActive: true, children: [] },
-          { id: '47', title: 'Leave Management', routeUrl: '/teachers/leaves', icon: 'beach_access', sortOrder: 5, module: 'Teachers', isActive: true, children: [] },
-          { id: '48', title: 'Payroll & Staff Reports', routeUrl: '/teachers/reports', icon: 'summarize', sortOrder: 6, module: 'Teachers', isActive: true, children: [] },
-          { id: '410p', title: 'Promotions & Appraisals', routeUrl: '/teachers/promotions', icon: 'military_tech', sortOrder: 7, module: 'Teachers', isActive: true, children: [] },
-          { id: '49', title: 'Exit & FNF Settlement', routeUrl: '/teachers/fnf', icon: 'exit_to_app', sortOrder: 8, module: 'Teachers', isActive: true, children: [] }
-        ]
-      },
-      ...(!isStudentOrParent && !isAccountant ? [{
-        id: '4b', title: 'Faculty Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Teachers', isActive: true,
-        children: [
-          { id: '42', title: 'Batch Assignments', routeUrl: '/teachers/assignments', icon: 'class', sortOrder: 1, module: 'Teachers', isActive: true, children: [] },
-          { id: '410', title: 'Proxy & Substitution', routeUrl: '/teachers/substitution', icon: 'swap_horiz', sortOrder: 2, module: 'Teachers', isActive: true, children: [] },
-          { id: '411', title: 'Daily Lesson Diary', routeUrl: '/teachers/lesson-plans', icon: 'menu_book', sortOrder: 3, module: 'Teachers', isActive: true, children: [] },
-          { id: '413', title: 'Test Exams & Marks Entry', routeUrl: '/tests', icon: 'quiz', sortOrder: 3.5, module: 'Teachers', isActive: true, children: [] },
-          { id: '412', title: 'Faculty Workload', routeUrl: '/teachers/reports', icon: 'analytics', sortOrder: 4, module: 'Teachers', isActive: true, children: [] }
-        ]
-      }] : []),
-      {
-        id: '5', title: 'Academic Operations', routeUrl: '', icon: 'school', sortOrder: 5, module: 'Academic', isActive: true,
-        children: [
-          ...(isStudentOrParent ? [
-            { id: '51my', title: 'My Fee Ledger & Receipts', routeUrl: '/my-fees', icon: 'receipt_long', sortOrder: 1, module: 'Academic', isActive: true, children: [] },
-            { id: '51myfc', title: 'My Fee Card', routeUrl: '/fees/fee-card', icon: 'contact_page', sortOrder: 1.5, module: 'Academic', isActive: true, children: [] }
-          ] : []),
-          { id: '512', title: 'Homework & Daily Diary', routeUrl: '/school/homework', icon: 'menu_book', sortOrder: 3, module: 'Academic', isActive: true, children: [] },
-          { id: '512tt', title: 'Class Timetable & Routine', routeUrl: '/students/timetable', icon: 'calendar_view_week', sortOrder: 3.5, module: 'Academic', isActive: true, children: [] },
-          { id: '512ta', title: 'Teacher & Subject Allocation', routeUrl: '/teachers/assignments', icon: 'assignment_ind', sortOrder: 3.6, module: 'Academic', isActive: true, children: [] },
-          { id: '512sm', title: 'Study Material & PYQ Bank', routeUrl: '/study-materials', icon: 'auto_stories', sortOrder: 3.8, module: 'Academic', isActive: true, children: [] },
-          { id: '13175614-6523-4db6-acae-184e3c3fc628', title: 'Monthly Student Performance', routeUrl: '/school/monthly-performance', icon: 'insights', sortOrder: 3.9, module: 'Academic', isActive: true, children: [] },
-          { id: '512gm', title: 'Good Manners & Behaviour', routeUrl: '/school/good-manners', icon: 'sentiment_very_satisfied', sortOrder: 3.95, module: 'Academic', isActive: true, children: [] },
-          ...(isStudentOrParent ? [
-            { id: '52my', title: 'My Exams & Datesheet', routeUrl: '/my-exams', icon: 'event_available', sortOrder: 4, module: 'Academic', isActive: true, children: [] }
-          ] : [
-            { id: '52', title: 'School Examinations', routeUrl: '/school/exams', icon: 'assignment', sortOrder: 4, module: 'Academic', isActive: true, children: [] },
-            { id: '521', title: 'Student Promotion', routeUrl: '/students/promotion', icon: 'trending_up', sortOrder: 5, module: 'Academic', isActive: true, children: [] },
-            { id: '5211', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 5.5, module: 'Academic', isActive: true, children: [] }
-          ]),
-          { id: '523', title: 'School Notices', routeUrl: '/school/notices', icon: 'campaign', sortOrder: 7, module: 'Academic', isActive: true, children: [] },
-          { id: '53', title: 'WhatsApp Logs', routeUrl: '/whatsapp', icon: 'chat', sortOrder: 8, module: 'Academic', isActive: true, children: [] },
-          { id: '53chat', title: 'Campus & Class Chat', routeUrl: '/chat', icon: 'forum', sortOrder: 8.5, module: 'Academic', isActive: true, children: [] },
-          { id: '54', title: 'Library Books', routeUrl: '/library/books', icon: 'local_library', sortOrder: 9, module: 'Academic', isActive: true, children: [] },
-          { id: '55', title: 'Issue & Return Desk', routeUrl: '/library/circulation', icon: 'sync_alt', sortOrder: 10, module: 'Academic', isActive: true, children: [] },
-          { id: '551', title: 'Library Shifts & Plans', routeUrl: '/library/plans', icon: 'schedule', sortOrder: 11, module: 'Academic', isActive: true, children: [] },
-          { id: '56', title: 'Hostel Management', routeUrl: '/hostel', icon: 'apartment', sortOrder: 12, module: 'Academic', isActive: true, children: [] },
-          { id: '561', title: 'Transport & Fleet', routeUrl: '/transport', icon: 'directions_bus', sortOrder: 13, module: 'Academic', isActive: true, children: [] },
-          { id: '57', title: 'Front Desk & Visitors', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 14, module: 'Academic', isActive: true, children: [] },
-          { id: '571', title: 'Infirmary & Sick Bay', routeUrl: '/front-desk/infirmary', icon: 'local_hospital', sortOrder: 14.2, module: 'Academic', isActive: true, children: [] },
-          { id: '572', title: 'PTM Scheduler', routeUrl: '/front-desk/ptm', icon: 'calendar_month', sortOrder: 14.4, module: 'Academic', isActive: true, children: [] },
-          { id: '573', title: 'Grievance Helpdesk', routeUrl: '/front-desk/grievances', icon: 'support_agent', sortOrder: 14.6, module: 'Academic', isActive: true, children: [] }
-        ]
-      },
-      ...(canAccessFinance || isAccountant ? [{
-        id: 'FEE00000-0000-0000-0000-000000000001', title: 'Fee Management', routeUrl: '', icon: 'payments', sortOrder: 5.2, module: 'Fee', isActive: true,
-        children: [
-          { id: '51', title: 'Fee Collection', routeUrl: '/fees', icon: 'point_of_sale', sortOrder: 1, module: 'Fee', isActive: true, children: [] },
-          { id: '51fc', title: 'Student Fee Card', routeUrl: '/fees/fee-card', icon: 'credit_card', sortOrder: 2, module: 'Fee', isActive: true, children: [] },
-          { id: '511', title: 'Fee Heads Master', routeUrl: '/fee-heads', icon: 'price_change', sortOrder: 3, module: 'Fee', isActive: true, children: [] },
-          { id: '51cd', title: 'Fee Concessions & Discounts', routeUrl: '/fees/concessions', icon: 'loyalty', sortOrder: 4, module: 'Fee', isActive: true, children: [] }
-        ]
-      }] : []),
-      ...(canAccessFinance ? [{
-        id: '5f', title: 'Finance & Accounts', routeUrl: '', icon: 'account_balance', sortOrder: 5.5, module: 'Finance', isActive: true,
-        children: [
-          { id: '5f0', title: 'Day Book (दैनिक बही)', routeUrl: '/finance/day-book', icon: 'auto_stories', sortOrder: 0.5, module: 'Finance', isActive: true, children: [] },
-          { id: '5f1', title: 'Profit & Loss', routeUrl: '/finance/profit-loss', icon: 'query_stats', sortOrder: 1, module: 'Finance', isActive: true, children: [] },
-          { id: '5f2', title: 'Balance Sheet', routeUrl: '/finance/balance-sheet', icon: 'account_balance_wallet', sortOrder: 2, module: 'Finance', isActive: true, children: [] },
-          { id: '5f3', title: 'Expense Vouchers', routeUrl: '/finance/expenses', icon: 'receipt_long', sortOrder: 3, module: 'Finance', isActive: true, children: [] },
-          { id: '5f4', title: 'Chart of Accounts', routeUrl: '/finance/chart-of-accounts', icon: 'account_tree', sortOrder: 4, module: 'Finance', isActive: true, children: [] },
-          { id: '5f5', title: 'Smart Fee Recovery Agent (AI)', routeUrl: '/finance/fee-recovery-agent', icon: 'psychology', sortOrder: 5, module: 'Finance', isActive: true, children: [] }
-        ]
-      }] : []),
-      {
-        id: '6', title: 'Admin Settings', routeUrl: '', icon: 'settings', sortOrder: 6, module: 'Admin', isActive: true,
-        children: [
-          { id: '61', title: 'Roles & Permissions', routeUrl: '/roles', icon: 'admin_panel_settings', sortOrder: 1, module: 'Admin', isActive: true, children: [] },
-          { id: '62', title: 'User Management', routeUrl: '/users', icon: 'person_add', sortOrder: 2, module: 'Admin', isActive: true, children: [] },
-          { id: '63', title: 'Biometric Devices', routeUrl: '/attendance/devices', icon: 'fingerprint', sortOrder: 3, module: 'Admin', isActive: true, children: [] },
-          { id: '64', title: 'Institutes & Tenants', routeUrl: '/admin/tenants', icon: 'corporate_fare', sortOrder: 4, module: 'Admin', isActive: true, children: [] },
-          { id: '65', title: 'Subscription & Plan', routeUrl: '/subscription', icon: 'workspace_premium', sortOrder: 5, module: 'Admin', isActive: true, children: [] },
-          { id: '66', title: 'Academic & Exam Workflow', routeUrl: '/admin/academic-workflow', icon: 'tune', sortOrder: 6, module: 'Admin', isActive: true, children: [] },
-          { id: '67', title: 'Menu Management', routeUrl: '/admin/menu-management', icon: 'menu_open', sortOrder: 7, module: 'Admin', isActive: true, children: [] }
-        ]
-      },
-      {
-        id: '7_fd', title: 'Front Desk', routeUrl: '', icon: 'desk', sortOrder: 7, module: 'FrontDesk', isActive: true,
-        children: [
-          { id: '57', title: 'Visitors & Reception', routeUrl: '/front-desk/visitors', icon: 'transfer_within_a_station', sortOrder: 1, module: 'FrontDesk', isActive: true, children: [] },
-          { id: '241_fd', title: 'Admission Enquiries', routeUrl: '/students/enquiries', icon: 'contact_phone', sortOrder: 2, module: 'FrontDesk', isActive: true, children: [] },
-          { id: '571', title: 'Infirmary & Sick Bay', routeUrl: '/front-desk/infirmary', icon: 'local_hospital', sortOrder: 3, module: 'FrontDesk', isActive: true, children: [] },
-          { id: '572', title: 'PTM Scheduler', routeUrl: '/front-desk/ptm', icon: 'calendar_month', sortOrder: 4, module: 'FrontDesk', isActive: true, children: [] },
-          { id: '573', title: 'Grievance Helpdesk', routeUrl: '/front-desk/grievances', icon: 'support_agent', sortOrder: 5, module: 'FrontDesk', isActive: true, children: [] }
-        ]
-      },
-      {
-        id: '8_inv', title: 'Stock & Inventory', routeUrl: '', icon: 'inventory_2', sortOrder: 8, module: 'Inventory', isActive: true,
-        children: [
-          { id: '81_inv', title: 'Stock & Items Master', routeUrl: '/inventory', icon: 'category', sortOrder: 1, module: 'Inventory', isActive: true, children: [] },
-          { id: '82_inv', title: 'Purchase & Stock Inward', routeUrl: '/inventory/purchase', icon: 'shopping_cart', sortOrder: 2, module: 'Inventory', isActive: true, children: [] },
-          { id: '83_inv', title: 'Student Kit & Uniform Billing', routeUrl: '/inventory/bill', icon: 'point_of_sale', sortOrder: 3, module: 'Inventory', isActive: true, children: [] },
-          { id: '84_inv', title: 'Sales & Inventory Reports', routeUrl: '/inventory/reports', icon: 'summarize', sortOrder: 4, module: 'Inventory', isActive: true, children: [] }
-        ]
-      },
-      {
-        id: '9_chat', title: 'Campus Chat', routeUrl: '/chat', icon: 'chat', sortOrder: 9, module: 'Chat', isActive: true,
-        children: []
-      }
-    ];
-    this.menuTree.set(this.filterMenuByModules(rawItems));
   }
 
   logout() {

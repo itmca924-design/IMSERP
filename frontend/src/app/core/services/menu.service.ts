@@ -77,10 +77,52 @@ export class MenuService {
   private cachedUserId: string | null = null;
   private cachedToken: string | null = null;
 
+  private getStorageKey(): string {
+    const tenantId = sessionStorage.getItem('tenantId') || localStorage.getItem('tenantId') || 'global';
+    const userId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || 'anon';
+    const role = sessionStorage.getItem('role') || localStorage.getItem('role') || 'norole';
+    return `imserp_menu_cache_${tenantId}_${userId}_${role}`;
+  }
+
+  saveMenuToStorage(menu: MenuItem[]): void {
+    try {
+      if (menu && menu.length > 0) {
+        localStorage.setItem(this.getStorageKey(), JSON.stringify(menu));
+      }
+    } catch (e) {
+      console.warn('[MenuService] Could not save menu cache to storage:', e);
+    }
+  }
+
+  getMenuFromStorage(): MenuItem[] | null {
+    try {
+      const data = localStorage.getItem(this.getStorageKey());
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('[MenuService] Could not parse menu cache from storage:', e);
+    }
+    return null;
+  }
+
   clearCache(): void {
     this.cachedMyMenu = null;
     this.cachedUserId = null;
     this.cachedToken = null;
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('imserp_menu_cache_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
   }
 
   getMyMenu(forceRefresh: boolean = false): Observable<MenuItem[]> {
