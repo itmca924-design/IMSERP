@@ -274,7 +274,7 @@ export class QuickSettingsDrawerComponent implements OnInit {
 
   setLanguage(lang: 'en' | 'hi'): void {
     if (this.translationService.currentLang() === lang) return;
-    this.translationService.setLanguage(lang, true);
+    this.translationService.setLanguage(lang);
   }
 
   toggleLanguage(): void {

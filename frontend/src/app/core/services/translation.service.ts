@@ -92,15 +92,15 @@ export class TranslationService {
       } catch {}
     });
 
-    // Synchronize cookies on boot if needed
+    // Synchronize Google Translate with saved language on initial load
     if (saved === 'hi') {
-      setHindiGoogleTransCookie();
+      this.applyTranslation('hi');
     } else {
       clearAllGoogleTransCookies();
     }
   }
 
-  setLanguage(lang: SupportedLanguage, reopenDrawer = false): void {
+  setLanguage(lang: SupportedLanguage): void {
     if (this.currentLang() === lang) {
       return;
     }
@@ -110,25 +110,74 @@ export class TranslationService {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, lang);
       }
-      if (reopenDrawer && typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem('imserp_reopen_quick_settings', 'true');
-      }
     } catch {}
 
-    if (lang === 'hi') {
-      setHindiGoogleTransCookie();
-    } else {
-      clearAllGoogleTransCookies();
-    }
-
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    this.applyTranslation(lang);
   }
 
   toggleLanguage(): void {
     const nextLang = this.currentLang() === 'en' ? 'hi' : 'en';
-    this.setLanguage(nextLang, false);
+    this.setLanguage(nextLang);
+  }
+
+  applyTranslation(lang: SupportedLanguage, retryCount = 0): void {
+    if (typeof document === 'undefined') return;
+
+    try {
+      const isHindi = lang === 'hi';
+
+      if (isHindi) {
+        setHindiGoogleTransCookie();
+      } else {
+        clearAllGoogleTransCookies();
+      }
+
+      // Ensure Google Translate script is injected if not already
+      if (!document.getElementById('google-translate-script')) {
+        const s = document.createElement('script');
+        s.id = 'google-translate-script';
+        s.type = 'text/javascript';
+        s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+        s.async = true;
+        document.body.appendChild(s);
+      }
+
+      const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (combo) {
+        if (isHindi) {
+          combo.value = 'hi';
+        } else {
+          combo.value = '';
+          combo.selectedIndex = 0;
+
+          try {
+            const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
+            iframes.forEach(f => {
+              try {
+                const btn = f.contentDocument?.querySelector<HTMLElement>('.goog-close-link, [id$=".restore"]');
+                if (btn) btn.click();
+              } catch {}
+            });
+          } catch {}
+
+          document.documentElement.classList.remove('translated-ltr', 'translated-rtl');
+          document.body?.classList.remove('translated-ltr', 'translated-rtl');
+        }
+
+        combo.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof (combo as any).onchange === 'function') {
+          (combo as any).onchange();
+        }
+        return;
+      }
+
+      // Retry up to 30 times (every 100ms for 3.0s) while Google Translate initializes
+      if (retryCount < 30) {
+        setTimeout(() => this.applyTranslation(lang, retryCount + 1), 100);
+      }
+    } catch (e) {
+      console.warn('Google Translate sync exception:', e);
+    }
   }
 
   translate(keyOrText: string, params?: Record<string, any>): string {

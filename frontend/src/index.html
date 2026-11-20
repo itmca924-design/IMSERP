@@ -242,18 +242,34 @@
         }
       } catch (e) {}
     }
-    // Only inject Google Translate script when Hindi is explicitly active
+
+    function ensureGoogleTranslateScript() {
+      try {
+        if (document.getElementById('google-translate-script')) return;
+        var s = document.createElement('script');
+        s.id = 'google-translate-script';
+        s.type = 'text/javascript';
+        s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+        s.async = true;
+        document.body.appendChild(s);
+      } catch (e) {}
+    }
+
     (function() {
       try {
         var savedLang = localStorage.getItem('imserp_lang');
         if (savedLang === 'hi') {
-          var s = document.createElement('script');
-          s.type = 'text/javascript';
-          s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-          s.async = true;
-          document.body.appendChild(s);
+          ensureGoogleTranslateScript();
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(ensureGoogleTranslateScript, 1000);
+          });
         }
-      } catch (e) {}
+      } catch (e) {
+        window.addEventListener('load', function() {
+          setTimeout(ensureGoogleTranslateScript, 1000);
+        });
+      }
     })();
   </script>
 </body>
