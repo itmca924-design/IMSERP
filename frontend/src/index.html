@@ -182,15 +182,47 @@
       }
     }, true);
 
-    // Ensure clean boot in English: wipe any existing googtrans cookie before Google Translate script initializes
+    // Ensure clean boot according to chosen ERP language
     (function() {
       try {
-        var h = window.location.hostname;
-        var past = "Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-        document.cookie = "googtrans=; expires=" + past;
-        document.cookie = "googtrans=; expires=" + past + "; domain=" + h;
-        document.cookie = "googtrans=; expires=" + past + "; domain=." + h;
-        document.cookie = "googtrans=/en/en; path=/";
+        var savedLang = localStorage.getItem('imserp_lang');
+        var hostname = window.location.hostname;
+        var parts = hostname.split('.');
+        var domains = ['', hostname, '.' + hostname];
+        if (parts.length > 2) {
+          var rootDomain = parts.slice(-2).join('.');
+          domains.push(rootDomain, '.' + rootDomain);
+        }
+        var paths = ['/', ''];
+
+        if (savedLang === 'hi') {
+          document.documentElement.setAttribute('lang', 'hi');
+          var exp = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+          document.cookie = 'googtrans=/en/hi; expires=' + exp + '; path=/;';
+          if (hostname && hostname !== 'localhost') {
+            document.cookie = 'googtrans=/en/hi; expires=' + exp + '; path=/; domain=.' + hostname + ';';
+            document.cookie = 'googtrans=/en/hi; expires=' + exp + '; path=/; domain=' + hostname + ';';
+            if (parts.length > 2) {
+              var rd = parts.slice(-2).join('.');
+              document.cookie = 'googtrans=/en/hi; expires=' + exp + '; path=/; domain=.' + rd + ';';
+              document.cookie = 'googtrans=/en/hi; expires=' + exp + '; path=/; domain=' + rd + ';';
+            }
+          }
+        } else {
+          document.documentElement.setAttribute('lang', 'en');
+          var past = 'Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;';
+          var names = ['googtrans', '_googtrans', 'googtrans_en'];
+          domains.forEach(function(d) {
+            paths.forEach(function(p) {
+              names.forEach(function(name) {
+                var s = name + '=; expires=' + past;
+                if (p) s += ' path=' + p + ';';
+                if (d) s += ' domain=' + d + ';';
+                document.cookie = s;
+              });
+            });
+          });
+        }
       } catch(e) {}
     })();
   </script>
@@ -210,18 +242,19 @@
         }
       } catch (e) {}
     }
-    // Load translation cleanly in background after page is fully interactive
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        try {
+    // Only inject Google Translate script when Hindi is explicitly active
+    (function() {
+      try {
+        var savedLang = localStorage.getItem('imserp_lang');
+        if (savedLang === 'hi') {
           var s = document.createElement('script');
           s.type = 'text/javascript';
           s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
           s.async = true;
           document.body.appendChild(s);
-        } catch (e) {}
-      }, 2000);
-    });
+        }
+      } catch (e) {}
+    })();
   </script>
 </body>
 </html>

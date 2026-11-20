@@ -42,6 +42,10 @@ export class QuickSettingsDrawerComponent implements OnInit {
   permissionsLoaded = false;
 
   ngOnInit(): void {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('imserp_reopen_quick_settings') === 'true') {
+      sessionStorage.removeItem('imserp_reopen_quick_settings');
+      this.settingsService.toggleDrawer(true);
+    }
     this.loadPermissions();
   }
 
@@ -269,7 +273,8 @@ export class QuickSettingsDrawerComponent implements OnInit {
   }
 
   setLanguage(lang: 'en' | 'hi'): void {
-    this.translationService.setLanguage(lang);
+    if (this.translationService.currentLang() === lang) return;
+    this.translationService.setLanguage(lang, true);
   }
 
   toggleLanguage(): void {

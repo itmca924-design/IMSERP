@@ -4,6 +4,60 @@ export type SupportedLanguage = 'en' | 'hi';
 
 const STORAGE_KEY = 'imserp_lang';
 
+export function clearAllGoogleTransCookies(): void {
+  if (typeof document === 'undefined') return;
+  try {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    const domains: string[] = ['', hostname, `.${hostname}`];
+    if (parts.length > 2) {
+      const rootDomain = parts.slice(-2).join('.');
+      domains.push(rootDomain, `.${rootDomain}`);
+    }
+    const paths = ['/', '', '/coaching', '/school', '/dashboard'];
+    const names = ['googtrans', '_googtrans', 'googtrans_en'];
+    const past = 'Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;';
+
+    domains.forEach(d => {
+      paths.forEach(p => {
+        names.forEach(name => {
+          let str = `${name}=; expires=${past}`;
+          if (p) str += ` path=${p};`;
+          if (d) str += ` domain=${d};`;
+          document.cookie = str;
+        });
+      });
+    });
+
+    document.documentElement.classList.remove('translated-ltr', 'translated-rtl');
+    document.body?.classList.remove('translated-ltr', 'translated-rtl');
+  } catch (e) {
+    console.warn('Error clearing googtrans cookies:', e);
+  }
+}
+
+export function setHindiGoogleTransCookie(): void {
+  if (typeof document === 'undefined') return;
+  try {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+
+    document.cookie = `googtrans=/en/hi; expires=${expires}; path=/;`;
+    if (hostname && hostname !== 'localhost') {
+      document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=.${hostname};`;
+      document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=${hostname};`;
+      if (parts.length > 2) {
+        const rootDomain = parts.slice(-2).join('.');
+        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=.${rootDomain};`;
+        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=${rootDomain};`;
+      }
+    }
+  } catch (e) {
+    console.warn('Error setting googtrans cookie:', e);
+  }
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -16,6 +70,18 @@ export class TranslationService {
   readonly isEnglish = computed(() => this.currentLang() === 'en');
 
   constructor() {
+    let saved: SupportedLanguage = 'en';
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const val = localStorage.getItem(STORAGE_KEY);
+        if (val === 'hi') {
+          saved = 'hi';
+        }
+      }
+    } catch {}
+
+    this.currentLang.set(saved);
+
     // Keep html lang attribute in sync with currentLang signal
     effect(() => {
       const lang = this.currentLang();
@@ -26,91 +92,43 @@ export class TranslationService {
       } catch {}
     });
 
-    // Always boot cleanly in English on application load
-    try {
-      localStorage.setItem(STORAGE_KEY, 'en');
-    } catch {}
-    this.syncGoogleTranslate('en');
+    // Synchronize cookies on boot if needed
+    if (saved === 'hi') {
+      setHindiGoogleTransCookie();
+    } else {
+      clearAllGoogleTransCookies();
+    }
   }
 
-  setLanguage(lang: SupportedLanguage): void {
+  setLanguage(lang: SupportedLanguage, reopenDrawer = false): void {
+    if (this.currentLang() === lang) {
+      return;
+    }
+
     this.currentLang.set(lang);
     try {
-      localStorage.setItem(STORAGE_KEY, lang);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, lang);
+      }
+      if (reopenDrawer && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('imserp_reopen_quick_settings', 'true');
+      }
     } catch {}
-    this.syncGoogleTranslate(lang);
-  }
 
-  syncGoogleTranslate(lang: SupportedLanguage, retryCount = 0): void {
-    if (typeof document === 'undefined') return;
+    if (lang === 'hi') {
+      setHindiGoogleTransCookie();
+    } else {
+      clearAllGoogleTransCookies();
+    }
 
-    try {
-      const isHindi = lang === 'hi';
-      const hostname = window.location.hostname;
-
-      // 1. Sync cookies across root and domain paths
-      if (isHindi) {
-        const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
-        document.cookie = `googtrans=/en/hi; expires=${expires}; path=/;`;
-        if (hostname && hostname !== 'localhost') {
-          document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=.${hostname};`;
-          document.cookie = `googtrans=/en/hi; expires=${expires}; path=/; domain=${hostname};`;
-        }
-      } else {
-        // Complete clear of translation cookie for English
-        const past = 'Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = `googtrans=; expires=${past}; path=/;`;
-        document.cookie = `googtrans=/en/en; path=/;`;
-        if (hostname && hostname !== 'localhost') {
-          document.cookie = `googtrans=; expires=${past}; path=/; domain=.${hostname};`;
-          document.cookie = `googtrans=; expires=${past}; path=/; domain=${hostname};`;
-          document.cookie = `googtrans=/en/en; path=/; domain=.${hostname};`;
-        }
-      }
-
-      // 2. Select language in Google's combo dropdown
-      const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-      if (combo) {
-        if (isHindi) {
-          combo.value = 'hi';
-        } else {
-          // In Google Translate, setting combo value to '' (index 0) triggers restoration to pageLanguage
-          combo.value = '';
-          combo.selectedIndex = 0;
-
-          // Trigger Google's original text restoration button if present in any frame
-          try {
-            const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
-            iframes.forEach(f => {
-              try {
-                const btn = f.contentDocument?.querySelector<HTMLElement>('.goog-close-link, [id$=".restore"]');
-                if (btn) btn.click();
-              } catch {}
-            });
-            document.documentElement.classList.remove('translated-ltr', 'translated-rtl');
-          } catch {}
-        }
-
-        // Fire standard change events
-        combo.dispatchEvent(new Event('change', { bubbles: true }));
-        if (typeof (combo as any).onchange === 'function') {
-          (combo as any).onchange();
-        }
-        return;
-      }
-
-      // 3. If Google widget is still initializing, retry smoothly up to 15 times (1.5 seconds)
-      if (retryCount < 15) {
-        setTimeout(() => this.syncGoogleTranslate(lang, retryCount + 1), 100);
-      }
-    } catch (e) {
-      console.warn('Google Translate sync exception:', e);
+    if (typeof window !== 'undefined') {
+      window.location.reload();
     }
   }
 
   toggleLanguage(): void {
     const nextLang = this.currentLang() === 'en' ? 'hi' : 'en';
-    this.setLanguage(nextLang);
+    this.setLanguage(nextLang, false);
   }
 
   translate(keyOrText: string, params?: Record<string, any>): string {
