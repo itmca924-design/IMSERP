@@ -70,9 +70,9 @@ export interface BulkFeePrintDialogData {
             <mat-icon>print</mat-icon>
           </div>
           <div class="header-titles">
-            <h2>Bulk Fee Receipts, Due Slips &amp; Register Engine</h2>
+            <h2>Fee Demand Bills, Bulk Slips &amp; Receipts Engine</h2>
             <p class="subtitle">
-              Generate &amp; print class-wise or all-campus fee demand slips, payment receipts &amp; registers
+              Generate &amp; print class-wise or all-campus fee demand bills <strong>(4 or 8 per A4 Sheet)</strong>, due slips, payment receipts &amp; registers
               <strong>(Monthly • Quarterly • Half-Yearly • Yearly)</strong>
             </p>
           </div>
@@ -94,8 +94,8 @@ export interface BulkFeePrintDialogData {
               <button type="button" class="pill-tab due-tab"
                 [class.active]="docType === 'dues'"
                 (click)="onDocTypeChange('dues')">
-                <mat-icon>notification_important</mat-icon>
-                <span>Bulk Due Slips (बकाया पर्ची)</span>
+                <mat-icon>request_quote</mat-icon>
+                <span>Demand Bills &amp; Due Slips (मांग पर्ची)</span>
                 <span class="count-badge">{{ isLoading ? '…' : dueSlipsTotalCount }}</span>
               </button>
               <button type="button" class="pill-tab receipt-tab"
@@ -264,13 +264,23 @@ export interface BulkFeePrintDialogData {
               </mat-form-field>
             }
 
-            <!-- Print Layout Mode (For Due Slips & Receipts) -->
+            <!-- Print Layout Mode (For Demand Bills, Due Slips & Receipts) -->
             @if (docType !== 'register') {
-              <mat-form-field appearance="outline" class="dense-field">
-                <mat-label>A4 Print Layout (प्रिंट लेआउट)</mat-label>
+              <mat-form-field appearance="outline" class="dense-field layout-select-field">
+                <mat-label>Demand Bill / Print Layout (A4 लेआउट)</mat-label>
                 <mat-select formControlName="printLayout">
-                  <mat-option value="two_per_page">2 Students per A4 Page (Paper Saver)</mat-option>
-                  <mat-option value="counterfoil">1 Student per A4 (Student + Office Copy)</mat-option>
+                  <mat-option value="four_per_page">
+                    <strong>4 Students / A4 (2×2 Demand Bill Grid • Recommended)</strong>
+                  </mat-option>
+                  <mat-option value="eight_per_page">
+                    <strong>8 Students / A4 (2×4 Pocket Slips / Diary Strips)</strong>
+                  </mat-option>
+                  <mat-option value="two_per_page">
+                    <span>2 Students / A4 (Half-Page Detailed)</span>
+                  </mat-option>
+                  <mat-option value="counterfoil">
+                    <span>1 Student / A4 (Student + Office Copy)</span>
+                  </mat-option>
                 </mat-select>
               </mat-form-field>
             }
@@ -750,7 +760,7 @@ export interface BulkFeePrintDialogData {
             <mat-icon>print</mat-icon>
             <span>
               @if (docType === 'dues') {
-                Print Selected Due Slips ({{ selectedDueStudentIds.size }})
+                Print Demand Bills / Slips ({{ selectedDueStudentIds.size }})
               } @else if (docType === 'receipts') {
                 Print Selected Receipts ({{ selectedReceiptNumbers.size }})
               } @else {
@@ -1870,7 +1880,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       sectionId: new FormControl<string>(''),
       batchId: new FormControl<string>(''),
       includeArrears: new FormControl<boolean>(true),
-      printLayout: new FormControl<'two_per_page' | 'counterfoil'>('two_per_page'),
+      printLayout: new FormControl<'four_per_page' | 'eight_per_page' | 'two_per_page' | 'counterfoil'>('four_per_page'),
       searchTerm: new FormControl<string>('')
     });
   }
@@ -2361,7 +2371,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const phone = (user as any)?.contactPhone || '';
     const email = (user as any)?.contactEmail || '';
     const authorityName = user?.fullName || 'Authorized Signatory';
-    const printLayout = this.filterForm.get('printLayout')?.value || 'two_per_page';
+    const printLayout = this.filterForm.get('printLayout')?.value || 'four_per_page';
     const footerNoteEn = this.settingsService.receiptFooterNoteEnglish();
     const footerNoteHi = this.settingsService.receiptFooterNoteHindi();
     const showOnReceipt = this.settingsService.showFooterNoteOnReceipt();
@@ -2394,8 +2404,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             const upiUri = `upi://pay?pa=${payee}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(cleanNote)}`;
             try {
               slip.qrDataUrl = await QRCode.toDataURL(upiUri, {
-                width: 420,
-                margin: 4,
+                width: 360,
+                margin: 2,
                 errorCorrectionLevel: 'M',
                 color: { dark: '#000000', light: '#ffffff' }
               });
@@ -2565,12 +2575,173 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     `;
   }
 
+  private renderGrid4DueSlipCard(slip: BulkDueSlipItem, meta: any): string {
+    const rowsHtml = slip.invoices.map((inv, idx) => {
+      const headsSummary = (inv.heads || []).map(h => `${h.headName}: ₹${Number(h.amount).toLocaleString('en-IN')}`).join(', ');
+      return `
+        <tr>
+          <td>
+            <strong>${this.getInvoicePeriodLabel(inv)}</strong> ${inv.isArrear ? '<span class="arr-pill">Arrear</span>' : ''}
+            ${headsSummary ? `<div style="font-size:7.5px;color:#64748b;margin-top:1px;">${headsSummary}</div>` : ''}
+          </td>
+          <td class="r">₹${Number(inv.finalAmount).toLocaleString('en-IN')}</td>
+          <td class="r">${(inv.paidAmount > 0 || inv.advanceAdjustedAmount > 0) ? '₹' + Number(inv.paidAmount + inv.advanceAdjustedAmount).toLocaleString('en-IN') : '—'}</td>
+          <td class="r"><strong style="color:#b91c1c;">₹${Number(inv.balanceDue).toLocaleString('en-IN')}</strong></td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div class="slip-card card-grid-4">
+        <div>
+          <div class="grid4-header">
+            <div class="grid4-brand">
+              ${meta.logoUrl ? `<img src="${meta.logoUrl}" class="grid4-logo" alt="Logo" onerror="this.style.display='none'" />` : ''}
+              <div class="grid4-inst-info">
+                <div class="grid4-inst-name">${meta.instituteName}</div>
+                ${meta.branchName ? `<div class="grid4-inst-sub">Campus: ${meta.branchName}</div>` : ''}
+                ${meta.phone ? `<div class="grid4-inst-contact">📞 ${meta.phone}</div>` : ''}
+              </div>
+            </div>
+            <div class="grid4-badge">
+              <span class="g4-badge-title">DEMAND BILL</span>
+              <span class="g4-badge-hi">मांग पर्ची</span>
+            </div>
+          </div>
+
+          <div class="grid4-meta-grid">
+            <div><span class="lbl">Student:</span> <strong>${slip.studentName}</strong> (R: ${slip.rollNumber || '—'})</div>
+            <div><span class="lbl">Class/Sec:</span> <strong>${slip.className || 'N/A'}${slip.sectionName ? '-' + slip.sectionName : ''}${slip.batchName ? ' (' + slip.batchName + ')' : ''}</strong></div>
+            <div><span class="lbl">Adm No:</span> <strong>${slip.admissionNumber || '—'}</strong></div>
+            <div><span class="lbl">Cycle:</span> <strong>${slip.periodLabel}</strong></div>
+            <div><span class="lbl">Parent:</span> <strong>${slip.parentName || '—'}</strong></div>
+            <div><span class="lbl">Mobile:</span> <strong>${slip.parentPhone || '—'}</strong></div>
+          </div>
+
+          <table class="grid4-table">
+            <thead>
+              <tr>
+                <th>Fee Particulars / Heads</th>
+                <th class="r">Billed</th>
+                <th class="r">Paid</th>
+                <th class="r">Net Due</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+
+          <div class="grid4-due-banner">
+            <span class="g4-due-lbl">TOTAL BALANCE DUE (कुल देय बकाया):</span>
+            <span class="g4-due-amount">₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+
+        <div class="grid4-footer">
+          <div class="grid4-notice">
+            <div class="g4-note">कृपया देय तिथि से पूर्व शुल्क जमा कराएं।</div>
+            <div class="g4-date">Printed (IST): ${meta.nowIstStr}</div>
+          </div>
+          ${slip.qrDataUrl ? `
+            <div class="grid4-qr">
+              <img src="${slip.qrDataUrl}" class="g4-qr-img" alt="UPI QR" />
+              <span class="g4-qr-txt">Scan UPI to Pay</span>
+            </div>
+          ` : ''}
+          <div class="grid4-sig">
+            ${meta.sigUrl ? `<img src="${meta.sigUrl}" style="max-height:20px;display:block;margin:0 auto 1px;" alt="Sign" onerror="this.style.display='none'" />` : ''}
+            <div class="g4-sig-line">${meta.authorityName}</div>
+            <div class="g4-sig-sub">Auth Signatory</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderGrid8DueSlipCard(slip: BulkDueSlipItem, meta: any): string {
+    const arrearsTotal = slip.invoices.filter(i => i.isArrear).reduce((acc, curr) => acc + (curr.balanceDue || 0), 0);
+
+    return `
+      <div class="slip-card card-grid-8">
+        <div>
+          <div class="grid8-header">
+            <div class="g8-inst">${meta.instituteName}${meta.branchName ? ' • ' + meta.branchName : ''}</div>
+            <div class="g8-badge">FEE DEMAND SLIP (मांग पर्ची)</div>
+          </div>
+
+          <div class="grid8-info">
+            <div class="g8-row">
+              <span><strong>${slip.studentName}</strong> (Roll: ${slip.rollNumber || '—'}, Adm: ${slip.admissionNumber || '—'})</span>
+              <span>Class: <strong>${slip.className || 'N/A'}${slip.sectionName ? '-' + slip.sectionName : ''}</strong></span>
+            </div>
+            <div class="g8-row">
+              <span>Parent: ${slip.parentName || '—'} (📞 ${slip.parentPhone || '—'})</span>
+              <span>Cycle: <strong>${slip.periodLabel}</strong></span>
+            </div>
+          </div>
+
+          <div class="grid8-summary">
+            <div class="g8-stat"><span>Billed:</span> <strong>₹${Number(slip.totalInvoiced).toLocaleString('en-IN')}</strong></div>
+            ${arrearsTotal > 0 ? `<div class="g8-stat" style="color:#c2410c;"><span>Arrears:</span> <strong>₹${Number(arrearsTotal).toLocaleString('en-IN')}</strong></div>` : ''}
+            <div class="g8-stat"><span>Paid:</span> <strong>₹${Number(slip.paidAmount + slip.advanceAdjusted).toLocaleString('en-IN')}</strong></div>
+            <div class="g8-net-due">
+              <span>NET DUE:</span>
+              <strong>₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid8-footer">
+          <div class="g8-foot-left">
+            <span>Pay before due date to avoid late fine • IST: ${meta.nowIstStr}</span>
+          </div>
+          ${slip.qrDataUrl ? `
+            <div class="grid8-qr">
+              <img src="${slip.qrDataUrl}" class="g8-qr-img" alt="QR" />
+              <span>Scan UPI</span>
+            </div>
+          ` : ''}
+          <div class="grid8-sig">
+            <div class="g8-sig-line">Auth. Signatory</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private buildBulkDueSlipsHtml(slips: BulkDueSlipItem[], meta: any): string {
     const pages: string[] = [];
-    if (meta.printLayout === 'counterfoil') {
+
+    if (meta.printLayout === 'four_per_page') {
+      // 4 Students per A4 Page (2x2 Grid)
+      for (let i = 0; i < slips.length; i += 4) {
+        const chunk = slips.slice(i, i + 4);
+        const cardsHtml = chunk.map(s => this.renderGrid4DueSlipCard(s, meta)).join('');
+        const placeholders = Array(Math.max(0, 4 - chunk.length)).fill('<div class="slip-card card-grid-4 placeholder-card"></div>').join('');
+        pages.push(`
+          <div class="a4-page grid-4-page">
+            ${cardsHtml}
+            ${placeholders}
+          </div>
+        `);
+      }
+    } else if (meta.printLayout === 'eight_per_page') {
+      // 8 Students per A4 Page (2x4 Grid Pocket Slips)
+      for (let i = 0; i < slips.length; i += 8) {
+        const chunk = slips.slice(i, i + 8);
+        const cardsHtml = chunk.map(s => this.renderGrid8DueSlipCard(s, meta)).join('');
+        const placeholders = Array(Math.max(0, 8 - chunk.length)).fill('<div class="slip-card card-grid-8 placeholder-card"></div>').join('');
+        pages.push(`
+          <div class="a4-page grid-8-page">
+            ${cardsHtml}
+            ${placeholders}
+          </div>
+        `);
+      }
+    } else if (meta.printLayout === 'counterfoil') {
+      // 1 Student per A4 (Student Copy + Office Counterfoil)
       for (const slip of slips) {
         pages.push(`
-          <div class="a4-page">
+          <div class="a4-page counterfoil-page">
             ${this.renderSingleDueSlipCard(slip, 'PARENT / STUDENT COPY (अभिभावक प्रति)', meta)}
             <div class="cut-line">✂ — — — — — — — — — DETACH OFFICE COUNTERFOIL HERE — — — — — — — — — ✂</div>
             ${this.renderSingleDueSlipCard(slip, 'OFFICE COUNTERFOIL COPY (कार्यालय प्रति)', meta)}
@@ -2578,11 +2749,12 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     } else {
+      // 2 Students per A4 (Half-Page Detailed)
       for (let i = 0; i < slips.length; i += 2) {
         const first = slips[i];
         const second = slips[i + 1];
         pages.push(`
-          <div class="a4-page">
+          <div class="a4-page grid-2-page">
             ${this.renderSingleDueSlipCard(first, 'OFFICIAL FEE DEMAND SLIP (मांग पर्ची)', meta)}
             ${second ? `<div class="cut-line">✂ — — — — — — — — — CUT HERE FOR NEXT STUDENT — — — — — — — — — ✂</div>` : ''}
             ${second ? this.renderSingleDueSlipCard(second, 'OFFICIAL FEE DEMAND SLIP (मांग पर्ची)', meta) : ''}
@@ -2590,7 +2762,140 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     }
+
     return pages.join('');
+  }
+
+  private renderGrid4ReceiptCard(rcp: BulkReceiptItem, meta: any): string {
+    const payDateIst = new Date(rcp.paymentDate).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const rowsHtml = (rcp.lineItems || []).slice(0, 4).map(li => `
+      <tr>
+        <td><strong>${li.particulars}</strong></td>
+        <td>${li.invoiceNumber}</td>
+        <td class="r"><strong>₹${Number(li.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="slip-card card-grid-4">
+        <div>
+          <div class="grid4-header">
+            <div class="grid4-brand">
+              ${meta.logoUrl ? `<img src="${meta.logoUrl}" class="grid4-logo" alt="Logo" onerror="this.style.display='none'" />` : ''}
+              <div class="grid4-inst-info">
+                <div class="grid4-inst-name">${meta.instituteName}</div>
+                ${meta.branchName ? `<div class="grid4-inst-sub">Campus: ${meta.branchName}</div>` : ''}
+                ${meta.phone ? `<div class="grid4-inst-contact">📞 ${meta.phone}</div>` : ''}
+              </div>
+            </div>
+            <div class="grid4-badge rcp-badge">
+              <span class="g4-badge-title">PAYMENT RECEIPT</span>
+              <span class="g4-badge-hi">शुल्क रसीद</span>
+            </div>
+          </div>
+
+          <div class="grid4-meta-grid">
+            <div><span class="lbl">Receipt No:</span> <strong style="color:#047857;">${rcp.receiptNumber}</strong></div>
+            <div><span class="lbl">Date:</span> <strong>${payDateIst}</strong></div>
+            <div><span class="lbl">Student:</span> <strong>${rcp.studentName}</strong> (R: ${rcp.rollNumber || '—'})</div>
+            <div><span class="lbl">Class/Sec:</span> <strong>${rcp.className || 'N/A'}${rcp.sectionName ? '-' + rcp.sectionName : ''}</strong></div>
+            <div><span class="lbl">Parent:</span> <strong>${rcp.parentName || '—'}</strong></div>
+            <div><span class="lbl">Mode/Cycle:</span> <strong>${rcp.paymentMode} • ${rcp.periodLabel}</strong></div>
+          </div>
+
+          <table class="grid4-table">
+            <thead>
+              <tr>
+                <th>Fee Head Particulars</th>
+                <th>Invoice</th>
+                <th class="r">Amount Paid</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+
+          <div class="grid4-due-banner rcp-banner">
+            <span class="g4-due-lbl">TOTAL AMOUNT RECEIVED (कुल प्राप्त):</span>
+            <span class="g4-due-amount">₹${Number(rcp.amountPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+
+          ${rcp.remainingDue > 0 ? `
+            <div style="font-size:8px;color:#b91c1c;margin-bottom:3px;font-weight:700;">Remaining Balance Due: ₹${Number(rcp.remainingDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          ` : ''}
+        </div>
+
+        <div class="grid4-footer">
+          <div class="grid4-notice">
+            <div class="g4-note">Official computer-generated payment receipt. Thank you!</div>
+            <div class="g4-date">Printed: ${meta.nowIstStr}</div>
+          </div>
+          ${rcp.qrDataUrl ? `
+            <div class="grid4-qr">
+              <img src="${rcp.qrDataUrl}" class="g4-qr-img" alt="QR" />
+              <span class="g4-qr-txt">${rcp.remainingDue > 0 ? 'Pay Balance' : 'Verified'}</span>
+            </div>
+          ` : ''}
+          <div class="grid4-sig">
+            ${meta.sigUrl ? `<img src="${meta.sigUrl}" style="max-height:20px;display:block;margin:0 auto 1px;" alt="Sign" onerror="this.style.display='none'" />` : ''}
+            <div class="g4-sig-line">${meta.authorityName}</div>
+            <div class="g4-sig-sub">Cashier / Signatory</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderGrid8ReceiptCard(rcp: BulkReceiptItem, meta: any): string {
+    return `
+      <div class="slip-card card-grid-8">
+        <div>
+          <div class="grid8-header">
+            <div class="g8-inst">${meta.instituteName}${meta.branchName ? ' • ' + meta.branchName : ''}</div>
+            <div class="g8-badge rcp-badge">FEE RECEIPT (रसीद)</div>
+          </div>
+
+          <div class="grid8-info">
+            <div class="g8-row">
+              <span><strong>${rcp.studentName}</strong> (R: ${rcp.rollNumber || '—'})</span>
+              <span>Rcpt: <strong style="color:#047857;">${rcp.receiptNumber}</strong></span>
+            </div>
+            <div class="g8-row">
+              <span>Class: ${rcp.className || 'N/A'}${rcp.sectionName ? '-' + rcp.sectionName : ''}</span>
+              <span>Cycle: <strong>${rcp.periodLabel}</strong></span>
+            </div>
+          </div>
+
+          <div class="grid8-summary">
+            <div class="g8-stat"><span>Mode:</span> <strong>${rcp.paymentMode}</strong></div>
+            <div class="g8-net-due rcp-due">
+              <span>RECEIVED:</span>
+              <strong>₹${Number(rcp.amountPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid8-footer">
+          <div class="g8-foot-left">
+            <span>Verified Fee Receipt • ${meta.nowIstStr}</span>
+          </div>
+          ${rcp.qrDataUrl ? `
+            <div class="grid8-qr">
+              <img src="${rcp.qrDataUrl}" class="g8-qr-img" alt="QR" />
+              <span>Verify</span>
+            </div>
+          ` : ''}
+          <div class="grid8-sig">
+            <div class="g8-sig-line">Cashier</div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   private renderSingleReceiptCard(rcp: BulkReceiptItem, copyLabel: string, meta: any): string {
@@ -2677,10 +2982,38 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
 
   private buildBulkReceiptsHtml(receipts: BulkReceiptItem[], meta: any): string {
     const pages: string[] = [];
-    if (meta.printLayout === 'counterfoil') {
+
+    if (meta.printLayout === 'four_per_page') {
+      // 4 Receipts per A4 Page (2x2 Grid)
+      for (let i = 0; i < receipts.length; i += 4) {
+        const chunk = receipts.slice(i, i + 4);
+        const cardsHtml = chunk.map(r => this.renderGrid4ReceiptCard(r, meta)).join('');
+        const placeholders = Array(Math.max(0, 4 - chunk.length)).fill('<div class="slip-card card-grid-4 placeholder-card"></div>').join('');
+        pages.push(`
+          <div class="a4-page grid-4-page">
+            ${cardsHtml}
+            ${placeholders}
+          </div>
+        `);
+      }
+    } else if (meta.printLayout === 'eight_per_page') {
+      // 8 Receipts per A4 Page (2x4 Grid)
+      for (let i = 0; i < receipts.length; i += 8) {
+        const chunk = receipts.slice(i, i + 8);
+        const cardsHtml = chunk.map(r => this.renderGrid8ReceiptCard(r, meta)).join('');
+        const placeholders = Array(Math.max(0, 8 - chunk.length)).fill('<div class="slip-card card-grid-8 placeholder-card"></div>').join('');
+        pages.push(`
+          <div class="a4-page grid-8-page">
+            ${cardsHtml}
+            ${placeholders}
+          </div>
+        `);
+      }
+    } else if (meta.printLayout === 'counterfoil') {
+      // 1 Receipt per A4 (Student Copy + Office Counterfoil)
       for (const rcp of receipts) {
         pages.push(`
-          <div class="a4-page">
+          <div class="a4-page counterfoil-page">
             ${this.renderSingleReceiptCard(rcp, 'STUDENT / PARENT COPY (विद्यार्थी प्रति)', meta)}
             <div class="cut-line">✂ — — — — — — — — — DETACH OFFICE COUNTERFOIL HERE — — — — — — — — — ✂</div>
             ${this.renderSingleReceiptCard(rcp, 'OFFICE COUNTERFOIL COPY (कार्यालय प्रति)', meta)}
@@ -2688,11 +3021,12 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     } else {
+      // 2 Receipts per A4 Page
       for (let i = 0; i < receipts.length; i += 2) {
         const first = receipts[i];
         const second = receipts[i + 1];
         pages.push(`
-          <div class="a4-page">
+          <div class="a4-page grid-2-page">
             ${this.renderSingleReceiptCard(first, 'OFFICIAL FEE PAYMENT RECEIPT (भुगतान रसीद)', meta)}
             ${second ? `<div class="cut-line">✂ — — — — — — — — — CUT HERE FOR NEXT RECEIPT — — — — — — — — — ✂</div>` : ''}
             ${second ? this.renderSingleReceiptCard(second, 'OFFICIAL FEE PAYMENT RECEIPT (भुगतान रसीद)', meta) : ''}
@@ -2700,6 +3034,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     }
+
     return pages.join('');
   }
 
@@ -2768,50 +3103,498 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         <meta charset="utf-8" />
         <title>Bulk Fee Print — ${this.authService.getInstituteName()}</title>
         <style>
-          @page { size: A4 portrait; margin: 8mm; }
-          * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
-          body { margin: 0; padding: 0; color: #0f172a; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .a4-page { page-break-after: always; padding: 4px; }
-          .a4-page:last-child { page-break-after: auto; }
-          .slip-card { border: 1.5px solid #1e293b; border-radius: 8px; padding: 10px 12px; position: relative; background: #fff; }
-          .copy-tag { display: inline-block; font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; margin-bottom: 6px; }
+          @page {
+            size: A4 portrait;
+            margin: 4mm 5mm;
+          }
+          * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            color: #0f172a;
+            background: #ffffff;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Fixed A4 Page Container - Strict Zero Page-Break Overflow */
+          .a4-page {
+            width: 100%;
+            height: 287mm;
+            max-height: 287mm;
+            box-sizing: border-box;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            overflow: hidden;
+            position: relative;
+            background: #ffffff;
+          }
+          .a4-page:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+
+          /* 4 Students per A4 (2x2 Demand Bill Grid) */
+          .a4-page.grid-4-page {
+            display: grid;
+            grid-template-columns: calc(50% - 2mm) calc(50% - 2mm);
+            grid-template-rows: calc(50% - 2mm) calc(50% - 2mm);
+            gap: 4mm;
+            padding: 1mm;
+          }
+
+          /* 8 Students per A4 (2x4 Pocket Slips / Diary Strips Grid) */
+          .a4-page.grid-8-page {
+            display: grid;
+            grid-template-columns: calc(50% - 1.5mm) calc(50% - 1.5mm);
+            grid-template-rows: repeat(4, calc(25% - 2.5mm));
+            gap: 3.3mm;
+            padding: 1mm;
+          }
+
+          /* 2 Students per A4 (Half-Page) */
+          .a4-page.grid-2-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2mm;
+          }
+          .grid-2-page .slip-card {
+            height: calc(50% - 6mm);
+            max-height: calc(50% - 6mm);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+
+          /* Counterfoil (1 Student per A4) */
+          .a4-page.counterfoil-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2mm;
+          }
+          .counterfoil-page .slip-card {
+            height: calc(50% - 6mm);
+            max-height: calc(50% - 6mm);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+
+          .slip-card {
+            border: 1.5px solid #1e293b;
+            border-radius: 8px;
+            padding: 8px 10px;
+            position: relative;
+            background: #ffffff;
+            box-sizing: border-box;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            overflow: hidden;
+          }
+
+          .placeholder-card {
+            border: 1px dashed #cbd5e1 !important;
+            visibility: hidden;
+          }
+
+          /* ── 4-per-page (2x2) Card Styling ── */
+          .card-grid-4 {
+            border: 1.5px dashed #475569;
+            border-radius: 6px;
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+          }
+          .grid4-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1.5px solid #cbd5e1;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            gap: 6px;
+          }
+          .grid4-brand {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+          }
+          .grid4-logo {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+            flex-shrink: 0;
+          }
+          .grid4-inst-info {
+            min-width: 0;
+          }
+          .grid4-inst-name {
+            font-size: 11px;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.2;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .grid4-inst-sub {
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #1e40af;
+            line-height: 1.2;
+          }
+          .grid4-inst-contact {
+            font-size: 8px;
+            color: #64748b;
+            line-height: 1.1;
+          }
+          .grid4-badge {
+            border: 1.5px solid #dc2626;
+            background: #fef2f2;
+            color: #b91c1c;
+            border-radius: 4px;
+            padding: 2px 5px;
+            text-align: center;
+            flex-shrink: 0;
+          }
+          .grid4-badge.rcp-badge {
+            border-color: #059669;
+            background: #ecfdf5;
+            color: #047857;
+          }
+          .g4-badge-title {
+            display: block;
+            font-size: 8.5px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            line-height: 1.1;
+          }
+          .g4-badge-hi {
+            display: block;
+            font-size: 7.5px;
+            font-weight: 700;
+            line-height: 1.1;
+          }
+
+          .grid4-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5px 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 8.5px;
+            margin-bottom: 4px;
+            line-height: 1.25;
+          }
+          .grid4-meta-grid .lbl {
+            color: #64748b;
+          }
+          .grid4-meta-grid strong {
+            color: #0f172a;
+          }
+
+          .grid4-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5px;
+            margin-bottom: 4px;
+          }
+          .grid4-table th {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 3px 4px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 8px;
+          }
+          .grid4-table td {
+            border: 1px solid #e2e8f0;
+            padding: 2.5px 4px;
+            vertical-align: middle;
+          }
+          .grid4-table .r {
+            text-align: right;
+          }
+          .grid4-table .arr-pill {
+            display: inline-block;
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fdba74;
+            border-radius: 2px;
+            padding: 0 3px;
+            font-size: 7.5px;
+            font-weight: 700;
+          }
+
+          .grid4-due-banner {
+            background: #fef2f2;
+            border: 1.5px solid #f87171;
+            border-radius: 4px;
+            padding: 3px 6px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .grid4-due-banner.rcp-banner {
+            background: #ecfdf5;
+            border-color: #34d399;
+          }
+          .g4-due-lbl {
+            font-size: 8.5px;
+            font-weight: 800;
+            color: #991b1b;
+          }
+          .grid4-due-banner.rcp-banner .g4-due-lbl {
+            color: #065f46;
+          }
+          .g4-due-amount {
+            font-size: 11px;
+            font-weight: 900;
+            color: #b91c1c;
+          }
+          .grid4-due-banner.rcp-banner .g4-due-amount {
+            color: #047857;
+          }
+
+          .grid4-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+          }
+          .grid4-notice {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .g4-note {
+            font-size: 7.5px;
+            color: #475569;
+            line-height: 1.25;
+          }
+          .g4-date {
+            font-size: 7px;
+            color: #94a3b8;
+            margin-top: 1px;
+          }
+          .grid4-qr {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+          }
+          .g4-qr-img {
+            width: 54px;
+            height: 54px;
+            object-fit: contain;
+            display: block;
+          }
+          .g4-qr-txt {
+            font-size: 6.5px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 1px;
+          }
+          .grid4-sig {
+            text-align: center;
+            min-width: 65px;
+            flex-shrink: 0;
+          }
+          .g4-sig-line {
+            font-size: 8px;
+            font-weight: 700;
+            border-top: 1px solid #334155;
+            padding-top: 1px;
+            color: #0f172a;
+          }
+          .g4-sig-sub {
+            font-size: 7px;
+            color: #64748b;
+          }
+
+          /* ── 8-per-page (2x4) Card Styling ── */
+          .card-grid-8 {
+            border: 1px dashed #475569;
+            border-radius: 4px;
+            padding: 3.5px 5.5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+          }
+          .grid8-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
+          }
+          .g8-inst {
+            font-size: 8.5px;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 65%;
+          }
+          .g8-badge {
+            font-size: 7px;
+            font-weight: 800;
+            color: #b91c1c;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 3px;
+            padding: 1px 3px;
+            white-space: nowrap;
+          }
+          .g8-badge.rcp-badge {
+            color: #047857;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+          }
+          .grid8-info {
+            font-size: 7.5px;
+            line-height: 1.25;
+            margin-bottom: 2px;
+          }
+          .g8-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+          }
+          .grid8-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin-bottom: 2px;
+          }
+          .g8-stat {
+            font-size: 7px;
+            color: #475569;
+          }
+          .g8-net-due {
+            background: #fef2f2;
+            border: 1px solid #f87171;
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-size: 8px;
+            font-weight: 800;
+            color: #b91c1c;
+          }
+          .g8-net-due.rcp-due {
+            background: #ecfdf5;
+            border-color: #34d399;
+            color: #047857;
+          }
+          .grid8-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 2px;
+            gap: 4px;
+          }
+          .g8-foot-left {
+            flex: 1 1 auto;
+            font-size: 6.5px;
+            color: #64748b;
+            line-height: 1.1;
+          }
+          .grid8-qr {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+          }
+          .g8-qr-img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            display: block;
+          }
+          .grid8-qr span {
+            font-size: 5.5px;
+            font-weight: 700;
+          }
+          .grid8-sig {
+            text-align: center;
+            flex-shrink: 0;
+            min-width: 48px;
+          }
+          .g8-sig-line {
+            font-size: 6.8px;
+            font-weight: 700;
+            border-top: 0.8px solid #334155;
+            padding-top: 1px;
+          }
+
+          /* General components */
+          .copy-tag { display: inline-block; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; margin-bottom: 4px; }
           .copy-tag.paid-tag { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
-          .slip-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 8px; gap: 10px; }
-          .inst-brand { display: flex; align-items: center; gap: 10px; }
-          .inst-logo { width: 42px; height: 42px; object-fit: contain; }
-          .inst-name { font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
-          .inst-branch { font-size: 11px; font-weight: 700; color: #1e40af; }
-          .inst-contact { font-size: 10px; color: #475569; }
-          .doc-badge { border: 1.5px solid #1e40af; border-radius: 6px; padding: 4px 10px; text-align: right; }
-          .doc-badge .en { font-size: 11px; font-weight: 800; }
-          .doc-badge .hi { font-size: 10px; font-weight: 700; }
-          .st-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px; font-size: 11px; background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+          .slip-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
+          .inst-brand { display: flex; align-items: center; gap: 8px; }
+          .inst-logo { width: 38px; height: 38px; object-fit: contain; }
+          .inst-name { font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
+          .inst-branch { font-size: 10.5px; font-weight: 700; color: #1e40af; }
+          .inst-contact { font-size: 9.5px; color: #475569; }
+          .doc-badge { border: 1.5px solid #1e40af; border-radius: 6px; padding: 3px 8px; text-align: right; }
+          .doc-badge .en { font-size: 10.5px; font-weight: 800; }
+          .doc-badge .hi { font-size: 9.5px; font-weight: 700; }
+          .st-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px 8px; font-size: 10px; background: #f8fafc; padding: 5px 7px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 6px; }
           .st-grid span { color: #64748b; }
-          .p-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
-          .p-table th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; font-size: 10.5px; }
-          .p-table td { border: 1px solid #cbd5e1; padding: 5px 6px; vertical-align: top; }
+          .p-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 6px; }
+          .p-table th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 5px; text-align: left; font-size: 9.5px; }
+          .p-table td { border: 1px solid #cbd5e1; padding: 4px 5px; vertical-align: top; }
           .p-table .r { text-align: right; }
-          .sub-heads { font-size: 9.5px; color: #475569; margin-top: 2px; }
-          .due-item-heads-list { display: flex; flex-direction: column; gap: 0.5px; margin-top: 2px; }
-          .due-head-line { display: flex; align-items: baseline; gap: 3px; font-size: 8.8px; line-height: 1.15; color: #334155; }
-          .head-num { color: #dc2626; font-weight: 700; font-size: 8.5px; min-width: 11px; }
+          .sub-heads { font-size: 9px; color: #475569; margin-top: 2px; }
+          .due-item-heads-list { display: flex; flex-direction: column; gap: 0.5px; margin-top: 1.5px; }
+          .due-head-line { display: flex; align-items: baseline; gap: 3px; font-size: 8.5px; line-height: 1.15; color: #334155; }
+          .head-num { color: #dc2626; font-weight: 700; font-size: 8px; min-width: 10px; }
           .head-name { color: #475569; font-weight: 500; }
           .head-amount { color: #991b1b; font-weight: 700; margin-left: auto; white-space: nowrap; }
-          .arr-tag { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700; }
-          .due-grand { background: #fef2f2; color: #b91c1c; font-size: 12px; }
-          .paid-grand { background: #ecfdf5; color: #047857; font-size: 12px; }
-          .bal-strip { display: flex; justify-content: space-between; font-size: 11px; background: #f8fafc; padding: 5px 8px; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 6px; }
-          .slip-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
-          .note { font-size: 9.5px; color: #475569; max-width: 48%; line-height: 1.35; }
-          .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; min-width: 104px; }
-          .qr-img { width: 96px; height: 96px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .qr-lbl { font-size: 8.5px; font-weight: 800; color: #0f172a; margin-top: 3px; white-space: nowrap; }
-          .qr-sub { font-size: 8px; font-weight: 600; color: #64748b; white-space: nowrap; }
-          .sig-box { text-align: center; min-width: 130px; }
-          .sig-img { max-height: 28px; object-fit: contain; display: block; margin: 0 auto 2px; }
-          .sig-line { font-size: 10.5px; font-weight: 700; border-top: 1px solid #334155; padding-top: 2px; }
-          .sig-sub { font-size: 9px; color: #64748b; }
-          .cut-line { text-align: center; font-size: 10px; color: #64748b; margin: 10px 0; font-weight: 700; letter-spacing: 0.05em; }
+          .arr-tag { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-size: 8.5px; padding: 1px 3px; border-radius: 3px; font-weight: 700; }
+          .due-grand { background: #fef2f2; color: #b91c1c; font-size: 11.5px; }
+          .paid-grand { background: #ecfdf5; color: #047857; font-size: 11.5px; }
+          .bal-strip { display: flex; justify-content: space-between; font-size: 10px; background: #f8fafc; padding: 4px 7px; border: 1px dashed #cbd5e1; border-radius: 4px; margin-bottom: 5px; }
+          .slip-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 5px; }
+          .note { font-size: 9px; color: #475569; max-width: 48%; line-height: 1.3; }
+          .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; flex-shrink: 0; min-width: 90px; }
+          .qr-img { width: 78px; height: 78px; object-fit: contain; border: none; background: #ffffff; padding: 0; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .qr-lbl { font-size: 8px; font-weight: 800; color: #0f172a; margin-top: 2px; white-space: nowrap; }
+          .qr-sub { font-size: 7.5px; font-weight: 600; color: #64748b; white-space: nowrap; }
+          .sig-box { text-align: center; min-width: 110px; }
+          .sig-img { max-height: 24px; object-fit: contain; display: block; margin: 0 auto 2px; }
+          .sig-line { font-size: 9.5px; font-weight: 700; border-top: 1px solid #334155; padding-top: 2px; }
+          .sig-sub { font-size: 8.5px; color: #64748b; }
+          .cut-line { text-align: center; font-size: 9.5px; color: #64748b; margin: 6px 0; font-weight: 700; letter-spacing: 0.05em; }
         </style>
       </head>
       <body>${contentHtml}</body>

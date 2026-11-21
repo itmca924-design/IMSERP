@@ -88,11 +88,11 @@ export interface UpcomingBillingCycleInfo {
         </div>
         <div class="header-action-buttons">
           <button type="button" class="header-action-pill bulk-print-pill" (click)="openBulkFeePrintModal()"
-            matTooltip="Bulk Print Class-Wise or All Fee Due Slips, Paid Receipts & Register (Monthly / Quarterly / Half-Yearly / Yearly)">
+            matTooltip="Bulk Print Class-Wise or All Fee Demand Bills (4 or 8 per A4 sheet), Due Slips, Paid Receipts & Register">
             <div class="pill-icon-box print-box">
               <mat-icon>print</mat-icon>
             </div>
-            <span class="pill-label">Bulk Receipts &amp; Due Slips</span>
+            <span class="pill-label">Demand Bills &amp; Due Slips</span>
           </button>
 
           <button type="button" class="header-action-pill fee-policy-pill" (click)="openFeePolicyModal()"
