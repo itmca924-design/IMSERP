@@ -2470,7 +2470,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    this.triggerPrintWindow(bodyHtml);
+    this.triggerIframePrint(bodyHtml);
   }
 
   private renderSlipHeader(meta: any, docTitleEn: string, docTitleHi: string, badgeColor: string): string {
@@ -3099,136 +3099,44 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     `;
   }
 
-  private triggerPrintWindow(contentHtml: string): void {
+  private triggerIframePrint(contentHtml: string): void {
     const instituteTitle = this.authService.getInstituteName() || 'IMSERP Demand Bills';
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Fee Demand Bills Print Preview — ${instituteTitle}</title>
+        <title>Fee Demand Bills — ${instituteTitle}</title>
         <style>
           @page {
             size: A4 portrait;
-            margin: 5mm 6mm;
+            margin: 4mm 6mm;
           }
           * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
           }
-          html, body {
+          body {
             margin: 0;
             padding: 0;
             color: #0f172a;
+            background: #ffffff;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* ── Screen UI Top Action Bar ── */
-          .no-print-topbar {
-            position: sticky;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #1e293b;
-            color: #ffffff;
-            padding: 10px 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 99999;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-            font-size: 13px;
+          .a4-page {
+            width: 100%;
+            page-break-after: always;
+            break-after: page;
+            box-sizing: border-box;
+            padding: 2mm 0;
           }
-          .topbar-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-          .btn-print {
-            background: #2563eb;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            padding: 7px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
-            transition: all 0.15s ease;
-          }
-          .btn-print:hover {
-            background: #1d4ed8;
-          }
-          .btn-close {
-            background: #475569;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            padding: 7px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-          }
-          .btn-close:hover {
-            background: #64748b;
-          }
-          .topbar-info {
-            font-weight: 600;
-            color: #cbd5e1;
-            font-size: 12px;
-          }
-
-          @media screen {
-            body {
-              background: #e2e8f0;
-              min-height: 100vh;
-            }
-            .print-pages-wrapper {
-              padding: 20px 10px 40px;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 20px;
-            }
-            .a4-page {
-              background: #ffffff;
-              box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-              width: 210mm;
-              min-height: 297mm;
-              box-sizing: border-box;
-              padding: 6mm 8mm;
-            }
-          }
-
-          @media print {
-            .no-print {
-              display: none !important;
-            }
-            body {
-              background: #ffffff !important;
-            }
-            .print-pages-wrapper {
-              padding: 0 !important;
-              display: block !important;
-            }
-            .a4-page {
-              width: 100% !important;
-              page-break-after: always;
-              break-after: page;
-              page-break-inside: avoid;
-              break-inside: avoid;
-              box-sizing: border-box;
-              padding: 0 !important;
-            }
-            .a4-page:last-child {
-              page-break-after: auto;
-              break-after: auto;
-            }
+          .a4-page:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
 
           /* 4 Students per A4 (2x2 Demand Bill Grid) - Natural 2-column grid */
@@ -3672,53 +3580,43 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .cut-line { text-align: center; font-size: 9.5px; color: #64748b; margin: 6px 0; font-weight: 700; letter-spacing: 0.05em; }
         </style>
       </head>
-      <body>
-        <div class="no-print no-print-topbar">
-          <div class="topbar-actions">
-            <button class="btn-print" onclick="window.print()">
-              <span>🖨️ Print / Save as PDF</span>
-            </button>
-            <button class="btn-close" onclick="window.close()">✕ Close</button>
-          </div>
-          <div class="topbar-info">
-            ${instituteTitle} • Official Fee Demand Bills (A4 Print Ready)
-          </div>
-        </div>
-
-        <div class="print-pages-wrapper">
-          ${contentHtml}
-        </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.focus();
-              window.print();
-            }, 350);
-          };
-        </script>
-      </body>
+      <body>${contentHtml}</body>
       </html>
     `;
 
-    // Open clean dedicated print preview tab
-    const printWin = window.open('', '_blank');
-    if (printWin) {
-      printWin.document.open();
-      printWin.document.write(html);
-      printWin.document.close();
-      setTimeout(() => {
-        try {
-          printWin.focus();
-          printWin.print();
-        } catch (_) {}
-      }, 500);
-    } else {
-      this.confirmDialog.alert(
-        'Popup Blocked / पॉपअप अवरुद्ध',
-        'कृपया अपने ब्राउज़र में पॉपअप (Pop-ups) की अनुमति दें ताकि नया प्रिंट टैब खुल सके।',
-        'warning'
-      );
+    let iframe = document.getElementById('imserp-bulk-print-frame') as HTMLIFrameElement;
+    if (iframe) {
+      try { iframe.remove(); } catch (_) {}
     }
+
+    iframe = document.createElement('iframe');
+    iframe.id = 'imserp-bulk-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Print trigger failed:', err);
+        window.print();
+      }
+    }, 250);
   }
 }
