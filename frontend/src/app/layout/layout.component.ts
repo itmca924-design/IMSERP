@@ -30,6 +30,7 @@ import { ChatService } from '../core/services/chat.service';
 import { ConfirmDialogService } from '../core/services/confirm-dialog.service';
 import { StudentDuesAssistantComponent } from '../shared/components/student-dues-assistant.component';
 import { AiErpCopilotService } from '../core/services/ai-erp-copilot.service';
+import { SmartBellService } from '../core/services/smart-bell.service';
 import { environment } from '../../environments/environment';
 
 export interface BreadcrumbItem {
@@ -3709,7 +3710,8 @@ export class LayoutComponent implements OnInit {
     private idleTimeout: IdleTimeoutService,
     private breakpointObserver: BreakpointObserver,
     private cdr: ChangeDetectorRef,
-    public copilotService: AiErpCopilotService
+    public copilotService: AiErpCopilotService,
+    public smartBell: SmartBellService
   ) {
     effect(() => {
       const user = this.currentUser();
