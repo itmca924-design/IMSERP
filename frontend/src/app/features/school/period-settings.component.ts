@@ -18,6 +18,8 @@ import { SchoolService, SchoolPeriodSlotDto, CreateSchoolPeriodSlotDto, BulkSave
 import { BranchService, BranchDto } from '../../core/services/branch.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
+import { HindiTypingDirective } from '../../shared/directives/hindi-typing.directive';
+import { HindiTransliterationService } from '../../core/services/hindi-transliteration.service';
 
 interface PeriodEditorRow {
   id?: string;
@@ -48,7 +50,8 @@ interface PeriodEditorRow {
     MatTooltipModule,
     MatChipsModule,
     MatMenuModule,
-    MatDividerModule
+    MatDividerModule,
+    HindiTypingDirective
   ],
   template: `
     <div class="page-container">
@@ -246,35 +249,35 @@ interface PeriodEditorRow {
 
               @if (smartBell.settings().isAssemblyEnabled) {
                 <div class="assembly-body-grid">
-                  <!-- 1. Assembly Start Time (Angular Materialized with Time Picker & Presets) -->
+                  <!-- 1. Assembly Start Time (Angular Materialized Select matching adjacent fields with zero overlap) -->
                   <div class="assembly-field-wrap">
                     <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Assembly Start Time (प्रार्थना शुरू होने का समय)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">schedule</mat-icon>
-                      <input matInput type="time"
-                        [value]="to24(smartBell.settings().assemblyStartTime || '08:45 AM')"
-                        (change)="onAssemblyTimeChange($any($event.target).value)"
-                        class="assembly-time-picker-input" />
-                      <span class="active-time-chip" matSuffix>{{ smartBell.settings().assemblyStartTime || '08:45 AM' }}</span>
-                      <button type="button" mat-icon-button matSuffix [matMenuTriggerFor]="assemblyPresetsMenu" matTooltip="Quick Time Presets">
-                        <mat-icon style="color: #ea580c;">arrow_drop_down</mat-icon>
-                      </button>
+                      <mat-select
+                        [ngModel]="selectedAssemblyTimeOption"
+                        (ngModelChange)="onAssemblyTimeSelectChange($event)">
+                        <mat-option value="07:00 AM">🌅 07:00 AM (Early Summer)</mat-option>
+                        <mat-option value="07:15 AM">⏰ 07:15 AM</mat-option>
+                        <mat-option value="07:30 AM">☀️ 07:30 AM (Summer Standard)</mat-option>
+                        <mat-option value="07:45 AM">⏰ 07:45 AM</mat-option>
+                        <mat-option value="08:00 AM">🏫 08:00 AM (Standard Regular)</mat-option>
+                        <mat-option value="08:15 AM">⏰ 08:15 AM</mat-option>
+                        <mat-option value="08:30 AM">🔔 08:30 AM</mat-option>
+                        <mat-option value="08:45 AM">⏰ 08:45 AM</mat-option>
+                        <mat-option value="09:00 AM">❄️ 09:00 AM (Winter Schedule)</mat-option>
+                        <mat-option value="09:15 AM">⏰ 09:15 AM</mat-option>
+                        <mat-option value="09:30 AM">❄️ 09:30 AM (Late Winter)</mat-option>
+                        <mat-option value="09:45 AM">⏰ 09:45 AM</mat-option>
+                        <mat-option value="10:00 AM">⏰ 10:00 AM</mat-option>
+                        @if (isCustomAssemblyTime) {
+                          <mat-option [value]="smartBell.settings().assemblyStartTime">
+                            ⏰ {{ smartBell.settings().assemblyStartTime }} (Custom)
+                          </mat-option>
+                        }
+                        <mat-option value="CUSTOM">✏️ Custom Time (कस्टम समय दर्ज करें)...</mat-option>
+                      </mat-select>
                     </mat-form-field>
-
-                    <mat-menu #assemblyPresetsMenu="matMenu" class="assembly-presets-dropdown">
-                      <div class="menu-section-title">Common Morning Routine Times</div>
-                      <button mat-menu-item (click)="setAssemblyTime('07:00 AM')"><mat-icon>wb_sunny</mat-icon><span>07:00 AM (Early Summer)</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('07:15 AM')"><mat-icon>schedule</mat-icon><span>07:15 AM</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('07:30 AM')"><mat-icon>wb_sunny</mat-icon><span>07:30 AM (Summer Standard)</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('07:45 AM')"><mat-icon>schedule</mat-icon><span>07:45 AM</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('08:00 AM')"><mat-icon>school</mat-icon><span>08:00 AM (Standard Regular)</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('08:15 AM')"><mat-icon>schedule</mat-icon><span>08:15 AM</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('08:30 AM')"><mat-icon>notifications</mat-icon><span>08:30 AM</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('08:45 AM')"><mat-icon>alarm</mat-icon><span>08:45 AM (Current Default)</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('09:00 AM')"><mat-icon>ac_unit</mat-icon><span>09:00 AM (Winter Schedule)</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('09:15 AM')"><mat-icon>schedule</mat-icon><span>09:15 AM</span></button>
-                      <button mat-menu-item (click)="setAssemblyTime('09:30 AM')"><mat-icon>ac_unit</mat-icon><span>09:30 AM (Late Winter)</span></button>
-                    </mat-menu>
 
                     <!-- Quick Clickable Time Pills -->
                     <div class="quick-time-pills">
@@ -282,7 +285,7 @@ interface PeriodEditorRow {
                       @for (t of ['07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '08:45 AM', '09:00 AM']; track t) {
                         <button type="button"
                           class="time-pill-btn"
-                          [class.active]="(smartBell.settings().assemblyStartTime || '08:45 AM') === t"
+                          [class.active]="smartBell.settings().assemblyStartTime === t"
                           (click)="setAssemblyTime(t)">
                           {{ t }}
                         </button>
@@ -340,36 +343,70 @@ interface PeriodEditorRow {
                     </div>
                   </div>
 
-                  <!-- 5. Assembly Callout Announcement (Angular Materialized) -->
+                  <!-- 5. Assembly Callout Announcement (Angular Materialized with Live Hindi Translator) -->
                   <div class="assembly-full-width-field">
-                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Assembly Callout Announcement (प्रार्थना बुलावा संदेश)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">campaign</mat-icon>
                       <input matInput type="text"
+                        [appHindiTyping]="isHindiTypingEnabled"
                         [ngModel]="smartBell.settings().assemblyWarningTemplateHi"
                         (ngModelChange)="updateBellSetting('assemblyWarningTemplateHi', $event)"
-                        placeholder="ध्यान दें, सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।" />
-                      <button type="button" mat-icon-button matSuffix (click)="resetCalloutTemplate()" matTooltip="Reset to Standard Hindi Callout">
-                        <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
-                      </button>
-                      <mat-hint>Placeholders: &#123;instituteName&#125;, &#123;remainingMinutes&#125;, &#123;durationMinutes&#125;</mat-hint>
+                        placeholder="Type in English (e.g. 'dhyan de sabhi vidyarthi...') and press Space to auto-transliterate to Hindi" />
+                      
+                      <div matSuffix class="field-suffix-actions">
+                        <button type="button" mat-button class="btn-transliterate-pill"
+                          (click)="translateCalloutTemplate()"
+                          [disabled]="isTranslatingCallout"
+                          matTooltip="Convert entire text to Hindi Devanagari (अ ➔ A)">
+                          <mat-icon style="font-size: 16px; width: 16px; height: 16px;">translate</mat-icon>
+                          <span>{{ isTranslatingCallout ? 'Translating...' : 'Translate to Hindi' }}</span>
+                        </button>
+                        <button type="button" mat-icon-button (click)="resetCalloutTemplate()" matTooltip="Reset to Standard Hindi Callout">
+                          <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
+                        </button>
+                      </div>
                     </mat-form-field>
+                    <div class="field-hint-row">
+                      <span class="hint-transliterate">
+                        <mat-icon>keyboard</mat-icon>
+                        <span><strong>Hindi Auto-Typing Active:</strong> Type in English (e.g. <em>"dhyan de"</em>) &amp; press Space to convert to Hindi (<em>ध्यान दें</em>).</span>
+                      </span>
+                      <span class="hint-placeholders">Placeholders: &#123;instituteName&#125;, &#123;remainingMinutes&#125;</span>
+                    </div>
                   </div>
 
-                  <!-- 6. Assembly Dispersal Announcement (Angular Materialized) -->
+                  <!-- 6. Assembly Dispersal Announcement (Angular Materialized with Live Hindi Translator) -->
                   <div class="assembly-full-width-field">
-                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Assembly Dispersal Announcement (प्रार्थना संपन्न संदेश)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">record_voice_over</mat-icon>
                       <input matInput type="text"
+                        [appHindiTyping]="isHindiTypingEnabled"
                         [ngModel]="smartBell.settings().assemblyDismissalTemplateHi"
                         (ngModelChange)="updateBellSetting('assemblyDismissalTemplateHi', $event)"
-                        placeholder="प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।" />
-                      <button type="button" mat-icon-button matSuffix (click)="resetDispersalTemplate()" matTooltip="Reset to Standard Hindi Dispersal">
-                        <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
-                      </button>
-                      <mat-hint>Placeholders: &#123;instituteName&#125;, &#123;durationMinutes&#125;</mat-hint>
+                        placeholder="Type in English (e.g. 'prarthana sabha sampann hui...') and press Space to auto-transliterate to Hindi" />
+                      
+                      <div matSuffix class="field-suffix-actions">
+                        <button type="button" mat-button class="btn-transliterate-pill"
+                          (click)="translateDispersalTemplate()"
+                          [disabled]="isTranslatingDispersal"
+                          matTooltip="Convert entire text to Hindi Devanagari (अ ➔ A)">
+                          <mat-icon style="font-size: 16px; width: 16px; height: 16px;">translate</mat-icon>
+                          <span>{{ isTranslatingDispersal ? 'Translating...' : 'Translate to Hindi' }}</span>
+                        </button>
+                        <button type="button" mat-icon-button (click)="resetDispersalTemplate()" matTooltip="Reset to Standard Hindi Dispersal">
+                          <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
+                        </button>
+                      </div>
                     </mat-form-field>
+                    <div class="field-hint-row">
+                      <span class="hint-transliterate">
+                        <mat-icon>keyboard</mat-icon>
+                        <span><strong>Hindi Auto-Typing Active:</strong> Type in English &amp; press Space to convert to Hindi automatically.</span>
+                      </span>
+                      <span class="hint-placeholders">Placeholders: &#123;instituteName&#125;, &#123;durationMinutes&#125;</span>
+                    </div>
                   </div>
 
                   <!-- 7. Action Test Buttons -->
@@ -1273,17 +1310,65 @@ interface PeriodEditorRow {
       }
     }
 
-    .active-time-chip {
-      font-size: 0.76rem;
-      font-weight: 700;
-      color: #c2410c;
-      background: #ffedd5;
-      padding: 3px 8px;
-      border-radius: 6px;
-      border: 1px solid #fed7aa;
-      margin-right: 2px;
-      white-space: nowrap;
-      letter-spacing: 0.3px;
+    .field-suffix-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-transliterate-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px !important;
+      padding: 0 10px !important;
+      border-radius: 14px !important;
+      background: #eff6ff !important;
+      border: 1px solid #bfdbfe !important;
+      color: #1e40af !important;
+      font-size: 0.74rem !important;
+      font-weight: 700 !important;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        color: #2563eb;
+      }
+
+      &:hover:not(:disabled) {
+        background: #dbeafe !important;
+        border-color: #93c5fd !important;
+      }
+    }
+
+    .field-hint-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      padding: 0 4px;
+      font-size: 0.74rem;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .hint-transliterate {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: #15803d;
+        font-weight: 600;
+        mat-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          color: #16a34a;
+        }
+      }
+
+      .hint-placeholders {
+        color: #64748b;
+        font-style: italic;
+      }
     }
 
     .quick-time-pills {
@@ -3070,6 +3155,73 @@ export class PeriodSettingsComponent implements OnInit {
 
   setAssemblyTime(time12: string): void {
     this.updateBellSetting('assemblyStartTime', time12);
+  }
+
+  readonly hindiTrans = inject(HindiTransliterationService);
+  isHindiTypingEnabled = true;
+  isTranslatingCallout = false;
+  isTranslatingDispersal = false;
+
+  get selectedAssemblyTimeOption(): string {
+    return this.smartBell.settings().assemblyStartTime || '08:45 AM';
+  }
+
+  get isCustomAssemblyTime(): boolean {
+    const std = ['07:00 AM', '07:15 AM', '07:30 AM', '07:45 AM', '08:00 AM', '08:15 AM', '08:30 AM', '08:45 AM', '09:00 AM', '09:15 AM', '09:30 AM', '09:45 AM', '10:00 AM'];
+    const current = this.smartBell.settings().assemblyStartTime;
+    return !!current && !std.includes(current);
+  }
+
+  onAssemblyTimeSelectChange(val: string): void {
+    if (val === 'CUSTOM') {
+      this.promptCustomAssemblyTime();
+      return;
+    }
+    this.setAssemblyTime(val);
+  }
+
+  promptCustomAssemblyTime(): void {
+    this.confirmDialog.prompt(
+      'Set Custom Assembly Start Time',
+      'Enter the morning prayer start time below (e.g. 07:40 AM, 08:10 AM):',
+      {
+        inputLabel: 'Start Time (प्रार्थना शुरू होने का समय)',
+        inputPlaceholder: 'e.g. 07:40 AM',
+        initialValue: this.smartBell.settings().assemblyStartTime || '08:45 AM',
+        confirmText: 'Set Time',
+        cancelText: 'Cancel',
+        type: 'info',
+        inputType: 'text'
+      }
+    ).subscribe((res) => {
+      if (res && res.trim()) {
+        this.setAssemblyTime(res.trim());
+      }
+    });
+  }
+
+  async translateCalloutTemplate(): Promise<void> {
+    const current = this.smartBell.settings().assemblyWarningTemplateHi || '';
+    if (!current.trim()) return;
+    this.isTranslatingCallout = true;
+    try {
+      const hi = await this.hindiTrans.transliterateSentence(current);
+      this.updateBellSetting('assemblyWarningTemplateHi', hi);
+    } finally {
+      this.isTranslatingCallout = false;
+    }
+  }
+
+  async translateDispersalTemplate(): Promise<void> {
+    const current = this.smartBell.settings().assemblyDismissalTemplateHi || '';
+    if (!current.trim()) return;
+    this.isTranslatingDispersal = true;
+    try {
+      const hi = await this.hindiTrans.transliterateSentence(current);
+      this.updateBellSetting('assemblyDismissalTemplateHi', hi);
+    } finally {
+      this.isTranslatingDispersal = false;
+    }
   }
 
   resetCalloutTemplate(): void {
