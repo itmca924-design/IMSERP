@@ -3613,13 +3613,10 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     iframe = document.createElement('iframe');
     iframe.id = 'imserp-bulk-print-frame';
     iframe.style.position = 'fixed';
-    iframe.style.left = '0';
-    iframe.style.top = '0';
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.zIndex = '-9999';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
     iframe.style.border = '0';
     document.body.appendChild(iframe);
 
@@ -3632,6 +3629,11 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     doc.open();
     doc.write(html);
     doc.close();
+
+    // Check images (QR codes and logos) to ensure they are rendered before opening print dialog
+    const images = doc.querySelectorAll('img');
+    let loadedCount = 0;
+    const totalImages = images.length;
 
     let hasPrinted = false;
     const doPrint = () => {
@@ -3646,20 +3648,29 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       }
     };
 
-    // Clean up ONLY after user finishes printing or cancels (never on a premature timer!)
-    if (iframe.contentWindow) {
-      iframe.contentWindow.addEventListener('afterprint', () => {
-        setTimeout(() => {
-          try {
-            if (iframe && iframe.parentNode) {
-              iframe.remove();
-            }
-          } catch (_) {}
-        }, 1000);
-      });
-    }
+    if (totalImages === 0) {
+      setTimeout(doPrint, 250);
+    } else {
+      const onImageDone = () => {
+        loadedCount++;
+        if (loadedCount >= totalImages) {
+          setTimeout(doPrint, 150);
+        }
+      };
 
-    // Give browser time to parse CSS and render all images/QR codes before opening print dialog
-    setTimeout(doPrint, 500);
+      images.forEach(img => {
+        if (img.complete) {
+          onImageDone();
+        } else {
+          img.onload = onImageDone;
+          img.onerror = onImageDone;
+        }
+      });
+
+      // Fallback timer: ensure print dialog opens within 500ms max
+      setTimeout(doPrint, 500);
+    }
+    // NOTE: The iframe is deliberately NEVER removed on a timer or afterprint event.
+    // Keeping the iframe in the DOM prevents Chrome from aborting or hiding the print preview dialog.
   }
 }
