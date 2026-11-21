@@ -3218,7 +3218,6 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             }
             .a4-page {
               width: 100% !important;
-              min-height: 280mm !important;
               page-break-after: always;
               break-after: page;
               page-break-inside: avoid;
@@ -3232,23 +3231,19 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             }
           }
 
-          /* 4 Students per A4 (2x2 Demand Bill Grid) */
+          /* 4 Students per A4 (2x2 Demand Bill Grid) - Natural 2-column grid */
           .grid-4-page {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 4mm;
-            height: 280mm;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
             box-sizing: border-box;
           }
 
-          /* 8 Students per A4 (2x4 Pocket Slips / Diary Strips Grid) */
+          /* 8 Students per A4 (2x4 Pocket Slips) */
           .grid-8-page {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            gap: 3mm;
-            height: 280mm;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
             box-sizing: border-box;
           }
 
@@ -3256,32 +3251,16 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .grid-2-page {
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            height: 280mm;
+            gap: 12px;
             box-sizing: border-box;
-          }
-          .grid-2-page .slip-card {
-            height: calc(50% - 6mm);
-            max-height: calc(50% - 6mm);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
           }
 
           /* Counterfoil (1 Student per A4) */
           .counterfoil-page {
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            height: 280mm;
+            gap: 12px;
             box-sizing: border-box;
-          }
-          .counterfoil-page .slip-card {
-            height: calc(50% - 6mm);
-            max-height: calc(50% - 6mm);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
           }
 
           .slip-card {
@@ -3293,7 +3272,6 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
-            overflow: hidden;
           }
 
           .placeholder-card {
@@ -3309,9 +3287,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            height: 100%;
-            max-height: 100%;
-            overflow: hidden;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            background: #ffffff;
           }
           .grid4-header {
             display: flex;
@@ -3534,9 +3512,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            height: 100%;
-            max-height: 100%;
-            overflow: hidden;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            background: #ffffff;
           }
           .grid8-header {
             display: flex;
@@ -3712,12 +3690,12 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         </div>
 
         <script>
-          window.addEventListener('DOMContentLoaded', function() {
+          window.onload = function() {
             setTimeout(function() {
               window.focus();
               window.print();
-            }, 300);
-          });
+            }, 350);
+          };
         </script>
       </body>
       </html>
@@ -3729,6 +3707,12 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       printWin.document.open();
       printWin.document.write(html);
       printWin.document.close();
+      setTimeout(() => {
+        try {
+          printWin.focus();
+          printWin.print();
+        } catch (_) {}
+      }, 500);
     } else {
       this.confirmDialog.alert(
         'Popup Blocked / पॉपअप अवरुद्ध',
