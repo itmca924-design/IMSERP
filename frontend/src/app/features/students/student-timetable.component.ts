@@ -1,4 +1,6 @@
-import { Component, OnInit, OnDestroy, Input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -138,7 +140,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   <label class="select-label">Class (कक्षा):</label>
                   <select [(ngModel)]="coachingClassId" (change)="onCoachingClassChange()" class="header-select">
                     <option value="">All Classes (सभी कक्षाएं)</option>
-                    @for (c of classes; track c) {
+                    @for (c of classes; track c.id) {
                       <option [value]="c.id">{{ c.name }}</option>
                     }
                   </select>
@@ -150,7 +152,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                   @if (filteredBatches.length === 0) {
                     <option value="">No batches for this class</option>
                   }
-                  @for (b of filteredBatches; track b) {
+                  @for (b of filteredBatches; track b.id) {
                     <option [value]="b.id">
                       {{ b.name }}{{ b.className ? ' [' + b.className + ']' : '' }}{{ b.subject ? ' - ' + b.subject : '' }}
                     </option>
@@ -814,7 +816,7 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
     
     </div>
     `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     /* =========================================================================
        CONTAINER & PORTAL HEADER (Strict Standard ERP Styling)
@@ -3492,7 +3494,8 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private dialog: MatDialog,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -3507,22 +3510,46 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
 
     if (this.isAdminOrStaff) {
       if (this.targetScope === 'coaching') {
-        const batchIdParam = this.route.snapshot.queryParamMap.get('batchId');
-        if (batchIdParam) {
-          this.selectedBatchId = batchIdParam;
-        }
-        this.schoolService.getClasses(false).subscribe({
-          next: (clsList) => {
-            this.classes = clsList || [];
-          }
-        });
-        this.loadBatches(true);
+        this.loadCoachingInitialData();
       } else {
         this.loadClassesAndInitialTimetable();
       }
     } else {
       this.loadTimetable();
     }
+  }
+
+  loadCoachingInitialData(): void {
+    this.loading = true;
+    const batchIdParam = this.route.snapshot.queryParamMap.get('batchId');
+
+    forkJoin({
+      classes: this.schoolService.getClasses(false).pipe(catchError(() => of([]))),
+      batches: this.batchesService.getBatches().pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ classes, batches }) => {
+        this.classes = classes || [];
+        this.batches = batches || [];
+        this.filterBatches();
+
+        if (batchIdParam && this.batches.some(b => b.id === batchIdParam)) {
+          this.selectedBatchId = batchIdParam;
+        } else if (this.filteredBatches.length > 0) {
+          this.selectedBatchId = this.filteredBatches[0].id;
+        }
+
+        if (this.selectedBatchId) {
+          this.loadBatchTimetable(this.selectedBatchId);
+        } else {
+          this.loading = false;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -3580,9 +3607,11 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
         }
 
         this.loadTimetable();
+        this.cdr.markForCheck();
       },
       error: () => {
         this.loadTimetable();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -3619,10 +3648,12 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
         this.timetableData = this.buildTimetableDtoFromSectionRoutine(cls, sec, routine || []);
         this.selectedDay = this.timetableData.todayDayOfWeek || 'Monday';
         this.computeMaxPeriods();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.loading = false;
         this.errorMessage = err?.error?.message || 'Failed to load timetable for selected section.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -3780,10 +3811,12 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
           this.selectedBatchId = this.filteredBatches[0].id;
           this.loadBatchTimetable(this.selectedBatchId);
         }
+        this.cdr.markForCheck();
       },
       error: () => {
         this.batches = [];
         this.filteredBatches = [];
+        this.cdr.markForCheck();
       }
     });
   }
@@ -3816,6 +3849,7 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
       this.timetableData = null;
       this.errorMessage = 'No batches found for this class.';
     }
+    this.cdr.markForCheck();
   }
 
   onBatchSelect(): void {
@@ -3834,10 +3868,12 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
         this.selectedDay = res.todayDayOfWeek || 'Monday';
         this.computeMaxPeriods();
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.loading = false;
         this.errorMessage = err?.error?.message || 'Failed to load timetable for selected batch.';
+        this.cdr.markForCheck();
       }
     });
   }
@@ -3889,11 +3925,13 @@ export class StudentTimetableComponent implements OnInit, OnDestroy {
         this.selectedDay = res.todayDayOfWeek || 'Monday';
         this.computeMaxPeriods();
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error fetching student timetable:', err);
         this.errorMessage = err?.error?.message || 'Could not load your class routine. Please ensure batch or class assignments are configured.';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
