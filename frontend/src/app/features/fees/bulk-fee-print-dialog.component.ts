@@ -1936,6 +1936,10 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    const frame = document.getElementById('imserp-bulk-print-frame');
+    if (frame) {
+      try { frame.remove(); } catch (_) {}
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -3601,25 +3605,61 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       </html>
     `;
 
-    const iframe = document.createElement('iframe');
+    let iframe = document.getElementById('imserp-bulk-print-frame') as HTMLIFrameElement;
+    if (iframe) {
+      try { iframe.remove(); } catch (_) {}
+    }
+
+    iframe = document.createElement('iframe');
+    iframe.id = 'imserp-bulk-print-frame';
     iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
+    iframe.style.left = '0';
+    iframe.style.top = '0';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.zIndex = '-9999';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
     iframe.style.border = '0';
     document.body.appendChild(iframe);
 
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-      setTimeout(() => {
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    let hasPrinted = false;
+    const doPrint = () => {
+      if (hasPrinted) return;
+      hasPrinted = true;
+      try {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
-        setTimeout(() => document.body.removeChild(iframe), 2000);
-      }, 450);
+      } catch (err) {
+        console.error('Print trigger failed:', err);
+        window.print();
+      }
+    };
+
+    // Clean up ONLY after user finishes printing or cancels (never on a premature timer!)
+    if (iframe.contentWindow) {
+      iframe.contentWindow.addEventListener('afterprint', () => {
+        setTimeout(() => {
+          try {
+            if (iframe && iframe.parentNode) {
+              iframe.remove();
+            }
+          } catch (_) {}
+        }, 1000);
+      });
     }
+
+    // Give browser time to parse CSS and render all images/QR codes before opening print dialog
+    setTimeout(doPrint, 500);
   }
 }
