@@ -248,17 +248,17 @@ interface PeriodEditorRow {
                 <div class="assembly-body-grid">
                   <!-- 1. Assembly Start Time (Angular Materialized with Time Picker & Presets) -->
                   <div class="assembly-field-wrap">
-                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Assembly Start Time (प्रार्थना शुरू होने का समय)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">schedule</mat-icon>
                       <input matInput type="time"
                         [value]="to24(smartBell.settings().assemblyStartTime || '08:45 AM')"
                         (change)="onAssemblyTimeChange($any($event.target).value)"
                         class="assembly-time-picker-input" />
+                      <span class="active-time-chip" matSuffix>{{ smartBell.settings().assemblyStartTime || '08:45 AM' }}</span>
                       <button type="button" mat-icon-button matSuffix [matMenuTriggerFor]="assemblyPresetsMenu" matTooltip="Quick Time Presets">
                         <mat-icon style="color: #ea580c;">arrow_drop_down</mat-icon>
                       </button>
-                      <mat-hint>Active: <strong>{{ smartBell.settings().assemblyStartTime || '08:45 AM' }}</strong></mat-hint>
                     </mat-form-field>
 
                     <mat-menu #assemblyPresetsMenu="matMenu" class="assembly-presets-dropdown">
@@ -279,7 +279,7 @@ interface PeriodEditorRow {
                     <!-- Quick Clickable Time Pills -->
                     <div class="quick-time-pills">
                       <span class="pills-label">Presets:</span>
-                      @for (t of ['07:30 AM', '08:00 AM', '08:30 AM', '08:45 AM', '09:00 AM']; track t) {
+                      @for (t of ['07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '08:45 AM', '09:00 AM']; track t) {
                         <button type="button"
                           class="time-pill-btn"
                           [class.active]="(smartBell.settings().assemblyStartTime || '08:45 AM') === t"
@@ -292,7 +292,7 @@ interface PeriodEditorRow {
 
                   <!-- 2. Assembly Duration (Angular Materialized) -->
                   <div class="assembly-field-wrap">
-                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Assembly Duration (प्रार्थना अवधि)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">hourglass_bottom</mat-icon>
                       <mat-select
@@ -304,13 +304,12 @@ interface PeriodEditorRow {
                         <mat-option [value]="25">25 Minutes</mat-option>
                         <mat-option [value]="30">30 Minutes (Special Assembly)</mat-option>
                       </mat-select>
-                      <mat-hint>Recommended: 15–20 minutes</mat-hint>
                     </mat-form-field>
                   </div>
 
                   <!-- 3. Callout Lead Time (Angular Materialized) -->
                   <div class="assembly-field-wrap">
-                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100" subscriptSizing="dynamic">
                       <mat-label>Callout Lead Time (बुलावा घोषणा समय)</mat-label>
                       <mat-icon matPrefix class="field-icon-orange">timer</mat-icon>
                       <mat-select
@@ -322,7 +321,6 @@ interface PeriodEditorRow {
                         <mat-option [value]="5">5 Minutes Before Assembly (Recommended)</mat-option>
                         <mat-option [value]="10">10 Minutes Before Assembly</mat-option>
                       </mat-select>
-                      <mat-hint>Intimates students before prayer</mat-hint>
                     </mat-form-field>
                   </div>
 
@@ -1275,13 +1273,26 @@ interface PeriodEditorRow {
       }
     }
 
+    .active-time-chip {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #c2410c;
+      background: #ffedd5;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid #fed7aa;
+      margin-right: 2px;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+
     .quick-time-pills {
       display: flex;
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      margin-top: -10px;
-      margin-bottom: 6px;
+      margin-top: 6px;
+      margin-bottom: 4px;
       padding-left: 2px;
 
       .pills-label {

@@ -414,14 +414,6 @@ export interface BreadcrumbItem {
               </div>
             }
     
-            <!-- PWA Install App Header Button -->
-            @if (!isAppInstalled()) {
-              <button class="install-pwa-btn" (click)="installPwa()" [matTooltip]="'Install ' + (currentUser()?.instituteName || 'Campus ERP') + ' App on your Device'" aria-label="Install App" matButton="filled">
-                <mat-icon class="install-icon">install_mobile</mat-icon>
-                <span class="install-text">Install App</span>
-              </button>
-            }
-    
             <div class="header-search" [class.open]="headerSearchFocused" (click)="openAndFocusSearch()">
               <mat-icon class="search-icon" (click)="toggleSearch($event)">search</mat-icon>
               <input #headerSearchInput type="search" placeholder="Search pages..." [value]="headerSearch" (input)="onHeaderSearch($event)" (focus)="onSearchFocus()" (blur)="closeHeaderSearch()" aria-label="Search pages">
