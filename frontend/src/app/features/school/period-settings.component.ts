@@ -246,41 +246,87 @@ interface PeriodEditorRow {
 
               @if (smartBell.settings().isAssemblyEnabled) {
                 <div class="assembly-body-grid">
-                  <div class="control-row">
-                    <label class="c-label">Assembly Start Time (प्रार्थना शुरू होने का समय)</label>
-                    <input type="text"
-                      [ngModel]="smartBell.settings().assemblyStartTime"
-                      (ngModelChange)="updateBellSetting('assemblyStartTime', $event)"
-                      placeholder="e.g. 08:45 AM"
-                      class="bell-input" />
+                  <!-- 1. Assembly Start Time (Angular Materialized with Time Picker & Presets) -->
+                  <div class="assembly-field-wrap">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                      <mat-label>Assembly Start Time (प्रार्थना शुरू होने का समय)</mat-label>
+                      <mat-icon matPrefix class="field-icon-orange">schedule</mat-icon>
+                      <input matInput type="time"
+                        [value]="to24(smartBell.settings().assemblyStartTime || '08:45 AM')"
+                        (change)="onAssemblyTimeChange($any($event.target).value)"
+                        class="assembly-time-picker-input" />
+                      <button type="button" mat-icon-button matSuffix [matMenuTriggerFor]="assemblyPresetsMenu" matTooltip="Quick Time Presets">
+                        <mat-icon style="color: #ea580c;">arrow_drop_down</mat-icon>
+                      </button>
+                      <mat-hint>Active: <strong>{{ smartBell.settings().assemblyStartTime || '08:45 AM' }}</strong></mat-hint>
+                    </mat-form-field>
+
+                    <mat-menu #assemblyPresetsMenu="matMenu" class="assembly-presets-dropdown">
+                      <div class="menu-section-title">Common Morning Routine Times</div>
+                      <button mat-menu-item (click)="setAssemblyTime('07:00 AM')"><mat-icon>wb_sunny</mat-icon><span>07:00 AM (Early Summer)</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('07:15 AM')"><mat-icon>schedule</mat-icon><span>07:15 AM</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('07:30 AM')"><mat-icon>wb_sunny</mat-icon><span>07:30 AM (Summer Standard)</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('07:45 AM')"><mat-icon>schedule</mat-icon><span>07:45 AM</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('08:00 AM')"><mat-icon>school</mat-icon><span>08:00 AM (Standard Regular)</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('08:15 AM')"><mat-icon>schedule</mat-icon><span>08:15 AM</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('08:30 AM')"><mat-icon>notifications</mat-icon><span>08:30 AM</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('08:45 AM')"><mat-icon>alarm</mat-icon><span>08:45 AM (Current Default)</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('09:00 AM')"><mat-icon>ac_unit</mat-icon><span>09:00 AM (Winter Schedule)</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('09:15 AM')"><mat-icon>schedule</mat-icon><span>09:15 AM</span></button>
+                      <button mat-menu-item (click)="setAssemblyTime('09:30 AM')"><mat-icon>ac_unit</mat-icon><span>09:30 AM (Late Winter)</span></button>
+                    </mat-menu>
+
+                    <!-- Quick Clickable Time Pills -->
+                    <div class="quick-time-pills">
+                      <span class="pills-label">Presets:</span>
+                      @for (t of ['07:30 AM', '08:00 AM', '08:30 AM', '08:45 AM', '09:00 AM']; track t) {
+                        <button type="button"
+                          class="time-pill-btn"
+                          [class.active]="(smartBell.settings().assemblyStartTime || '08:45 AM') === t"
+                          (click)="setAssemblyTime(t)">
+                          {{ t }}
+                        </button>
+                      }
+                    </div>
                   </div>
 
-                  <div class="control-row">
-                    <label class="c-label">Assembly Duration (प्रार्थना अवधि)</label>
-                    <select
-                      [ngModel]="smartBell.settings().assemblyDurationMinutes"
-                      (ngModelChange)="updateBellSetting('assemblyDurationMinutes', $event)"
-                      class="bell-select">
-                      <option [ngValue]="10">10 Minutes</option>
-                      <option [ngValue]="15">15 Minutes (Standard)</option>
-                      <option [ngValue]="20">20 Minutes</option>
-                      <option [ngValue]="30">30 Minutes (Special Assembly)</option>
-                    </select>
+                  <!-- 2. Assembly Duration (Angular Materialized) -->
+                  <div class="assembly-field-wrap">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                      <mat-label>Assembly Duration (प्रार्थना अवधि)</mat-label>
+                      <mat-icon matPrefix class="field-icon-orange">hourglass_bottom</mat-icon>
+                      <mat-select
+                        [ngModel]="smartBell.settings().assemblyDurationMinutes"
+                        (ngModelChange)="updateBellSetting('assemblyDurationMinutes', $event)">
+                        <mat-option [value]="10">10 Minutes</mat-option>
+                        <mat-option [value]="15">15 Minutes (Standard)</mat-option>
+                        <mat-option [value]="20">20 Minutes</mat-option>
+                        <mat-option [value]="25">25 Minutes</mat-option>
+                        <mat-option [value]="30">30 Minutes (Special Assembly)</mat-option>
+                      </mat-select>
+                      <mat-hint>Recommended: 15–20 minutes</mat-hint>
+                    </mat-form-field>
                   </div>
 
-                  <div class="control-row">
-                    <label class="c-label">Callout Lead Time (बुलावा घोषणा समय)</label>
-                    <select
-                      [ngModel]="smartBell.settings().assemblyWarningLeadMinutes"
-                      (ngModelChange)="updateBellSetting('assemblyWarningLeadMinutes', $event)"
-                      class="bell-select">
-                      <option [ngValue]="2">2 Minutes Before Assembly</option>
-                      <option [ngValue]="3">3 Minutes Before Assembly</option>
-                      <option [ngValue]="5">5 Minutes Before Assembly (Recommended)</option>
-                      <option [ngValue]="10">10 Minutes Before Assembly</option>
-                    </select>
+                  <!-- 3. Callout Lead Time (Angular Materialized) -->
+                  <div class="assembly-field-wrap">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                      <mat-label>Callout Lead Time (बुलावा घोषणा समय)</mat-label>
+                      <mat-icon matPrefix class="field-icon-orange">timer</mat-icon>
+                      <mat-select
+                        [ngModel]="smartBell.settings().assemblyWarningLeadMinutes"
+                        (ngModelChange)="updateBellSetting('assemblyWarningLeadMinutes', $event)">
+                        <mat-option [value]="1">1 Minute Before Assembly</mat-option>
+                        <mat-option [value]="2">2 Minutes Before Assembly</mat-option>
+                        <mat-option [value]="3">3 Minutes Before Assembly</mat-option>
+                        <mat-option [value]="5">5 Minutes Before Assembly (Recommended)</mat-option>
+                        <mat-option [value]="10">10 Minutes Before Assembly</mat-option>
+                      </mat-select>
+                      <mat-hint>Intimates students before prayer</mat-hint>
+                    </mat-form-field>
                   </div>
 
+                  <!-- 4. Routine Active Days -->
                   <div class="control-row full-width-row">
                     <label class="c-label">Routine Active Days (सक्रिय दिन)</label>
                     <div class="day-check-pills">
@@ -296,22 +342,39 @@ interface PeriodEditorRow {
                     </div>
                   </div>
 
-                  <div class="control-row full-width-row">
-                    <label class="c-label">Assembly Callout Announcement (प्रार्थना बुलावा संदेश)</label>
-                    <input type="text"
-                      [ngModel]="smartBell.settings().assemblyWarningTemplateHi"
-                      (ngModelChange)="updateBellSetting('assemblyWarningTemplateHi', $event)"
-                      class="tpl-input" />
+                  <!-- 5. Assembly Callout Announcement (Angular Materialized) -->
+                  <div class="assembly-full-width-field">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                      <mat-label>Assembly Callout Announcement (प्रार्थना बुलावा संदेश)</mat-label>
+                      <mat-icon matPrefix class="field-icon-orange">campaign</mat-icon>
+                      <input matInput type="text"
+                        [ngModel]="smartBell.settings().assemblyWarningTemplateHi"
+                        (ngModelChange)="updateBellSetting('assemblyWarningTemplateHi', $event)"
+                        placeholder="ध्यान दें, सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।" />
+                      <button type="button" mat-icon-button matSuffix (click)="resetCalloutTemplate()" matTooltip="Reset to Standard Hindi Callout">
+                        <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
+                      </button>
+                      <mat-hint>Placeholders: &#123;instituteName&#125;, &#123;remainingMinutes&#125;, &#123;durationMinutes&#125;</mat-hint>
+                    </mat-form-field>
                   </div>
 
-                  <div class="control-row full-width-row">
-                    <label class="c-label">Assembly Dispersal Announcement (प्रार्थना संपन्न संदेश)</label>
-                    <input type="text"
-                      [ngModel]="smartBell.settings().assemblyDismissalTemplateHi"
-                      (ngModelChange)="updateBellSetting('assemblyDismissalTemplateHi', $event)"
-                      class="tpl-input" />
+                  <!-- 6. Assembly Dispersal Announcement (Angular Materialized) -->
+                  <div class="assembly-full-width-field">
+                    <mat-form-field appearance="outline" class="assembly-mat-field w-100">
+                      <mat-label>Assembly Dispersal Announcement (प्रार्थना संपन्न संदेश)</mat-label>
+                      <mat-icon matPrefix class="field-icon-orange">record_voice_over</mat-icon>
+                      <input matInput type="text"
+                        [ngModel]="smartBell.settings().assemblyDismissalTemplateHi"
+                        (ngModelChange)="updateBellSetting('assemblyDismissalTemplateHi', $event)"
+                        placeholder="प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।" />
+                      <button type="button" mat-icon-button matSuffix (click)="resetDispersalTemplate()" matTooltip="Reset to Standard Hindi Dispersal">
+                        <mat-icon style="font-size: 18px; color: #94a3b8;">restart_alt</mat-icon>
+                      </button>
+                      <mat-hint>Placeholders: &#123;instituteName&#125;, &#123;durationMinutes&#125;</mat-hint>
+                    </mat-form-field>
                   </div>
 
+                  <!-- 7. Action Test Buttons -->
                   <div class="assembly-test-buttons-row full-width-row">
                     <button type="button" class="btn-test-action" (click)="testAssemblyCallout()" matButton="filled">
                       <mat-icon>record_voice_over</mat-icon>
@@ -1167,6 +1230,89 @@ interface PeriodEditorRow {
 
       .full-width-row {
         grid-column: 1 / -1;
+      }
+    }
+
+    .assembly-field-wrap {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .assembly-full-width-field {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    .field-icon-orange {
+      color: #ea580c !important;
+      margin-right: 8px;
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      line-height: 20px !important;
+    }
+
+    .assembly-mat-field {
+      width: 100%;
+
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+      }
+
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+        margin-top: 2px !important;
+      }
+
+      .assembly-time-picker-input {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #0f172a;
+        cursor: pointer;
+      }
+    }
+
+    .quick-time-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: -10px;
+      margin-bottom: 6px;
+      padding-left: 2px;
+
+      .pills-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9a3412;
+      }
+
+      .time-pill-btn {
+        background: #ffffff;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover {
+          background: #ffedd5;
+          border-color: #fb923c;
+        }
+
+        &.active {
+          background: #ea580c;
+          border-color: #ea580c;
+          color: #ffffff;
+          font-weight: 700;
+          box-shadow: 0 2px 4px rgba(234, 88, 12, 0.25);
+        }
       }
     }
 
@@ -2903,6 +3049,24 @@ export class PeriodSettingsComponent implements OnInit {
     const s = this.smartBell.settings();
     const days = (s.assemblyDaysOfWeek || 'Mon,Tue,Wed,Thu,Fri,Sat').split(',').map(d => d.trim());
     return days.includes(day);
+  }
+
+  onAssemblyTimeChange(val24: string): void {
+    if (!val24) return;
+    const time12 = this.to12(val24);
+    this.updateBellSetting('assemblyStartTime', time12);
+  }
+
+  setAssemblyTime(time12: string): void {
+    this.updateBellSetting('assemblyStartTime', time12);
+  }
+
+  resetCalloutTemplate(): void {
+    this.updateBellSetting('assemblyWarningTemplateHi', 'ध्यान दें, सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।');
+  }
+
+  resetDispersalTemplate(): void {
+    this.updateBellSetting('assemblyDismissalTemplateHi', 'प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।');
   }
 
   loading = false;
