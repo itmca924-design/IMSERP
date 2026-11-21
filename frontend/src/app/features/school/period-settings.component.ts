@@ -257,22 +257,25 @@ interface PeriodEditorRow {
                       <mat-select
                         [ngModel]="selectedAssemblyTimeOption"
                         (ngModelChange)="onAssemblyTimeSelectChange($event)">
-                        <mat-option value="07:00 AM">🌅 07:00 AM (Early Summer)</mat-option>
-                        <mat-option value="07:15 AM">⏰ 07:15 AM</mat-option>
-                        <mat-option value="07:30 AM">☀️ 07:30 AM (Summer Standard)</mat-option>
-                        <mat-option value="07:45 AM">⏰ 07:45 AM</mat-option>
-                        <mat-option value="08:00 AM">🏫 08:00 AM (Standard Regular)</mat-option>
-                        <mat-option value="08:15 AM">⏰ 08:15 AM</mat-option>
-                        <mat-option value="08:30 AM">🔔 08:30 AM</mat-option>
-                        <mat-option value="08:45 AM">⏰ 08:45 AM</mat-option>
-                        <mat-option value="09:00 AM">❄️ 09:00 AM (Winter Schedule)</mat-option>
-                        <mat-option value="09:15 AM">⏰ 09:15 AM</mat-option>
-                        <mat-option value="09:30 AM">❄️ 09:30 AM (Late Winter)</mat-option>
-                        <mat-option value="09:45 AM">⏰ 09:45 AM</mat-option>
-                        <mat-option value="10:00 AM">⏰ 10:00 AM</mat-option>
+                        <mat-select-trigger>
+                          <span>{{ smartBell.settings().assemblyStartTime || '08:45 AM' }}</span>
+                        </mat-select-trigger>
+                        <mat-option value="07:00 AM">07:00 AM (Early Summer)</mat-option>
+                        <mat-option value="07:15 AM">07:15 AM</mat-option>
+                        <mat-option value="07:30 AM">07:30 AM (Summer Standard)</mat-option>
+                        <mat-option value="07:45 AM">07:45 AM</mat-option>
+                        <mat-option value="08:00 AM">08:00 AM (Standard Regular)</mat-option>
+                        <mat-option value="08:15 AM">08:15 AM</mat-option>
+                        <mat-option value="08:30 AM">08:30 AM</mat-option>
+                        <mat-option value="08:45 AM">08:45 AM</mat-option>
+                        <mat-option value="09:00 AM">09:00 AM (Winter Schedule)</mat-option>
+                        <mat-option value="09:15 AM">09:15 AM</mat-option>
+                        <mat-option value="09:30 AM">09:30 AM (Late Winter)</mat-option>
+                        <mat-option value="09:45 AM">09:45 AM</mat-option>
+                        <mat-option value="10:00 AM">10:00 AM</mat-option>
                         @if (isCustomAssemblyTime) {
                           <mat-option [value]="smartBell.settings().assemblyStartTime">
-                            ⏰ {{ smartBell.settings().assemblyStartTime }} (Custom)
+                            {{ smartBell.settings().assemblyStartTime }} (Custom)
                           </mat-option>
                         }
                         <mat-option value="CUSTOM">✏️ Custom Time (कस्टम समय दर्ज करें)...</mat-option>
