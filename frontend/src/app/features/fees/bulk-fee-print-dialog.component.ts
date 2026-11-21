@@ -2470,7 +2470,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    this.triggerIframePrint(bodyHtml);
+    this.triggerPrintWindow(bodyHtml);
   }
 
   private renderSlipHeader(meta: any, docTitleEn: string, docTitleHi: string, badgeColor: string): string {
@@ -3099,74 +3099,166 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     `;
   }
 
-  private triggerIframePrint(contentHtml: string): void {
+  private triggerPrintWindow(contentHtml: string): void {
+    const instituteTitle = this.authService.getInstituteName() || 'IMSERP Demand Bills';
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8" />
-        <title>Bulk Fee Print — ${this.authService.getInstituteName()}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Fee Demand Bills Print Preview — ${instituteTitle}</title>
         <style>
           @page {
             size: A4 portrait;
-            margin: 4mm 5mm;
+            margin: 5mm 6mm;
           }
           * {
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
           }
-          body {
+          html, body {
             margin: 0;
             padding: 0;
             color: #0f172a;
-            background: #ffffff;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* Fixed A4 Page Container - Strict Zero Page-Break Overflow */
-          .a4-page {
-            width: 100%;
-            height: 287mm;
-            max-height: 287mm;
-            box-sizing: border-box;
-            page-break-after: always;
-            break-after: page;
-            page-break-inside: avoid;
-            break-inside: avoid;
-            overflow: hidden;
-            position: relative;
-            background: #ffffff;
+          /* ── Screen UI Top Action Bar ── */
+          .no-print-topbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            color: #ffffff;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 99999;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            font-size: 13px;
           }
-          .a4-page:last-child {
-            page-break-after: auto;
-            break-after: auto;
+          .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .btn-print {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+            transition: all 0.15s ease;
+          }
+          .btn-print:hover {
+            background: #1d4ed8;
+          }
+          .btn-close {
+            background: #475569;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+          }
+          .btn-close:hover {
+            background: #64748b;
+          }
+          .topbar-info {
+            font-weight: 600;
+            color: #cbd5e1;
+            font-size: 12px;
+          }
+
+          @media screen {
+            body {
+              background: #e2e8f0;
+              min-height: 100vh;
+            }
+            .print-pages-wrapper {
+              padding: 20px 10px 40px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 20px;
+            }
+            .a4-page {
+              background: #ffffff;
+              box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+              width: 210mm;
+              min-height: 297mm;
+              box-sizing: border-box;
+              padding: 6mm 8mm;
+            }
+          }
+
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            body {
+              background: #ffffff !important;
+            }
+            .print-pages-wrapper {
+              padding: 0 !important;
+              display: block !important;
+            }
+            .a4-page {
+              width: 100% !important;
+              min-height: 280mm !important;
+              page-break-after: always;
+              break-after: page;
+              page-break-inside: avoid;
+              break-inside: avoid;
+              box-sizing: border-box;
+              padding: 0 !important;
+            }
+            .a4-page:last-child {
+              page-break-after: auto;
+              break-after: auto;
+            }
           }
 
           /* 4 Students per A4 (2x2 Demand Bill Grid) */
-          .a4-page.grid-4-page {
+          .grid-4-page {
             display: grid;
-            grid-template-columns: calc(50% - 2mm) calc(50% - 2mm);
-            grid-template-rows: calc(50% - 2mm) calc(50% - 2mm);
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
             gap: 4mm;
-            padding: 1mm;
+            height: 280mm;
+            box-sizing: border-box;
           }
 
           /* 8 Students per A4 (2x4 Pocket Slips / Diary Strips Grid) */
-          .a4-page.grid-8-page {
+          .grid-8-page {
             display: grid;
-            grid-template-columns: calc(50% - 1.5mm) calc(50% - 1.5mm);
-            grid-template-rows: repeat(4, calc(25% - 2.5mm));
-            gap: 3.3mm;
-            padding: 1mm;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 3mm;
+            height: 280mm;
+            box-sizing: border-box;
           }
 
           /* 2 Students per A4 (Half-Page) */
-          .a4-page.grid-2-page {
+          .grid-2-page {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 2mm;
+            height: 280mm;
+            box-sizing: border-box;
           }
           .grid-2-page .slip-card {
             height: calc(50% - 6mm);
@@ -3177,11 +3269,12 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           }
 
           /* Counterfoil (1 Student per A4) */
-          .a4-page.counterfoil-page {
+          .counterfoil-page {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 2mm;
+            height: 280mm;
+            box-sizing: border-box;
           }
           .counterfoil-page .slip-card {
             height: calc(50% - 6mm);
@@ -3601,76 +3694,47 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .cut-line { text-align: center; font-size: 9.5px; color: #64748b; margin: 6px 0; font-weight: 700; letter-spacing: 0.05em; }
         </style>
       </head>
-      <body>${contentHtml}</body>
+      <body>
+        <div class="no-print no-print-topbar">
+          <div class="topbar-actions">
+            <button class="btn-print" onclick="window.print()">
+              <span>🖨️ Print / Save as PDF</span>
+            </button>
+            <button class="btn-close" onclick="window.close()">✕ Close</button>
+          </div>
+          <div class="topbar-info">
+            ${instituteTitle} • Official Fee Demand Bills (A4 Print Ready)
+          </div>
+        </div>
+
+        <div class="print-pages-wrapper">
+          ${contentHtml}
+        </div>
+
+        <script>
+          window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+              window.focus();
+              window.print();
+            }, 300);
+          });
+        </script>
+      </body>
       </html>
     `;
 
-    let iframe = document.getElementById('imserp-bulk-print-frame') as HTMLIFrameElement;
-    if (iframe) {
-      try { iframe.remove(); } catch (_) {}
-    }
-
-    iframe = document.createElement('iframe');
-    iframe.id = 'imserp-bulk-print-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!doc) {
-      window.print();
-      return;
-    }
-
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    // Check images (QR codes and logos) to ensure they are rendered before opening print dialog
-    const images = doc.querySelectorAll('img');
-    let loadedCount = 0;
-    const totalImages = images.length;
-
-    let hasPrinted = false;
-    const doPrint = () => {
-      if (hasPrinted) return;
-      hasPrinted = true;
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err) {
-        console.error('Print trigger failed:', err);
-        window.print();
-      }
-    };
-
-    if (totalImages === 0) {
-      setTimeout(doPrint, 250);
+    // Open clean dedicated print preview tab
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(html);
+      printWin.document.close();
     } else {
-      const onImageDone = () => {
-        loadedCount++;
-        if (loadedCount >= totalImages) {
-          setTimeout(doPrint, 150);
-        }
-      };
-
-      images.forEach(img => {
-        if (img.complete) {
-          onImageDone();
-        } else {
-          img.onload = onImageDone;
-          img.onerror = onImageDone;
-        }
-      });
-
-      // Fallback timer: ensure print dialog opens within 500ms max
-      setTimeout(doPrint, 500);
+      this.confirmDialog.alert(
+        'Popup Blocked / पॉपअप अवरुद्ध',
+        'कृपया अपने ब्राउज़र में पॉपअप (Pop-ups) की अनुमति दें ताकि नया प्रिंट टैब खुल सके।',
+        'warning'
+      );
     }
-    // NOTE: The iframe is deliberately NEVER removed on a timer or afterprint event.
-    // Keeping the iframe in the DOM prevents Chrome from aborting or hiding the print preview dialog.
   }
 }
