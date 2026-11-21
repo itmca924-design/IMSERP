@@ -306,48 +306,69 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
                 }
               </div>
             }
-            <!-- Day Selector Navigation Bar -->
+            <!-- Sleek Compact Timetable Action & Navigation Bar -->
             <div class="day-navigation-strip">
-              <div class="day-pills-row">
+              <!-- Left: Segmented View Mode Switcher -->
+              <div class="view-toggle-segmented">
                 <button
                   type="button"
-                  class="day-pill-btn today-highlight-btn"
-                  [class.active]="selectedDay === timetableData.todayDayOfWeek"
-                  (click)="selectDay(timetableData.todayDayOfWeek)" matButton="filled">
-                  <mat-icon>bolt</mat-icon>
-                  <span>Today ({{ timetableData.todayDayOfWeek }})</span>
-                  <span class="period-count-badge">{{ (timetableData.weeklySchedule[timetableData.todayDayOfWeek] || []).length }}</span>
-                </button>
-                @for (day of daysList; track day) {
-                  <button
-                    type="button"
-                    class="day-pill-btn"
-                    [class.active]="selectedDay === day"
-                    [class.today-day]="day === timetableData.todayDayOfWeek"
-                    (click)="selectDay(day)" matButton="filled">
-                    <span>{{ day }}</span>
-                    <span class="period-count-badge">{{ (timetableData.weeklySchedule[day] || []).length }}</span>
-                  </button>
-                }
-              </div>
-              <div class="view-toggle-btns">
-                <button
-                  type="button"
-                  class="mode-btn"
+                  class="seg-mode-btn"
                   [class.active]="viewMode === 'daily'"
                   (click)="viewMode = 'daily'"
-                  matTooltip="Daily Timeline View" matButton="filled">
-                  <mat-icon>view_day</mat-icon> Daily Timeline
+                  matTooltip="Daily Timeline View">
+                  <mat-icon>view_day</mat-icon>
+                  <span>Daily Timeline</span>
                 </button>
                 <button
                   type="button"
-                  class="mode-btn"
+                  class="seg-mode-btn"
                   [class.active]="viewMode === 'weekly'"
                   (click)="viewMode = 'weekly'"
-                  matTooltip="Weekly Full RoutineMatrix" matButton="filled">
-                  <mat-icon>grid_view</mat-icon> Full Week Grid
+                  matTooltip="Full Weekly Routine Matrix">
+                  <mat-icon>grid_view</mat-icon>
+                  <span>Full Week Grid</span>
                 </button>
               </div>
+
+              <!-- Right: Compact Day Selector Pills (Active in Daily Mode) -->
+              @if (viewMode === 'daily') {
+                <div class="day-pills-row">
+                  <button
+                    type="button"
+                    class="day-chip-btn today-jump-chip"
+                    [class.active]="selectedDay === timetableData.todayDayOfWeek"
+                    (click)="selectDay(timetableData.todayDayOfWeek)"
+                    matTooltip="Jump to Today's Routine">
+                    <mat-icon class="chip-icon">bolt</mat-icon>
+                    <span class="chip-text">Today</span>
+                  </button>
+
+                  <div class="chip-separator"></div>
+
+                  @for (day of daysList; track day) {
+                    <button
+                      type="button"
+                      class="day-chip-btn"
+                      [class.active]="selectedDay === day"
+                      [class.is-today]="day === timetableData.todayDayOfWeek"
+                      (click)="selectDay(day)"
+                      [matTooltip]="day + (day === timetableData.todayDayOfWeek ? ' (Today)' : '')">
+                      <span class="day-name-abbr">{{ day.slice(0, 3) }}</span>
+                      @if (day === timetableData.todayDayOfWeek) {
+                        <span class="today-dot" title="Today"></span>
+                      }
+                      <span class="lecture-badge" [class.has-lectures]="(timetableData.weeklySchedule[day] || []).length > 0">
+                        {{ (timetableData.weeklySchedule[day] || []).length }}
+                      </span>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <div class="weekly-matrix-tag">
+                  <mat-icon>calendar_view_week</mat-icon>
+                  <span>6-Day Academic Routine Matrix (Mon – Sat)</span>
+                </div>
+              }
             </div>
             <!-- MODE 1: DAILY TIMELINE VIEW -->
             @if (viewMode === 'daily') {
@@ -1480,126 +1501,215 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
     }
 
     /* =========================================================================
-       DAY NAVIGATION STRIP
+       SLEEK COMPACT TIMETABLE NAVIGATION STRIP (Smart Material 3 Design)
        ========================================================================= */
     .day-navigation-strip {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 6px 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      gap: 12px;
       margin-bottom: 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
-    .day-pills-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-
-    .day-pill-btn {
+    /* Left: Segmented Mode Switcher */
+    .view-toggle-segmented {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      padding: 8px 16px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #475569;
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      white-space: nowrap;
-    }
-
-    .day-pill-btn:hover {
       background: #f1f5f9;
-      color: #1e293b;
-      border-color: #cbd5e1;
-    }
-
-    .day-pill-btn.active {
-      background: #0f172a;
-      color: #ffffff;
-      border-color: #0f172a;
-      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
-    }
-
-    .today-highlight-btn {
-      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-      color: #1d4ed8;
-      border-color: #bfdbfe;
-    }
-
-    .today-highlight-btn:hover {
-      background: #bfdbfe;
-      color: #1e40af;
-    }
-
-    .today-highlight-btn.active {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-      color: #ffffff;
-      border-color: #2563eb;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-    }
-
-    .period-count-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      background: rgba(0, 0, 0, 0.08);
-      padding: 1px 6px;
-      border-radius: 10px;
-    }
-
-    .active .period-count-badge {
-      background: rgba(255, 255, 255, 0.25);
-      color: #ffffff;
-    }
-
-    .view-toggle-btns {
-      display: flex;
-      align-items: center;
-      background: #ffffff;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 3px;
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+      flex-shrink: 0;
     }
 
-    .mode-btn {
+    .seg-mode-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       background: transparent;
       border: none;
-      padding: 6px 14px;
-      border-radius: 9px;
+      padding: 5px 12px;
+      border-radius: 6px;
       font-size: 12px;
       font-weight: 600;
       color: #64748b;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
+
+      &:hover {
+        color: #1e293b;
+      }
+
+      &.active {
+        background: #ffffff;
+        color: #1e40af;
+        font-weight: 700;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+        mat-icon {
+          color: #2563eb;
+        }
+      }
     }
 
-    .mode-btn mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+    /* Right: Compact Day Selector Pills */
+    .day-pills-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      &::-webkit-scrollbar { display: none; }
     }
 
-    .mode-btn:hover {
-      color: #0f172a;
+    .chip-separator {
+      width: 1px;
+      height: 18px;
+      background: #e2e8f0;
+      margin: 0 2px;
+      flex-shrink: 0;
     }
 
-    .mode-btn.active {
-      background: #f1f5f9;
-      color: #0f172a;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    .day-chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 4px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+      height: 28px;
+      box-sizing: border-box;
+
+      &:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+        border-color: #cbd5e1;
+      }
+
+      &.is-today {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+
+        .day-name-abbr {
+          color: #ffffff;
+          font-weight: 700;
+        }
+
+        .today-dot {
+          background: #93c5fd;
+        }
+
+        .lecture-badge {
+          background: rgba(255, 255, 255, 0.25);
+          color: #ffffff;
+        }
+      }
+    }
+
+    .today-jump-chip {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+      font-weight: 700;
+
+      .chip-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #2563eb;
+      }
+
+      &:hover {
+        background: #dbeafe;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        color: #ffffff;
+        border-color: #1d4ed8;
+
+        .chip-icon {
+          color: #ffd700;
+        }
+      }
+    }
+
+    .today-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #2563eb;
+      display: inline-block;
+    }
+
+    .lecture-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: #64748b;
+      padding: 1px 5px;
+      min-width: 15px;
+      height: 15px;
+      border-radius: 10px;
+      box-sizing: border-box;
+
+      &.has-lectures {
+        background: #dcfce7;
+        color: #15803d;
+      }
+    }
+
+    .weekly-matrix-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #2563eb;
+      background: #eff6ff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #bfdbfe;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
     }
 
     /* =========================================================================
@@ -3286,35 +3396,35 @@ import { SectionRoutineDialogComponent } from '../school/section-routine-dialog.
       .day-navigation-strip {
         flex-direction: column;
         align-items: stretch;
-        gap: 10px;
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .view-toggle-segmented {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        box-sizing: border-box;
+      }
+
+      .seg-mode-btn {
+        justify-content: center;
+        padding: 6px;
+        font-size: 0.78rem;
       }
 
       .day-pills-row {
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        padding-bottom: 6px;
-        gap: 6px;
+        padding-bottom: 4px;
+        gap: 5px;
       }
 
-      .day-pill-btn {
-        padding: 6px 12px;
-        font-size: 0.78rem;
-        border-radius: 8px;
-        flex-shrink: 0;
-      }
-
-      .view-toggle-btns {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-      }
-
-      .mode-btn {
-        justify-content: center;
-        padding: 8px;
-        font-size: 0.78rem;
+      .day-chip-btn {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        height: 26px;
       }
 
       /* Timeline Day Header */
