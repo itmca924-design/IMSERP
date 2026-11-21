@@ -2702,6 +2702,28 @@ public class SmartBellSetting
     public string PeriodOverTemplateHi { get; set; } = "{periodName} का समय समाप्त हो चुका है।";
     public string PeriodOverTemplateEn { get; set; } = "{periodName} has concluded.";
 
+    // 🌅 Morning Assembly & Daily Prayer Automation
+    public bool IsAssemblyEnabled { get; set; } = true;
+    public string AssemblyStartTime { get; set; } = "08:45 AM";
+    public int AssemblyDurationMinutes { get; set; } = 15;
+    public int AssemblyWarningLeadMinutes { get; set; } = 5;
+    public string AssemblyDaysOfWeek { get; set; } = "Mon,Tue,Wed,Thu,Fri,Sat";
+    public string AssemblyWarningTemplateHi { get; set; } = "ध्यान दें: सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।";
+    public string AssemblyWarningTemplateEn { get; set; } = "Attention: All teachers and students, please assemble in the main hall or ground for morning prayer assembly.";
+    public string AssemblyDismissalTemplateHi { get; set; } = "प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।";
+    public string AssemblyDismissalTemplateEn { get; set; } = "Morning prayer has concluded. Students, please proceed to your respective classrooms in an orderly queue.";
+
+    // 🚨 Emergency & Instant Siren
+    public bool EmergencySirenEnabled { get; set; } = true;
+
+    // 🔌 Physical Hardware Relay / Wi-Fi Smart Switch
+    public bool IsPhysicalRelayEnabled { get; set; } = false;
+    public string? PhysicalRelayWebhookUrl { get; set; }
+    public int PhysicalRelayPulseSeconds { get; set; } = 3;
+
+    // 📚 Scope
+    public string DivisionScope { get; set; } = "All"; // School, Coaching, All
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]

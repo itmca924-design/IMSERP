@@ -132,24 +132,64 @@ interface PeriodEditorRow {
                 </p>
               </div>
 
-              <!-- Main Automation Toggle -->
-              <div class="smart-bell-toggle-box">
-                <span class="toggle-label">Auto Bell Engine</span>
-                <mat-slide-toggle
-                  [checked]="smartBell.settings().isEnabled"
-                  (change)="onToggleSmartBell($event.checked)"
-                  color="primary">
-                  {{ smartBell.settings().isEnabled ? 'ON (सक्रिय)' : 'OFF (बंद)' }}
-                </mat-slide-toggle>
+              <!-- Header Quick Actions & Main Automation Toggle -->
+              <div class="smart-bell-header-actions">
+                <button type="button" class="btn-instant-ring" (click)="triggerManualBellNow(3)" matTooltip="Ring instant 3-second school bell" matButton="filled">
+                  <mat-icon>notifications_active</mat-icon>
+                  <span>Ring Bell Now</span>
+                </button>
+
+                @if (!smartBell.isEmergencyActive()) {
+                  <button type="button" class="btn-emergency-siren" (click)="triggerEmergencyAlarm()" matTooltip="Trigger campus emergency evacuation siren" matButton="filled">
+                    <mat-icon>warning</mat-icon>
+                    <span>Emergency Siren</span>
+                  </button>
+                } @else {
+                  <button type="button" class="btn-stop-siren pulse-emergency" (click)="stopEmergencyAlarm()" matTooltip="Stop emergency alarm sound immediately" matButton="filled">
+                    <mat-icon>stop_circle</mat-icon>
+                    <span>Stop Siren!</span>
+                  </button>
+                }
+
+                <div class="smart-bell-toggle-box">
+                  <span class="toggle-label">Auto Bell Engine</span>
+                  <mat-slide-toggle
+                    [checked]="smartBell.settings().isEnabled"
+                    (change)="onToggleSmartBell($event.checked)"
+                    color="primary">
+                    {{ smartBell.settings().isEnabled ? 'ON (सक्रिय)' : 'OFF (बंद)' }}
+                  </mat-slide-toggle>
+                </div>
               </div>
             </div>
 
             <!-- Live Status & Countdown Banner -->
-            <div class="live-countdown-banner">
+            <div class="live-countdown-banner" [class.banner-emergency]="smartBell.isEmergencyActive()" [class.banner-assembly]="smartBell.isAssemblyLive()">
               <div class="live-banner-left">
-                <mat-icon class="banner-icon">{{ smartBell.currentSlot() ? 'timelapse' : 'schedule' }}</mat-icon>
+                <mat-icon class="banner-icon">{{ smartBell.isEmergencyActive() ? 'warning' : (smartBell.isAssemblyLive() ? 'wb_sunny' : (smartBell.currentSlot() ? 'timelapse' : 'schedule')) }}</mat-icon>
                 <div class="banner-info">
-                  @if (smartBell.currentSlot()) {
+                  @if (smartBell.isEmergencyActive()) {
+                    <div class="banner-slot-name text-danger font-bold">
+                      🚨 CAMPUS EMERGENCY EVACUATION ALARM ACTIVE!
+                    </div>
+                    <div class="banner-subtext">
+                      Alarm sirens and emergency evacuation voice broadcast in progress. Click Stop Siren to deactivate.
+                    </div>
+                  } @else if (smartBell.isAssemblyLive()) {
+                    <div class="banner-slot-name text-assembly-live">
+                      🌅 Morning Prayer Assembly In Progress (प्रातःकालीन प्रार्थना सभा जारी)
+                    </div>
+                    <div class="banner-subtext">
+                      Assembly concluding bell & classroom dispersal announcement will fire in {{ smartBell.assemblyCountdownSeconds() }}s.
+                    </div>
+                  } @else if (smartBell.isAssemblyUpcoming()) {
+                    <div class="banner-slot-name text-assembly-upcoming">
+                      🌅 Upcoming: Morning Prayer Assembly at {{ smartBell.settings().assemblyStartTime }}
+                    </div>
+                    <div class="banner-subtext">
+                      Students assembling callout active. Assembly start bell will ring in {{ smartBell.assemblyCountdownSeconds() }}s.
+                    </div>
+                  } @else if (smartBell.currentSlot()) {
                     <div class="banner-slot-name">
                       Currently Running: <strong>{{ smartBell.currentSlot()?.name }}</strong>
                       <span class="slot-time-badge">{{ smartBell.currentSlot()?.timeSlot }}</span>
@@ -174,10 +214,120 @@ interface PeriodEditorRow {
 
               <div class="live-banner-right">
                 <div class="countdown-clock">
-                  <span class="countdown-label">Time Remaining:</span>
-                  <span class="countdown-val">{{ smartBell.remainingMinutesFormatted() }}</span>
+                  <span class="countdown-label">{{ smartBell.isAssemblyLive() || smartBell.isAssemblyUpcoming() ? 'Assembly Timer:' : 'Time Remaining:' }}</span>
+                  <span class="countdown-val">
+                    {{ smartBell.isAssemblyLive() || smartBell.isAssemblyUpcoming() ? (smartBell.assemblyCountdownSeconds() + 's') : smartBell.remainingMinutesFormatted() }}
+                  </span>
                 </div>
               </div>
+            </div>
+
+            <!-- 🌅 MORNING ASSEMBLY & DAILY PRAYER AUTOMATION PANEL -->
+            <div class="assembly-routine-card mat-elevation-z1">
+              <div class="assembly-card-header">
+                <div class="assembly-header-left">
+                  <div class="assembly-icon-chip">
+                    <mat-icon>wb_sunny</mat-icon>
+                  </div>
+                  <div>
+                    <h4 class="assembly-title">🌅 Morning Assembly & Daily Prayer Automation (प्रातःकालीन प्रार्थना सभा)</h4>
+                    <p class="assembly-sub">Automatically announces students to gather for morning prayer and rings assembly commencement and dispersal bells.</p>
+                  </div>
+                </div>
+                <div class="assembly-header-right">
+                  <mat-slide-toggle
+                    [checked]="smartBell.settings().isAssemblyEnabled"
+                    (change)="updateBellSetting('isAssemblyEnabled', $event.checked)"
+                    color="primary">
+                    {{ smartBell.settings().isAssemblyEnabled ? 'Active (सक्रिय)' : 'Muted (बंद)' }}
+                  </mat-slide-toggle>
+                </div>
+              </div>
+
+              @if (smartBell.settings().isAssemblyEnabled) {
+                <div class="assembly-body-grid">
+                  <div class="control-row">
+                    <label class="c-label">Assembly Start Time (प्रार्थना शुरू होने का समय)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().assemblyStartTime"
+                      (ngModelChange)="updateBellSetting('assemblyStartTime', $event)"
+                      placeholder="e.g. 08:45 AM"
+                      class="bell-input" />
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Assembly Duration (प्रार्थना अवधि)</label>
+                    <select
+                      [ngModel]="smartBell.settings().assemblyDurationMinutes"
+                      (ngModelChange)="updateBellSetting('assemblyDurationMinutes', $event)"
+                      class="bell-select">
+                      <option [ngValue]="10">10 Minutes</option>
+                      <option [ngValue]="15">15 Minutes (Standard)</option>
+                      <option [ngValue]="20">20 Minutes</option>
+                      <option [ngValue]="30">30 Minutes (Special Assembly)</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Callout Lead Time (बुलावा घोषणा समय)</label>
+                    <select
+                      [ngModel]="smartBell.settings().assemblyWarningLeadMinutes"
+                      (ngModelChange)="updateBellSetting('assemblyWarningLeadMinutes', $event)"
+                      class="bell-select">
+                      <option [ngValue]="2">2 Minutes Before Assembly</option>
+                      <option [ngValue]="3">3 Minutes Before Assembly</option>
+                      <option [ngValue]="5">5 Minutes Before Assembly (Recommended)</option>
+                      <option [ngValue]="10">10 Minutes Before Assembly</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row full-width-row">
+                    <label class="c-label">Routine Active Days (सक्रिय दिन)</label>
+                    <div class="day-check-pills">
+                      @for (d of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track d) {
+                        <button type="button"
+                          class="day-check-btn"
+                          [class.active]="isAssemblyDayActive(d)"
+                          (click)="toggleAssemblyDay(d)">
+                          <mat-icon>{{ isAssemblyDayActive(d) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                          <span>{{ d }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="control-row full-width-row">
+                    <label class="c-label">Assembly Callout Announcement (प्रार्थना बुलावा संदेश)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().assemblyWarningTemplateHi"
+                      (ngModelChange)="updateBellSetting('assemblyWarningTemplateHi', $event)"
+                      class="tpl-input" />
+                  </div>
+
+                  <div class="control-row full-width-row">
+                    <label class="c-label">Assembly Dispersal Announcement (प्रार्थना संपन्न संदेश)</label>
+                    <input type="text"
+                      [ngModel]="smartBell.settings().assemblyDismissalTemplateHi"
+                      (ngModelChange)="updateBellSetting('assemblyDismissalTemplateHi', $event)"
+                      class="tpl-input" />
+                  </div>
+
+                  <div class="assembly-test-buttons-row full-width-row">
+                    <button type="button" class="btn-test-action" (click)="testAssemblyCallout()" matButton="filled">
+                      <mat-icon>record_voice_over</mat-icon>
+                      <span>📢 Test Callout Voice</span>
+                    </button>
+                    <button type="button" class="btn-test-action" (click)="testAssemblyBell()" matButton="filled">
+                      <mat-icon>notifications_active</mat-icon>
+                      <span>🔔 Test Assembly Bell</span>
+                    </button>
+                    <button type="button" class="btn-test-action highlight-btn" (click)="testAssemblyDismissal()" matButton="filled">
+                      <mat-icon>directions_walk</mat-icon>
+                      <span>🚶 Test Dispersal Call</span>
+                    </button>
+                  </div>
+                </div>
+              }
             </div>
 
             <!-- Configuration & Trigger Controls Grid -->
@@ -291,6 +441,39 @@ interface PeriodEditorRow {
                       <option value="RoomSpeakers">📶 Wi-Fi Room Speakers (कमरा-वार आईपी स्पीकर)</option>
                     </select>
                   </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Division Operation Scope</label>
+                    <select
+                      [ngModel]="smartBell.settings().divisionScope || 'All'"
+                      (ngModelChange)="updateBellSetting('divisionScope', $event)"
+                      class="bell-select">
+                      <option value="All">🏛️ All Divisions (School + Coaching Consolidated)</option>
+                      <option value="School">🏫 School Division Only</option>
+                      <option value="Coaching">📚 Coaching Division Only</option>
+                    </select>
+                  </div>
+
+                  <div class="control-row">
+                    <label class="c-label">Physical Wi-Fi IoT Relay (220V Bell)</label>
+                    <mat-slide-toggle
+                      [checked]="smartBell.settings().isPhysicalRelayEnabled"
+                      (change)="updateBellSetting('isPhysicalRelayEnabled', $event.checked)"
+                      color="primary">
+                      {{ smartBell.settings().isPhysicalRelayEnabled ? 'Enabled' : 'Disabled' }}
+                    </mat-slide-toggle>
+                  </div>
+
+                  @if (smartBell.settings().isPhysicalRelayEnabled) {
+                    <div class="control-row">
+                      <label class="c-label">Relay Webhook / Local IP URL</label>
+                      <input type="text"
+                        [ngModel]="smartBell.settings().physicalRelayWebhookUrl"
+                        (ngModelChange)="updateBellSetting('physicalRelayWebhookUrl', $event)"
+                        placeholder="http://192.168.1.150/relay/0?turn=on&timer=3"
+                        class="tpl-input" />
+                    </div>
+                  }
 
                   <!-- Instant Interactive Test Buttons -->
                   <div class="bell-test-buttons-wrap">
@@ -847,6 +1030,71 @@ interface PeriodEditorRow {
         }
       }
 
+      .smart-bell-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .btn-instant-ring {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        transition: all 0.15s ease;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
+        &:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3); }
+      }
+
+      .btn-emergency-siren {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #dc2626; }
+        &:hover { background: #fee2e2; border-color: #fca5a5; }
+      }
+
+      .btn-stop-siren {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #dc2626;
+        color: #ffffff;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 800;
+        cursor: pointer;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .pulse-emergency {
+        animation: pulse-red 1s infinite alternate;
+      }
+      @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+        100% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+      }
+
       .smart-bell-toggle-box {
         display: flex;
         flex-direction: column;
@@ -860,6 +1108,127 @@ interface PeriodEditorRow {
           letter-spacing: 0.5px;
         }
       }
+    }
+
+    /* 🌅 Morning Assembly Card Styling */
+    .assembly-routine-card {
+      margin: 0 20px 16px;
+      background: #ffffff;
+      border: 1px solid #fed7aa;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .assembly-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+      border-bottom: 1px solid #fed7aa;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      .assembly-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .assembly-icon-chip {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #ea580c;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      }
+      .assembly-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #9a3412;
+      }
+      .assembly-sub {
+        margin: 2px 0 0;
+        font-size: 0.78rem;
+        color: #c2410c;
+      }
+    }
+
+    .assembly-body-grid {
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      align-items: flex-start;
+
+      .full-width-row {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .day-check-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .day-check-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+
+      &.active {
+        background: #ffedd5;
+        border-color: #fb923c;
+        color: #9a3412;
+        font-weight: 700;
+        mat-icon { color: #ea580c; }
+      }
+    }
+
+    .assembly-test-buttons-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed #fed7aa;
+    }
+
+    .banner-assembly {
+      border-left: 4px solid #ea580c;
+      background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%) !important;
+    }
+
+    .banner-emergency {
+      border-left: 4px solid #dc2626;
+      background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%) !important;
+    }
+
+    .text-assembly-live {
+      color: #ea580c !important;
+      font-weight: 700;
+    }
+
+    .text-assembly-upcoming {
+      color: #c2410c !important;
+      font-weight: 600;
     }
 
     @keyframes bell-ring {
@@ -2481,6 +2850,59 @@ export class PeriodSettingsComponent implements OnInit {
     setTimeout(() => {
       this.smartBell.triggerPeriodEndBell(active);
     }, 4500);
+  }
+
+  triggerManualBellNow(seconds: number = 3): void {
+    this.smartBell.triggerManualBell(seconds);
+  }
+
+  triggerEmergencyAlarm(): void {
+    this.confirmDialog.confirm(
+      '🚨 Activate Emergency Siren?',
+      'Are you sure you want to trigger the campus-wide Emergency Evacuation Siren? This will immediately broadcast alarm tones and evacuation warnings across speakers.',
+      'Yes, Activate Siren',
+      'Cancel'
+    ).subscribe((confirmed) => {
+      if (confirmed) {
+        this.smartBell.triggerEmergencySiren();
+      }
+    });
+  }
+
+  stopEmergencyAlarm(): void {
+    this.smartBell.stopEmergencySiren();
+  }
+
+  testAssemblyCallout(): void {
+    const s = this.smartBell.settings();
+    this.smartBell.announceAssemblyCallout(s, s.assemblyWarningLeadMinutes || 5);
+  }
+
+  testAssemblyBell(): void {
+    const s = this.smartBell.settings();
+    this.smartBell.triggerAssemblyStartBell(s);
+  }
+
+  testAssemblyDismissal(): void {
+    const s = this.smartBell.settings();
+    this.smartBell.triggerAssemblyConclusion(s);
+  }
+
+  toggleAssemblyDay(day: string): void {
+    const s = this.smartBell.settings();
+    let days = (s.assemblyDaysOfWeek || 'Mon,Tue,Wed,Thu,Fri,Sat').split(',').map(d => d.trim()).filter(Boolean);
+    if (days.includes(day)) {
+      days = days.filter(d => d !== day);
+    } else {
+      days.push(day);
+    }
+    this.updateBellSetting('assemblyDaysOfWeek', days.join(','));
+  }
+
+  isAssemblyDayActive(day: string): boolean {
+    const s = this.smartBell.settings();
+    const days = (s.assemblyDaysOfWeek || 'Mon,Tue,Wed,Thu,Fri,Sat').split(',').map(d => d.trim());
+    return days.includes(day);
   }
 
   loading = false;

@@ -558,6 +558,68 @@ export interface BreadcrumbItem {
                 </div>
               }
             </mat-menu>
+
+            <!-- 🔔 Smart Bell Live Tracker Widget -->
+            @if (smartBell.settings().isEnabled) {
+              <button [matMenuTriggerFor]="bellStatusMenu"
+                class="header-bell-widget"
+                [class.bell-live]="smartBell.currentSlot() || smartBell.isAssemblyLive()"
+                [class.bell-emergency]="smartBell.isEmergencyActive()"
+                matTooltip="Smart Campus Bell & Routine Status">
+                <mat-icon class="bell-widget-icon" [class.bell-ringing]="smartBell.isPlayingAudio() || smartBell.isSpeaking()">
+                  {{ smartBell.isEmergencyActive() ? 'warning' : (smartBell.isAssemblyLive() ? 'wb_sunny' : (smartBell.currentSlot() ? 'notifications_active' : 'notifications')) }}
+                </mat-icon>
+                <span class="bell-widget-text">
+                  @if (smartBell.isEmergencyActive()) {
+                    🚨 EMERGENCY ALARM
+                  } @else if (smartBell.isAssemblyLive()) {
+                    🌅 Assembly ({{ smartBell.assemblyCountdownSeconds() }}s)
+                  } @else if (smartBell.isAssemblyUpcoming()) {
+                    🌅 Assembly in {{ smartBell.assemblyCountdownSeconds() }}s
+                  } @else if (smartBell.currentSlot()) {
+                    {{ smartBell.currentSlot()?.name }} ({{ smartBell.remainingMinutesFormatted() }})
+                  } @else {
+                    Bell Standby
+                  }
+                </span>
+              </button>
+
+              <mat-menu #bellStatusMenu="matMenu" xPosition="before" class="bell-status-dropdown-panel">
+                <div class="bell-dropdown-header" (click)="$event.stopPropagation()">
+                  <div class="bd-title-row">
+                    <mat-icon color="primary">notifications_active</mat-icon>
+                    <strong>Smart Campus Bell Live Status</strong>
+                  </div>
+                  <div class="bd-current-desc">
+                    @if (smartBell.isEmergencyActive()) {
+                      <span class="text-danger font-bold">Campus Emergency Siren Active!</span>
+                    } @else if (smartBell.isAssemblyLive()) {
+                      <span>Morning Assembly in progress ({{ smartBell.assemblyCountdownSeconds() }}s remaining).</span>
+                    } @else if (smartBell.currentSlot()) {
+                      <span>Running: <strong>{{ smartBell.currentSlot()?.name }}</strong> (Ends in {{ smartBell.remainingMinutesFormatted() }})</span>
+                    } @else {
+                      <span>Timetable Standby. Next Bell tracks automatically.</span>
+                    }
+                  </div>
+                </div>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="smartBell.triggerManualBell(3)">
+                  <mat-icon style="color: #2563eb;">notifications</mat-icon>
+                  <span>Ring Instant Bell Now (3 sec)</span>
+                </button>
+                @if (smartBell.isEmergencyActive()) {
+                  <button mat-menu-item (click)="smartBell.stopEmergencySiren()" style="color: #dc2626;">
+                    <mat-icon color="warn">stop_circle</mat-icon>
+                    <strong>Stop Emergency Siren</strong>
+                  </button>
+                }
+                <mat-divider></mat-divider>
+                <button mat-menu-item routerLink="/school/period-settings">
+                  <mat-icon>settings</mat-icon>
+                  <span>Configure Periods &amp; Morning Assembly</span>
+                </button>
+              </mat-menu>
+            }
           </div>
           <span class="spacer"></span>
     
@@ -2307,6 +2369,128 @@ export interface BreadcrumbItem {
     }
 
     .quick-actions-button mat-icon { font-size:17px; width:17px; height:17px; margin-right:3px; }
+
+    /* 🔔 Smart Campus Bell Live Tracker Header Widget */
+    .header-bell-widget {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px !important;
+      padding: 0 12px !important;
+      border-radius: 17px !important;
+      background: #eff6ff !important;
+      border: 1px solid #bfdbfe !important;
+      color: #1e40af !important;
+      font-size: 0.8rem !important;
+      font-weight: 600 !important;
+      cursor: pointer;
+      transition: all 0.2s ease !important;
+      flex-shrink: 0;
+
+      &:hover {
+        background: #dbeafe !important;
+        border-color: #93c5fd !important;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15) !important;
+      }
+
+      &.bell-live {
+        background: #f0fdf4 !important;
+        border-color: #86efac !important;
+        color: #15803d !important;
+
+        &:hover {
+          background: #dcfce7 !important;
+        }
+      }
+
+      &.bell-emergency {
+        background: #fef2f2 !important;
+        border-color: #fca5a5 !important;
+        color: #b91c1c !important;
+        animation: emergencyPulse 1.2s infinite;
+      }
+
+      .bell-widget-icon {
+        font-size: 17px !important;
+        width: 17px !important;
+        height: 17px !important;
+        line-height: 17px !important;
+        margin: 0 !important;
+
+        &.bell-ringing {
+          animation: bellSwing 0.5s ease infinite alternate;
+          color: #d97706 !important;
+        }
+      }
+
+      .bell-widget-text {
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 1080px) {
+        padding: 0 8px !important;
+        .bell-widget-text {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 600px) {
+        display: none !important;
+      }
+    }
+
+    @keyframes bellSwing {
+      0% { transform: rotate(-15deg); }
+      100% { transform: rotate(15deg); }
+    }
+
+    @keyframes emergencyPulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    ::ng-deep .bell-status-dropdown-panel {
+      min-width: 290px !important;
+      max-width: 340px !important;
+      border-radius: 12px !important;
+      border: 1px solid #bfdbfe !important;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18) !important;
+      overflow: hidden !important;
+
+      .bell-dropdown-header {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        padding: 12px 14px;
+
+        .bd-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.88rem;
+          color: #1e3a8a;
+          font-weight: 700;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        .bd-current-desc {
+          margin-top: 6px;
+          font-size: 0.78rem;
+          color: #475569;
+          line-height: 1.4;
+
+          strong {
+            color: #1e40af;
+          }
+        }
+      }
+    }
     .header-lang-btn {
       display: inline-flex;
       align-items: center;

@@ -456,6 +456,20 @@ public record SmartBellSettingDto(
     string WarningTemplateEn,
     string PeriodOverTemplateHi,
     string PeriodOverTemplateEn,
+    bool IsAssemblyEnabled,
+    string AssemblyStartTime,
+    int AssemblyDurationMinutes,
+    int AssemblyWarningLeadMinutes,
+    string AssemblyDaysOfWeek,
+    string AssemblyWarningTemplateHi,
+    string AssemblyWarningTemplateEn,
+    string AssemblyDismissalTemplateHi,
+    string AssemblyDismissalTemplateEn,
+    bool EmergencySirenEnabled,
+    bool IsPhysicalRelayEnabled,
+    string? PhysicalRelayWebhookUrl,
+    int PhysicalRelayPulseSeconds,
+    string DivisionScope,
     DateTime UpdatedAt
 );
 
@@ -475,7 +489,21 @@ public record SaveSmartBellSettingDto(
     string WarningTemplateHi,
     string WarningTemplateEn,
     string PeriodOverTemplateHi,
-    string PeriodOverTemplateEn
+    string PeriodOverTemplateEn,
+    bool IsAssemblyEnabled,
+    string AssemblyStartTime,
+    int AssemblyDurationMinutes,
+    int AssemblyWarningLeadMinutes,
+    string AssemblyDaysOfWeek,
+    string AssemblyWarningTemplateHi,
+    string AssemblyWarningTemplateEn,
+    string AssemblyDismissalTemplateHi,
+    string AssemblyDismissalTemplateEn,
+    bool EmergencySirenEnabled,
+    bool IsPhysicalRelayEnabled,
+    string? PhysicalRelayWebhookUrl,
+    int PhysicalRelayPulseSeconds,
+    string DivisionScope
 );
 
 public record CreateSchoolPeriodSlotDto(

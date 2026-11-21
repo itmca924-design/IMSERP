@@ -814,6 +814,20 @@ public class SchoolController : ControllerBase
                 "Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.",
                 "{periodName} का समय समाप्त हो चुका है।",
                 "{periodName} has concluded.",
+                true,
+                "08:45 AM",
+                15,
+                5,
+                "Mon,Tue,Wed,Thu,Fri,Sat",
+                "ध्यान दें: सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।",
+                "Attention: All teachers and students, please assemble in the main hall or ground for morning prayer assembly.",
+                "प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।",
+                "Morning prayer has concluded. Students, please proceed to your respective classrooms in an orderly queue.",
+                true,
+                false,
+                null,
+                3,
+                "All",
                 DateTime.UtcNow
             ));
         }
@@ -837,6 +851,20 @@ public class SchoolController : ControllerBase
             setting.WarningTemplateEn,
             setting.PeriodOverTemplateHi,
             setting.PeriodOverTemplateEn,
+            setting.IsAssemblyEnabled,
+            setting.AssemblyStartTime,
+            setting.AssemblyDurationMinutes,
+            setting.AssemblyWarningLeadMinutes,
+            setting.AssemblyDaysOfWeek,
+            setting.AssemblyWarningTemplateHi,
+            setting.AssemblyWarningTemplateEn,
+            setting.AssemblyDismissalTemplateHi,
+            setting.AssemblyDismissalTemplateEn,
+            setting.EmergencySirenEnabled,
+            setting.IsPhysicalRelayEnabled,
+            setting.PhysicalRelayWebhookUrl,
+            setting.PhysicalRelayPulseSeconds,
+            setting.DivisionScope,
             setting.UpdatedAt
         ));
     }
@@ -876,6 +904,21 @@ public class SchoolController : ControllerBase
         setting.WarningTemplateEn = dto.WarningTemplateEn ?? "Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.";
         setting.PeriodOverTemplateHi = dto.PeriodOverTemplateHi ?? "{periodName} का समय समाप्त हो चुका है।";
         setting.PeriodOverTemplateEn = dto.PeriodOverTemplateEn ?? "{periodName} has concluded.";
+
+        setting.IsAssemblyEnabled = dto.IsAssemblyEnabled;
+        setting.AssemblyStartTime = string.IsNullOrWhiteSpace(dto.AssemblyStartTime) ? "08:45 AM" : dto.AssemblyStartTime.Trim();
+        setting.AssemblyDurationMinutes = Math.Clamp(dto.AssemblyDurationMinutes, 5, 60);
+        setting.AssemblyWarningLeadMinutes = Math.Clamp(dto.AssemblyWarningLeadMinutes, 1, 15);
+        setting.AssemblyDaysOfWeek = string.IsNullOrWhiteSpace(dto.AssemblyDaysOfWeek) ? "Mon,Tue,Wed,Thu,Fri,Sat" : dto.AssemblyDaysOfWeek.Trim();
+        setting.AssemblyWarningTemplateHi = dto.AssemblyWarningTemplateHi ?? "ध्यान दें: सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।";
+        setting.AssemblyWarningTemplateEn = dto.AssemblyWarningTemplateEn ?? "Attention: All teachers and students, please assemble in the main hall or ground for morning prayer assembly.";
+        setting.AssemblyDismissalTemplateHi = dto.AssemblyDismissalTemplateHi ?? "प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।";
+        setting.AssemblyDismissalTemplateEn = dto.AssemblyDismissalTemplateEn ?? "Morning prayer has concluded. Students, please proceed to your respective classrooms in an orderly queue.";
+        setting.EmergencySirenEnabled = dto.EmergencySirenEnabled;
+        setting.IsPhysicalRelayEnabled = dto.IsPhysicalRelayEnabled;
+        setting.PhysicalRelayWebhookUrl = string.IsNullOrWhiteSpace(dto.PhysicalRelayWebhookUrl) ? null : dto.PhysicalRelayWebhookUrl.Trim();
+        setting.PhysicalRelayPulseSeconds = Math.Clamp(dto.PhysicalRelayPulseSeconds, 1, 10);
+        setting.DivisionScope = string.IsNullOrWhiteSpace(dto.DivisionScope) ? "All" : dto.DivisionScope.Trim();
         setting.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -899,6 +942,20 @@ public class SchoolController : ControllerBase
             setting.WarningTemplateEn,
             setting.PeriodOverTemplateHi,
             setting.PeriodOverTemplateEn,
+            setting.IsAssemblyEnabled,
+            setting.AssemblyStartTime,
+            setting.AssemblyDurationMinutes,
+            setting.AssemblyWarningLeadMinutes,
+            setting.AssemblyDaysOfWeek,
+            setting.AssemblyWarningTemplateHi,
+            setting.AssemblyWarningTemplateEn,
+            setting.AssemblyDismissalTemplateHi,
+            setting.AssemblyDismissalTemplateEn,
+            setting.EmergencySirenEnabled,
+            setting.IsPhysicalRelayEnabled,
+            setting.PhysicalRelayWebhookUrl,
+            setting.PhysicalRelayPulseSeconds,
+            setting.DivisionScope,
             setting.UpdatedAt
         ));
     }

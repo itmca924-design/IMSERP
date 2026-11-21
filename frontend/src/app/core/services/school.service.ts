@@ -978,6 +978,20 @@ export interface SmartBellSettingDto {
   warningTemplateEn: string;
   periodOverTemplateHi: string;
   periodOverTemplateEn: string;
+  isAssemblyEnabled?: boolean;
+  assemblyStartTime?: string;
+  assemblyDurationMinutes?: number;
+  assemblyWarningLeadMinutes?: number;
+  assemblyDaysOfWeek?: string;
+  assemblyWarningTemplateHi?: string;
+  assemblyWarningTemplateEn?: string;
+  assemblyDismissalTemplateHi?: string;
+  assemblyDismissalTemplateEn?: string;
+  emergencySirenEnabled?: boolean;
+  isPhysicalRelayEnabled?: boolean;
+  physicalRelayWebhookUrl?: string | null;
+  physicalRelayPulseSeconds?: number;
+  divisionScope?: string;
   updatedAt?: string;
 }
 

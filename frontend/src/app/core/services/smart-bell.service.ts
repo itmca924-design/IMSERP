@@ -1,4 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { SchoolService, SchoolPeriodSlotDto, SmartBellSettingDto } from './school.service';
 import { RoomService, RoomDto } from './room.service';
 import { AuthService } from './auth.service';
@@ -7,6 +8,7 @@ import { AuthService } from './auth.service';
   providedIn: 'root'
 })
 export class SmartBellService {
+  private readonly http = inject(HttpClient);
   private readonly schoolService = inject(SchoolService);
   private readonly roomService = inject(RoomService);
   private readonly authService = inject(AuthService);
@@ -26,7 +28,21 @@ export class SmartBellService {
     warningTemplateHi: 'ध्यान दें: {periodName} समाप्त होने में {remainingMinutes} मिनट शेष हैं। कृपया अपना व्याख्यान समेटें।',
     warningTemplateEn: 'Attention: {periodName} is ending in {remainingMinutes} minutes. Please wrap up the lesson.',
     periodOverTemplateHi: '{periodName} का समय समाप्त हो चुका है।',
-    periodOverTemplateEn: '{periodName} has concluded.'
+    periodOverTemplateEn: '{periodName} has concluded.',
+    isAssemblyEnabled: true,
+    assemblyStartTime: '08:45 AM',
+    assemblyDurationMinutes: 15,
+    assemblyWarningLeadMinutes: 5,
+    assemblyDaysOfWeek: 'Mon,Tue,Wed,Thu,Fri,Sat',
+    assemblyWarningTemplateHi: 'ध्यान दें: सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।',
+    assemblyWarningTemplateEn: 'Attention: All teachers and students, please assemble in the main hall or ground for morning prayer assembly.',
+    assemblyDismissalTemplateHi: 'प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।',
+    assemblyDismissalTemplateEn: 'Morning prayer has concluded. Students, please proceed to your respective classrooms in an orderly queue.',
+    emergencySirenEnabled: true,
+    isPhysicalRelayEnabled: false,
+    physicalRelayWebhookUrl: null,
+    physicalRelayPulseSeconds: 3,
+    divisionScope: 'All'
   });
 
   readonly periodSlots = signal<SchoolPeriodSlotDto[]>([]);
@@ -40,6 +56,14 @@ export class SmartBellService {
   readonly isPlayingAudio = signal<boolean>(false);
   readonly isSpeaking = signal<boolean>(false);
 
+  // 🌅 Morning Assembly Status Signals
+  readonly isAssemblyLive = signal<boolean>(false);
+  readonly isAssemblyUpcoming = signal<boolean>(false);
+  readonly assemblyCountdownSeconds = signal<number>(0);
+
+  // 🚨 Emergency Siren Status
+  readonly isEmergencyActive = signal<boolean>(false);
+
   readonly remainingMinutesFormatted = computed(() => {
     const s = this.remainingSeconds();
     if (s <= 0) return '00:00';
@@ -51,6 +75,11 @@ export class SmartBellService {
   private timerRef: any = null;
   private audioCtx: AudioContext | null = null;
   private lastAnnouncedSlotId: string | null = null;
+  private isAssemblyWarningAnnounced = false;
+  private isAssemblyBellFired = false;
+  private isAssemblyDismissed = false;
+  private lastAssemblyDateStr: string = '';
+  private emergencyOscillator: OscillatorNode | null = null;
 
   constructor() {
     this.initService();
@@ -150,6 +179,9 @@ export class SmartBellService {
     const istOffset = 5.5 * 60; // IST is UTC + 5:30
     const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + now.getUTCSeconds() / 60;
     const currentIstMinutes = (utcMinutes + istOffset) % (24 * 60);
+
+    // 🌅 Check Morning Assembly Routine
+    this.checkAssemblyRoutine(now, currentIstMinutes, s);
 
     let active: SchoolPeriodSlotDto | null = null;
     let next: SchoolPeriodSlotDto | null = null;
@@ -267,6 +299,7 @@ export class SmartBellService {
     }
 
     this.playBell(s.bellType || 'ElectricGong', duration, (s.volume || 100) / 100);
+    this.triggerPhysicalRelay(duration);
 
     if (s.voiceAnnouncementEnabled) {
       const lang = s.voiceLanguage || 'hi-IN';
@@ -283,6 +316,234 @@ export class SmartBellService {
     }
 
     this.dispatchToSpeakers('bell', slot, slot.name);
+  }
+
+  /**
+   * 🌅 Morning Assembly Routine Engine
+   */
+  private checkAssemblyRoutine(now: Date, currentIstMinutes: number, s: SmartBellSettingDto): void {
+    if (!s.isAssemblyEnabled || !s.assemblyStartTime) {
+      this.isAssemblyLive.set(false);
+      this.isAssemblyUpcoming.set(false);
+      return;
+    }
+
+    const istOffset = 5.5 * 3600 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const currentDay = dayNames[istDate.getUTCDay()];
+    const todayDateStr = istDate.toISOString().slice(0, 10);
+
+    // Reset daily flags on new calendar date
+    if (this.lastAssemblyDateStr !== todayDateStr) {
+      this.lastAssemblyDateStr = todayDateStr;
+      this.isAssemblyWarningAnnounced = false;
+      this.isAssemblyBellFired = false;
+      this.isAssemblyDismissed = false;
+      this.isAssemblyLive.set(false);
+      this.isAssemblyUpcoming.set(false);
+    }
+
+    const activeDays = (s.assemblyDaysOfWeek || 'Mon,Tue,Wed,Thu,Fri,Sat')
+      .split(',')
+      .map(d => d.trim().toLowerCase());
+
+    if (!activeDays.includes(currentDay.toLowerCase())) {
+      this.isAssemblyLive.set(false);
+      this.isAssemblyUpcoming.set(false);
+      return;
+    }
+
+    const assemblyStartMin = this.parseTimeToMinutes(s.assemblyStartTime);
+    const durationMin = s.assemblyDurationMinutes || 15;
+    const assemblyEndMin = assemblyStartMin + durationMin;
+    const leadMin = s.assemblyWarningLeadMinutes || 5;
+    const calloutStartMin = assemblyStartMin - leadMin;
+
+    // 1. Callout Warning Window (e.g. 5 mins before assembly)
+    if (currentIstMinutes >= calloutStartMin && currentIstMinutes < assemblyStartMin) {
+      this.isAssemblyUpcoming.set(true);
+      this.isAssemblyLive.set(false);
+      const secUntil = Math.max(0, Math.round((assemblyStartMin - currentIstMinutes) * 60));
+      this.assemblyCountdownSeconds.set(secUntil);
+
+      if (s.voiceAnnouncementEnabled && !this.isAssemblyWarningAnnounced) {
+        this.isAssemblyWarningAnnounced = true;
+        this.announceAssemblyCallout(s, leadMin);
+      }
+    }
+    // 2. Assembly In Progress
+    else if (currentIstMinutes >= assemblyStartMin && currentIstMinutes < assemblyEndMin) {
+      this.isAssemblyUpcoming.set(false);
+      this.isAssemblyLive.set(true);
+      const secLeft = Math.max(0, Math.round((assemblyEndMin - currentIstMinutes) * 60));
+      this.assemblyCountdownSeconds.set(secLeft);
+
+      if (!this.isAssemblyBellFired) {
+        this.isAssemblyBellFired = true;
+        this.triggerAssemblyStartBell(s);
+      }
+    }
+    // 3. Assembly Conclusion & Dispersal
+    else if (currentIstMinutes >= assemblyEndMin && currentIstMinutes < (assemblyEndMin + 2)) {
+      if (!this.isAssemblyDismissed && this.isAssemblyBellFired) {
+        this.isAssemblyDismissed = true;
+        this.isAssemblyLive.set(false);
+        this.triggerAssemblyConclusion(s);
+      }
+    } else {
+      this.isAssemblyLive.set(false);
+      this.isAssemblyUpcoming.set(false);
+    }
+  }
+
+  announceAssemblyCallout(s: SmartBellSettingDto, leadMinutes: number): void {
+    const lang = s.voiceLanguage || 'hi-IN';
+    const isHi = lang.startsWith('hi');
+    let template = isHi ? s.assemblyWarningTemplateHi : s.assemblyWarningTemplateEn;
+    if (!template) {
+      template = isHi
+        ? 'ध्यान दें: सभी शिक्षक एवं विद्यार्थीगण, प्रातःकालीन प्रार्थना सभा के लिए कृपया मुख्य प्रांगण में एकत्रित हों।'
+        : 'Attention: All teachers and students, please assemble in the main hall or ground for morning prayer assembly.';
+    }
+
+    const instName = this.authService.getInstituteName() || 'विद्यालय';
+    const message = template
+      .replace(/{instituteName}/g, instName)
+      .replace(/{leadMinutes}/g, leadMinutes.toString());
+
+    this.ensureAudioContext().then(ctx => {
+      if (ctx) this.playMelodicChime(ctx, 0.7);
+    });
+    setTimeout(() => {
+      this.speakText(message, lang, (s.volume || 100) / 100);
+    }, 1200);
+
+    this.triggerPhysicalRelay(2);
+  }
+
+  triggerAssemblyStartBell(s: SmartBellSettingDto): void {
+    this.playBell(s.bellType || 'ElectricGong', 4, (s.volume || 100) / 100);
+    this.triggerPhysicalRelay(4);
+  }
+
+  triggerAssemblyConclusion(s: SmartBellSettingDto): void {
+    const lang = s.voiceLanguage || 'hi-IN';
+    const isHi = lang.startsWith('hi');
+    let template = isHi ? s.assemblyDismissalTemplateHi : s.assemblyDismissalTemplateEn;
+    if (!template) {
+      template = isHi
+        ? 'प्रार्थना सभा संपन्न हुई। सभी विद्यार्थी कतारबद्ध होकर अनुशासित रूप से अपनी कक्षाओं में प्रस्थान करें।'
+        : 'Morning prayer has concluded. Students, please proceed to your respective classrooms in an orderly queue.';
+    }
+
+    this.playBell(s.bellType || 'ElectricGong', 3, (s.volume || 100) / 100);
+    this.triggerPhysicalRelay(3);
+
+    if (s.voiceAnnouncementEnabled) {
+      setTimeout(() => {
+        this.speakText(template, lang, (s.volume || 100) / 100);
+      }, 3500);
+    }
+  }
+
+  /**
+   * 🚨 One-Click Manual Bell & Emergency Siren Triggers
+   */
+  triggerManualBell(seconds: number = 3): void {
+    const s = this.settings();
+    this.playBell(s.bellType || 'ElectricGong', seconds, (s.volume || 100) / 100);
+    this.triggerPhysicalRelay(seconds);
+  }
+
+  triggerEmergencySiren(): void {
+    this.isEmergencyActive.set(true);
+    const s = this.settings();
+    const vol = (s.volume || 100) / 100;
+
+    this.ensureAudioContext().then(ctx => {
+      if (ctx) {
+        this.playEmergencySirenSound(ctx, 12, vol);
+      }
+    });
+
+    const lang = s.voiceLanguage || 'hi-IN';
+    const msg = lang.startsWith('hi')
+      ? 'आपातकालीन चेतावनी: कृपया शांत रहें और तुरंत निकटतम सुरक्षित निकासी द्वार की ओर प्रस्थान करें।'
+      : 'Emergency Alert: Please remain calm and proceed immediately to the nearest safe emergency exit.';
+    
+    setTimeout(() => {
+      this.speakText(msg, lang, vol);
+    }, 4000);
+
+    this.triggerPhysicalRelay(10);
+  }
+
+  stopEmergencySiren(): void {
+    this.isEmergencyActive.set(false);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (this.emergencyOscillator) {
+      try {
+        this.emergencyOscillator.stop();
+        this.emergencyOscillator.disconnect();
+      } catch {}
+      this.emergencyOscillator = null;
+    }
+    this.isPlayingAudio.set(false);
+  }
+
+  playEmergencySirenSound(ctx: AudioContext, durationSeconds: number = 10, volume: number = 1.0): void {
+    try {
+      this.isPlayingAudio.set(true);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      gain.gain.setValueAtTime(volume * 0.6, ctx.currentTime);
+
+      const cycles = Math.floor(durationSeconds / 1.2);
+      for (let i = 0; i < cycles; i++) {
+        const t = ctx.currentTime + (i * 1.2);
+        osc.frequency.setValueAtTime(500, t);
+        osc.frequency.linearRampToValueAtTime(950, t + 0.6);
+        osc.frequency.linearRampToValueAtTime(500, t + 1.2);
+      }
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + durationSeconds);
+      this.emergencyOscillator = osc;
+
+      setTimeout(() => {
+        this.isPlayingAudio.set(false);
+        this.isEmergencyActive.set(false);
+      }, durationSeconds * 1000);
+    } catch {
+      this.isPlayingAudio.set(false);
+    }
+  }
+
+  /**
+   * 🔌 Physical IoT Wi-Fi Relay Switch Webhook Trigger
+   */
+  triggerPhysicalRelay(durationSeconds: number = 3): void {
+    const s = this.settings();
+    if (!s.isPhysicalRelayEnabled || !s.physicalRelayWebhookUrl) return;
+
+    try {
+      let url = s.physicalRelayWebhookUrl.trim();
+      url = url.replace('{pulse}', durationSeconds.toString());
+      this.http.get(url, { responseType: 'text' }).subscribe({
+        next: () => console.log(`[SmartBell IoT Relay] Fired pulse ${durationSeconds}s`),
+        error: (err) => console.warn('[SmartBell IoT Relay Warning]', err?.message || err)
+      });
+    } catch (e) {
+      console.warn('[SmartBell IoT Relay Exception]', e);
+    }
   }
 
   /**
