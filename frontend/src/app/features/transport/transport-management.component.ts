@@ -101,6 +101,7 @@ export class TransportManagementComponent implements OnInit {
   selectedGatePassClassFilter = 'ALL';
   allocationAssignmentFilter: 'Unassigned' | 'Assigned' | 'All' = 'Unassigned';
   teacherAssignmentFilter: 'Unassigned' | 'Assigned' | 'All' = 'Unassigned';
+  allocationStudentSearchTerm = '';
 
   // Filter & Search
   allocationSearch = '';
@@ -916,6 +917,7 @@ export class TransportManagementComponent implements OnInit {
     this.selectedAllocationClassFilter = 'ALL';
     this.allocationAssignmentFilter = 'Unassigned';
     this.teacherAssignmentFilter = 'Unassigned';
+    this.allocationStudentSearchTerm = '';
     this.selectedAllocationStudentInfo = '';
     this.selectedStudentIds = [];
     this.selectedBillingPlan = 'Monthly';
@@ -938,6 +940,7 @@ export class TransportManagementComponent implements OnInit {
     this.selectedAllocationClassFilter = 'ALL';
     this.allocationAssignmentFilter = 'All';
     this.teacherAssignmentFilter = 'All';
+    this.allocationStudentSearchTerm = '';
     this.selectedAllocationStudentInfo = a.studentName
       ? `${a.studentName} (Roll: ${a.studentRollNumber || a.rollNumber || 'N/A'})`
       : (a.teacherName || '');
@@ -1069,13 +1072,84 @@ export class TransportManagementComponent implements OnInit {
     this.rebuildAllocationGroups();
   }
 
-  getFilteredStudentsForAllocation(): any[] {
-    const list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
-    if (this.allocationAssignmentFilter === 'Unassigned') {
-      return list.filter(s => !this.isStudentAssigned(s.id));
-    } else if (this.allocationAssignmentFilter === 'Assigned') {
-      return list.filter(s => this.isStudentAssigned(s.id));
+  cleanPhone(phone: any): string {
+    if (!phone) return '';
+    const digits = String(phone).replace(/\D/g, '');
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  }
+
+  getSiblingCount(s: any): number {
+    if (!s) return 0;
+    const phone = this.cleanPhone(s.parentWhatsAppPhone);
+    const parent = (s.parentName || '').trim().toLowerCase();
+    if (!phone && (!parent || parent.length < 3)) return 0;
+
+    let count = 0;
+    for (const other of this.studentsList) {
+      if (other.id === s.id) continue;
+      const otherPhone = this.cleanPhone(other.parentWhatsAppPhone);
+      const otherParent = (other.parentName || '').trim().toLowerCase();
+
+      if ((phone && otherPhone && phone === otherPhone) ||
+          (parent && otherParent && parent.length >= 3 && parent === otherParent)) {
+        count++;
+      }
     }
+    return count;
+  }
+
+  getSiblingNames(s: any): string {
+    if (!s) return '';
+    const phone = this.cleanPhone(s.parentWhatsAppPhone);
+    const parent = (s.parentName || '').trim().toLowerCase();
+    if (!phone && (!parent || parent.length < 3)) return '';
+
+    const names: string[] = [];
+    for (const other of this.studentsList) {
+      if (other.id === s.id) continue;
+      const otherPhone = this.cleanPhone(other.parentWhatsAppPhone);
+      const otherParent = (other.parentName || '').trim().toLowerCase();
+
+      if ((phone && otherPhone && phone === otherPhone) ||
+          (parent && otherParent && parent.length >= 3 && parent === otherParent)) {
+        const cls = this.getStudentClassName(other);
+        names.push(`${other.studentName} (${cls})`);
+      }
+    }
+    return names.join(', ');
+  }
+
+  onAllocationStudentSearchChange(): void {
+    this.rebuildAllocationGroups();
+  }
+
+  clearAllocationStudentSearch(): void {
+    this.allocationStudentSearchTerm = '';
+    this.rebuildAllocationGroups();
+  }
+
+  getFilteredStudentsForAllocation(): any[] {
+    let list = this.filterStudentsBySelection(this.selectedAllocationClassFilter, this.studentsList);
+    if (this.allocationAssignmentFilter === 'Unassigned') {
+      list = list.filter(s => !this.isStudentAssigned(s.id));
+    } else if (this.allocationAssignmentFilter === 'Assigned') {
+      list = list.filter(s => this.isStudentAssigned(s.id));
+    }
+
+    if (this.allocationStudentSearchTerm && this.allocationStudentSearchTerm.trim()) {
+      const term = this.allocationStudentSearchTerm.trim().toLowerCase();
+      const cleanTerm = this.cleanPhone(term);
+      list = list.filter(s => {
+        const nameMatch = (s.studentName || '').toLowerCase().includes(term);
+        const rollMatch = (s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || '').toLowerCase().includes(term);
+        const admMatch = (s.admissionNumber || '').toLowerCase().includes(term);
+        const parentMatch = (s.parentName || '').toLowerCase().includes(term);
+        const phoneMatch = cleanTerm ? this.cleanPhone(s.parentWhatsAppPhone).includes(cleanTerm) : false;
+        const rawPhoneMatch = (s.parentWhatsAppPhone || '').includes(term);
+        return nameMatch || rollMatch || admMatch || parentMatch || phoneMatch || rawPhoneMatch;
+      });
+    }
+
     return list;
   }
 

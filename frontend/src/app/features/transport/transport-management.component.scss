@@ -2539,6 +2539,75 @@
       }
     }
 
+    .custom-dropdown-search-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-bottom: 2px solid #bfdbfe;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+
+      .search-icon {
+        color: #2563eb;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+
+      .custom-search-input {
+        border: 1px solid #bfdbfe;
+        outline: none;
+        background: #ffffff;
+        width: 100%;
+        font-size: 13px;
+        font-weight: 500;
+        color: #0f172a;
+        padding: 6px 12px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+
+        &:focus {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        &::placeholder {
+          color: #64748b;
+          font-size: 12px;
+        }
+      }
+
+      .clear-search-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        flex-shrink: 0;
+
+        &:hover {
+          color: #ef4444;
+        }
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+      }
+    }
+
     .student-option-row {
       display: flex;
       align-items: center;
@@ -2553,16 +2622,17 @@
         flex-wrap: wrap;
 
         .student-opt-name {
-          font-weight: 600;
-          color: #1e293b;
+          font-weight: 700;
+          color: #0f172a;
+          font-size: 0.85rem;
         }
 
         .student-pass-badge {
           display: inline-flex;
           align-items: center;
           gap: 3px;
-          padding: 1px 6px;
-          border-radius: 4px;
+          padding: 2px 7px;
+          border-radius: 6px;
           font-size: 0.68rem;
           font-weight: 700;
           line-height: 1.2;
@@ -2592,21 +2662,59 @@
               color: #2563eb;
             }
           }
+
+          &.sibling-badge {
+            background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+            color: #be185d;
+            border: 1px solid #fbcfe8;
+            box-shadow: 0 1px 2px rgba(190, 24, 93, 0.1);
+
+            mat-icon {
+              color: #db2777;
+            }
+          }
         }
       }
 
       .student-opt-meta {
-        font-size: 0.75rem;
-        color: #64748b;
-        flex-shrink: 0;
+        font-size: 0.73rem;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
 
         strong {
-          color: #2563eb;
+          color: #1e40af;
         }
 
         .student-opt-cls {
-          margin-left: 4px;
-          color: #94a3b8;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        .meta-parent {
+          color: #334155;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .meta-phone {
+          color: #0369a1;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .inline-icon {
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
+          vertical-align: middle;
+          color: #64748b;
         }
       }
     }

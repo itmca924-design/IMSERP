@@ -2200,6 +2200,29 @@
                       </span>
                     }
                   </mat-select-trigger>
+
+                  <!-- Sticky Search Box inside dropdown panel -->
+                  <div class="custom-dropdown-search-wrapper" (click)="$event.stopPropagation()">
+                    <mat-icon class="search-icon">search</mat-icon>
+                    <input
+                      type="text"
+                      class="custom-search-input"
+                      [(ngModel)]="allocationStudentSearchTerm"
+                      [ngModelOptions]="{standalone: true}"
+                      (ngModelChange)="onAllocationStudentSearchChange()"
+                      (keydown)="$event.stopPropagation()"
+                      placeholder="Search student, roll, father, mobile, or sibling..."
+                      autocomplete="off">
+                    @if (allocationStudentSearchTerm) {
+                      <button
+                        type="button"
+                        class="clear-search-btn"
+                        (click)="clearAllocationStudentSearch(); $event.stopPropagation()" mat-icon-button>
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                  </div>
+
                   @for (grp of allocationStudentGroups; track grp) {
                     <mat-optgroup [label]="grp.groupName">
                       @for (s of grp.students; track s) {
@@ -2207,24 +2230,35 @@
                           <div class="student-option-row">
                             <div class="student-opt-main">
                               <span class="student-opt-name">{{ s.studentName }}</span>
+                              @if (getSiblingCount(s) > 0) {
+                                <span class="student-pass-badge sibling-badge" [matTooltip]="'Siblings in school: ' + getSiblingNames(s)">
+                                  <mat-icon>people</mat-icon> Sibling ({{ getSiblingCount(s) }})
+                                </span>
+                              }
                               @if (!isStudentAssigned(s.id)) {
                                 <span class="student-pass-badge needs-pass">
                                   <mat-icon>star</mat-icon> Needs Pass
                                 </span>
                               }
                               @if (isStudentAssigned(s.id)) {
-                                <span class="student-pass-badge already-assigned" [title]="'Assigned: ' + $safeNavigationMigration(getActiveAllocationForStudent(s.id)?.routeCode) + ' (' + $safeNavigationMigration(getActiveAllocationForStudent(s.id)?.stopName) + ')'">
+                                <span class="student-pass-badge already-assigned" [title]="'Assigned: ' + (getActiveAllocationForStudent(s.id)?.routeCode || '') + ' (' + (getActiveAllocationForStudent(s.id)?.stopName || '') + ')'">
                                   <mat-icon>directions_bus</mat-icon> {{ getActiveAllocationForStudent(s.id)?.routeCode }} &bull; {{ getActiveAllocationForStudent(s.id)?.stopName }}
                                 </span>
                               }
                             </div>
-                            <span class="student-opt-meta">
-                              Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong>
-                              &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}
+                            <div class="student-opt-meta">
+                              <span class="meta-item">Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong></span>
+                              &bull; <span class="meta-item">{{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}</span>
                               @if (selectedAllocationClassFilter === 'ALL') {
                                 <span class="student-opt-cls">({{ getStudentClassName(s) }})</span>
                               }
-                            </span>
+                              @if (s.parentName) {
+                                &bull; <span class="meta-parent" title="Father / Parent Name"><mat-icon class="inline-icon">person</mat-icon> S/o {{ s.parentName }}</span>
+                              }
+                              @if (s.parentWhatsAppPhone) {
+                                &bull; <span class="meta-phone" title="Parent Phone / WhatsApp"><mat-icon class="inline-icon">call</mat-icon> {{ s.parentWhatsAppPhone }}</span>
+                              }
+                            </div>
                           </div>
                         </mat-option>
                       }
@@ -2273,6 +2307,28 @@
               <mat-form-field appearance="outline" class="col-span-2">
                 <mat-label>Select Student *</mat-label>
                 <mat-select formControlName="studentId" (selectionChange)="onAllocationStudentSelect($event.value)">
+                  <!-- Sticky Search Box inside dropdown panel -->
+                  <div class="custom-dropdown-search-wrapper" (click)="$event.stopPropagation()">
+                    <mat-icon class="search-icon">search</mat-icon>
+                    <input
+                      type="text"
+                      class="custom-search-input"
+                      [(ngModel)]="allocationStudentSearchTerm"
+                      [ngModelOptions]="{standalone: true}"
+                      (ngModelChange)="onAllocationStudentSearchChange()"
+                      (keydown)="$event.stopPropagation()"
+                      placeholder="Search student, roll, father, mobile, or sibling..."
+                      autocomplete="off">
+                    @if (allocationStudentSearchTerm) {
+                      <button
+                        type="button"
+                        class="clear-search-btn"
+                        (click)="clearAllocationStudentSearch(); $event.stopPropagation()" mat-icon-button>
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                  </div>
+
                   @for (grp of allocationStudentGroups; track grp) {
                     <mat-optgroup [label]="grp.groupName">
                       @for (s of grp.students; track s) {
@@ -2280,17 +2336,28 @@
                           <div class="student-option-row">
                             <div class="student-opt-main">
                               <span class="student-opt-name">{{ s.studentName }}</span>
+                              @if (getSiblingCount(s) > 0) {
+                                <span class="student-pass-badge sibling-badge" [matTooltip]="'Siblings in school: ' + getSiblingNames(s)">
+                                  <mat-icon>people</mat-icon> Sibling ({{ getSiblingCount(s) }})
+                                </span>
+                              }
                               @if (isStudentAssigned(s.id)) {
                                 <span class="student-pass-badge already-assigned">
                                   <mat-icon>directions_bus</mat-icon> Active Pass
                                 </span>
                               }
                             </div>
-                            <span class="student-opt-meta">
-                              Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong>
-                              &bull; {{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}
+                            <div class="student-opt-meta">
+                              <span class="meta-item">Roll: <strong>{{ s.schoolRollNumber || s.rollNumber || s.coachingRollNumber || 'N/A' }}</strong></span>
+                              &bull; <span class="meta-item">{{ s.admissionNumber ? 'Adm: ' + s.admissionNumber : 'No Adm' }}</span>
                               <span class="student-opt-cls">({{ getStudentClassName(s) }})</span>
-                            </span>
+                              @if (s.parentName) {
+                                &bull; <span class="meta-parent" title="Father / Parent Name"><mat-icon class="inline-icon">person</mat-icon> S/o {{ s.parentName }}</span>
+                              }
+                              @if (s.parentWhatsAppPhone) {
+                                &bull; <span class="meta-phone" title="Parent Phone / WhatsApp"><mat-icon class="inline-icon">call</mat-icon> {{ s.parentWhatsAppPhone }}</span>
+                              }
+                            </div>
                           </div>
                         </mat-option>
                       }
@@ -2298,7 +2365,7 @@
                   }
                   @if (allocationStudentGroups.length === 0) {
                     <mat-option disabled>
-                      No students found in this class
+                      No students found for this search/filter
                     </mat-option>
                   }
                 </mat-select>
