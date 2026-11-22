@@ -1838,12 +1838,12 @@ import ApexCharts from 'apexcharts';
     }
 
     .stat-card {
-      border-radius: 14px;
+      border-radius: 12px;
       border: none;
       color: #ffffff;
       overflow: hidden;
       position: relative;
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 
       &::before {
         content: '';
@@ -1856,35 +1856,35 @@ import ApexCharts from 'apexcharts';
       }
 
       &:hover {
-        transform: translateY(-4px);
+        transform: translateY(-2px);
       }
 
       &.blue {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e40af 100%);
-        box-shadow: 0 10px 25px -4px rgba(37, 99, 235, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.35) !important;
       }
       &.green {
         background: linear-gradient(135deg, #10b981 0%, #059669 55%, #047857 100%);
-        box-shadow: 0 10px 25px -4px rgba(16, 185, 129, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(16, 185, 129, 0.35) !important;
       }
       &.orange {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%);
-        box-shadow: 0 10px 25px -4px rgba(245, 158, 11, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(245, 158, 11, 0.35) !important;
       }
       &.purple {
         background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%);
-        box-shadow: 0 10px 25px -4px rgba(139, 92, 246, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(139, 92, 246, 0.35) !important;
       }
       &.whatsapp {
         background: linear-gradient(135deg, #10b981 0%, #047857 100%);
       }
       &.teal {
         background: linear-gradient(135deg, #0d9488 0%, #0f766e 55%, #115e59 100%);
-        box-shadow: 0 10px 25px -4px rgba(13, 148, 136, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(13, 148, 136, 0.35) !important;
       }
       &.emerald {
         background: linear-gradient(135deg, #059669 0%, #047857 55%, #065f46 100%);
-        box-shadow: 0 10px 25px -4px rgba(5, 150, 105, 0.45) !important;
+        box-shadow: 0 4px 14px -2px rgba(5, 150, 105, 0.35) !important;
       }
     }
 
@@ -1892,67 +1892,70 @@ import ApexCharts from 'apexcharts';
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 10px 12px !important;
+      padding: 8px 10px !important;
       box-sizing: border-box;
       width: 100%;
       height: 100%;
-      min-height: 92px;
+      min-height: unset;
 
       @media (max-width: 768px) {
-        padding: 9px 10px !important;
-        min-height: 86px;
+        padding: 7px 8px !important;
+        min-height: unset;
       }
     }
 
     .stat-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 4px;
       width: 100%;
 
       .label {
-        font-size: 0.68rem;
+        font-size: 0.65rem;
         font-weight: 700;
         opacity: 0.95;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        line-height: 1.25;
+        letter-spacing: 0.025em;
+        line-height: 1.15;
         flex: 1;
         min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
         @media (max-width: 768px) {
-          font-size: 0.64rem;
+          font-size: 0.62rem;
         }
       }
 
       .stat-icon-wrap {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
         background: rgba(255, 255, 255, 0.22);
-        backdrop-filter: blur(8px);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        margin-left: 4px;
+        margin-left: 3px;
 
         .stat-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
           color: #ffffff;
         }
 
         @media (max-width: 768px) {
-          width: 26px;
-          height: 26px;
+          width: 20px;
+          height: 20px;
           .stat-icon {
-            font-size: 15px;
-            width: 15px;
-            height: 15px;
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
           }
         }
       }
@@ -1961,56 +1964,58 @@ import ApexCharts from 'apexcharts';
     .stat-body {
       display: flex;
       flex-direction: column;
-      margin-top: 4px;
+      margin-top: 3px;
 
       .value {
-        font-size: clamp(1.15rem, 1.35vw, 1.5rem);
+        font-size: clamp(1.1rem, 1.25vw, 1.38rem);
         font-weight: 800;
         letter-spacing: -0.02em;
-        line-height: 1.1;
-        margin-bottom: 3px;
+        line-height: 1.05;
+        margin-bottom: 2px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
 
         @media (max-width: 768px) {
-          font-size: clamp(1.15rem, 4.2vw, 1.45rem);
+          font-size: clamp(1.05rem, 3.8vw, 1.3rem);
         }
       }
 
       .stat-footer {
         display: flex;
         align-items: center;
-        gap: 5px;
-        flex-wrap: wrap;
+        gap: 4px;
+        flex-wrap: nowrap;
+        overflow: hidden;
 
         .stat-badge-pill {
-          font-size: 0.58rem;
+          font-size: 0.55rem;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
-          padding: 1.5px 6px;
-          border-radius: 14px;
+          letter-spacing: 0.03em;
+          padding: 1px 5px;
+          border-radius: 8px;
           background: rgba(255, 255, 255, 0.22);
           backdrop-filter: blur(4px);
           color: #ffffff;
           white-space: nowrap;
+          flex-shrink: 0;
 
           @media (max-width: 768px) {
-            font-size: 0.54rem;
-            padding: 1px 5px;
+            font-size: 0.52rem;
+            padding: 1px 4px;
           }
         }
 
         .sub-label {
-          font-size: 0.65rem;
+          font-size: 0.60rem;
           opacity: 0.88;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
 
           @media (max-width: 768px) {
-            font-size: 0.60rem;
+            font-size: 0.56rem;
           }
         }
       }
