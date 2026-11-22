@@ -944,11 +944,11 @@ public class FeesController : ControllerBase
                 else status = "Due";
 
                 string invoiceNumber = string.Join(", ", allocations.Select(a => a.Invoice.InvoiceNumber).Distinct());
-                string? receiptNumber = string.Join(", ", allocations.Where(a => a.Payment != null && !string.IsNullOrEmpty(a.Payment.ReceiptNumber)).Select(a => a.Payment!.ReceiptNumber).Distinct());
+                string? receiptNumber = string.Join(", ", allocations.Where(a => a.Paid > 0 && a.Payment != null && !string.IsNullOrEmpty(a.Payment.ReceiptNumber)).Select(a => a.Payment!.ReceiptNumber).Distinct());
                 if (string.IsNullOrWhiteSpace(receiptNumber)) receiptNumber = null;
 
-                DateTime? paymentDate = allocations.Where(a => a.Payment != null).OrderByDescending(a => a.Payment!.PaymentDate).FirstOrDefault()?.Payment?.PaymentDate;
-                var paymentObj = allocations.FirstOrDefault(a => a.Payment != null)?.Payment;
+                DateTime? paymentDate = allocations.Where(a => a.Paid > 0 && a.Payment != null).OrderByDescending(a => a.Payment!.PaymentDate).FirstOrDefault()?.Payment?.PaymentDate;
+                var paymentObj = allocations.FirstOrDefault(a => a.Paid > 0 && a.Payment != null)?.Payment;
                 string? paymentMode = paymentObj == null ? null : FormatPaymentMode(paymentObj.Mode);
                 string remarks = string.Join(" | ", allocations.Select(a => a.Remarks).Distinct());
                 string? billingCycleTag = allocations.FirstOrDefault(a => !string.IsNullOrEmpty(a.BillingCycleTag))?.BillingCycleTag;

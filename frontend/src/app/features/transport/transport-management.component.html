@@ -417,7 +417,7 @@
                       <th>Quarterly</th>
                       <th>Annual</th>
                       <th>Riders</th>
-                      <th style="text-align: right;">Action</th>
+                      <th style="text-align: right; width: 64px;" class="th-action-col"><mat-icon class="th-action-icon" matTooltip="Actions">settings</mat-icon></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -437,13 +437,20 @@
                         <td>₹{{ (s.quarterlyFare || s.monthlyFare * 3) | number }}</td>
                         <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
                         <td><span class="riders-count-pill">{{ s.allocatedStudentsCount || 0 }}</span></td>
-                        <td style="text-align: right;">
-                          <button color="primary" (click)="openEditStop(r, s)" matTooltip="Edit Stop &amp; Fares" mat-icon-button>
-                            <mat-icon>edit</mat-icon>
+                        <td style="text-align: right;" class="td-action-col">
+                          <button mat-icon-button [matMenuTriggerFor]="stopMenu" matTooltip="Actions" class="action-dots-btn">
+                            <mat-icon>more_vert</mat-icon>
                           </button>
-                          <button color="warn" (click)="deleteStop(s)" matTooltip="Remove Stop" mat-icon-button>
-                            <mat-icon>delete_outline</mat-icon>
-                          </button>
+                          <mat-menu #stopMenu="matMenu" xPosition="before" class="stop-action-menu">
+                            <button mat-menu-item (click)="openEditStop(r, s)">
+                              <mat-icon style="color: #2563eb;">edit</mat-icon>
+                              <span>Edit Stop &amp; Fares</span>
+                            </button>
+                            <button mat-menu-item (click)="deleteStop(s)">
+                              <mat-icon style="color: #dc2626;">delete_outline</mat-icon>
+                              <span style="color: #dc2626;">Delete Stop</span>
+                            </button>
+                          </mat-menu>
                         </td>
                       </tr>
                     }
@@ -478,22 +485,26 @@
               <mat-icon>directions_bus</mat-icon>
               <span>All Commuters (सभी छात्र)</span>
             </button>
-            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'school'" (click)="setStudentPassScope('school')" matButton="filled">
-              <mat-icon>school</mat-icon>
-              <span>School Classes (स्कूल)</span>
-            </button>
-            <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'coaching'" (click)="setStudentPassScope('coaching')" matButton="filled">
-              <mat-icon>groups</mat-icon>
-              <span>Coaching Batches (कोचिंग)</span>
-            </button>
+            @if (hasSchoolModule) {
+              <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'school'" (click)="setStudentPassScope('school')" matButton="filled">
+                <mat-icon>school</mat-icon>
+                <span>School Classes (स्कूल)</span>
+              </button>
+            }
+            @if (hasCoachingModule) {
+              <button type="button" class="scope-pill-btn" [class.active]="studentPassScope === 'coaching'" (click)="setStudentPassScope('coaching')" matButton="filled">
+                <mat-icon>groups</mat-icon>
+                <span>Coaching Batches (कोचिंग)</span>
+              </button>
+            }
           </div>
         </div>
         <div class="filters-bar-row">
           <!-- Class / Batch Filter -->
           <mat-form-field appearance="outline" class="filter-field class-filter-field">
-            <mat-label>{{ studentPassScope === 'coaching' ? 'Filter Coaching Batch' : (studentPassScope === 'school' ? 'Filter School Class' : 'Filter Class / Batch') }}</mat-label>
+            <mat-label>{{ !hasCoachingModule || studentPassScope === 'school' ? 'Filter School Class' : (studentPassScope === 'coaching' ? 'Filter Coaching Batch' : 'Filter Class / Batch') }}</mat-label>
             <mat-select [(ngModel)]="studentPassFilterClass" (selectionChange)="onStudentPassClassFilterChange()">
-              <mat-option value="ALL">All {{ studentPassScope === 'coaching' ? 'Batches' : (studentPassScope === 'school' ? 'Classes' : 'Classes & Batches') }}</mat-option>
+              <mat-option value="ALL">All {{ !hasCoachingModule || studentPassScope === 'school' ? 'Classes' : (studentPassScope === 'coaching' ? 'Batches' : 'Classes & Batches') }}</mat-option>
               @if ((studentPassScope === 'ALL' || studentPassScope === 'school') && schoolClassFilterOptions.length > 0) {
                 <mat-optgroup label="School Classes (Nursery to 12th)">
                   @for (c of schoolClassFilterOptions; track c) {
@@ -503,7 +514,7 @@
                   }
                 </mat-optgroup>
               }
-              @if ((studentPassScope === 'ALL' || studentPassScope === 'coaching') && batchFilterOptions.length > 0) {
+              @if (hasCoachingModule && (studentPassScope === 'ALL' || studentPassScope === 'coaching') && batchFilterOptions.length > 0) {
                 <mat-optgroup label="Coaching Batches">
                   @for (b of batchFilterOptions; track b) {
                     <mat-option [value]="b.key">
@@ -1562,11 +1573,11 @@
                   <h4>Student Live Transit Lookup (Parent Query Desk)</h4>
                 </div>
               </div>
-              <div class="lookup-search-bar">
-                <mat-form-field appearance="outline" class="w-100">
+              <div class="lookup-search-bar w-100">
+                <mat-form-field appearance="outline" class="w-100 search-field-full">
                   <mat-label>Search Student (Name, Roll No, Admission No)</mat-label>
                   <input matInput [(ngModel)]="lookupStudentQuery" (keyup.enter)="searchStudentTransitLive()" placeholder="Type student name or roll..." />
-                  <button color="primary" matSuffix (click)="searchStudentTransitLive()" [disabled]="isSearchingStudentStatus || !lookupStudentQuery.trim()" matButton="filled">
+                  <button color="primary" matSuffix (click)="searchStudentTransitLive()" [disabled]="isSearchingStudentStatus || !lookupStudentQuery.trim()" matButton="filled" class="search-submit-btn">
                     <mat-icon>search</mat-icon> Search
                   </button>
                 </mat-form-field>
@@ -2114,7 +2125,7 @@
                       }
                     </mat-optgroup>
                   }
-                  @if (batchFilterOptions.length > 0) {
+                  @if (hasCoachingModule && batchFilterOptions.length > 0) {
                     <mat-optgroup label="Coaching Batches">
                       @for (b of batchFilterOptions; track b) {
                         <mat-option [value]="b.key">
@@ -2552,7 +2563,7 @@
                       }
                     </mat-optgroup>
                   }
-                  @if (batchFilterOptions.length > 0) {
+                  @if (hasCoachingModule && batchFilterOptions.length > 0) {
                     <mat-optgroup label="Coaching Batches">
                       @for (b of batchFilterOptions; track b) {
                         <mat-option [value]="b.key">

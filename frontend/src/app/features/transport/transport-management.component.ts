@@ -20,6 +20,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { AuthService } from '../../core/services/auth.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { CoachingService } from '../../core/services/coaching.service';
 import {
@@ -179,8 +180,17 @@ export class TransportManagementComponent implements OnInit {
     private http: HttpClient,
     private confirmDialog: ConfirmDialogService,
     private schoolService: SchoolService,
-    private coachingService: CoachingService
+    private coachingService: CoachingService,
+    public authService: AuthService
   ) {}
+
+  get hasSchoolModule(): boolean {
+    return this.authService.hasSchoolModule();
+  }
+
+  get hasCoachingModule(): boolean {
+    return this.authService.hasCoachingModule();
+  }
 
   ngOnInit(): void {
     this.initForms();
@@ -503,13 +513,15 @@ export class TransportManagementComponent implements OnInit {
       error: (err) => console.error('Failed to load school classes', err)
     });
 
-    this.coachingService.getBatches().subscribe({
-      next: (res) => {
-        this.batchesList = res || [];
-        this.rebuildClassFiltersAndGroups();
-      },
-      error: (err) => console.error('Failed to load coaching batches', err)
-    });
+    if (this.hasCoachingModule) {
+      this.coachingService.getBatches().subscribe({
+        next: (res) => {
+          this.batchesList = res || [];
+          this.rebuildClassFiltersAndGroups();
+        },
+        error: (err) => console.error('Failed to load coaching batches', err)
+      });
+    }
 
     this.coachingService.getStudents().subscribe({
       next: (res) => {
@@ -1795,22 +1807,24 @@ export class TransportManagementComponent implements OnInit {
       }
     }
 
-    // 2. Build Coaching Batch options from master
+    // 2. Build Coaching Batch options from master (only if coaching module is licensed)
     this.batchFilterOptions = [];
-    for (const b of this.batchesList) {
-      const batchStudents = this.studentsList.filter(s =>
-        s.batchId === b.id || (s.batchName && s.batchName.trim().toLowerCase() === b.name.trim().toLowerCase())
-      );
-      const batchUnassigned = batchStudents.filter(s => !this.isStudentAssigned(s.id)).length;
-      const batchAssigned = batchStudents.filter(s => this.isStudentAssigned(s.id)).length;
-      this.batchFilterOptions.push({
-        key: `BATCH_${b.id}`,
-        name: b.name,
-        count: batchStudents.length,
-        unassignedCount: batchUnassigned,
-        assignedCount: batchAssigned,
-        batchId: b.id
-      });
+    if (this.hasCoachingModule) {
+      for (const b of this.batchesList) {
+        const batchStudents = this.studentsList.filter(s =>
+          s.batchId === b.id || (s.batchName && s.batchName.trim().toLowerCase() === b.name.trim().toLowerCase())
+        );
+        const batchUnassigned = batchStudents.filter(s => !this.isStudentAssigned(s.id)).length;
+        const batchAssigned = batchStudents.filter(s => this.isStudentAssigned(s.id)).length;
+        this.batchFilterOptions.push({
+          key: `BATCH_${b.id}`,
+          name: b.name,
+          count: batchStudents.length,
+          unassignedCount: batchUnassigned,
+          assignedCount: batchAssigned,
+          batchId: b.id
+        });
+      }
     }
 
     // Maintain availableClasses for any legacy reference

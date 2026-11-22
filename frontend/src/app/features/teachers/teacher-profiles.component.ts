@@ -39,12 +39,12 @@ import { environment } from '../../../environments/environment';
       <p class="page-subtitle">Manage complete faculty and administrative staff directory — add, update, and monitor credentials.</p>
     </div>
     <div class="header-actions-row">
-      @if (!showForm && canManageStaff) {
+      @if (!showForm && canManageStaff && teachers.length > 0) {
         <button color="primary" (click)="openBulkIdCards()" matButton="filled">
           <mat-icon>badge</mat-icon> Staff ID Cards
         </button>
       }
-      @if (!showForm && canManageStaff) {
+      @if (!showForm && canManageStaff && teachers.length > 0) {
         <a matButton="filled" color="warn" [routerLink]="['/teachers/fnf']">
           <mat-icon>exit_to_app</mat-icon> Exit &amp; FNF
         </a>
