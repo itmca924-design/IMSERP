@@ -296,6 +296,8 @@ export interface FeePaymentReceipt {
   advanceAdjustedAmount?: number;
   advanceAdjustedFromReceipt?: string | null;
   studentAdvanceBalance?: number;
+  admissionDate?: string;
+  admissionNumber?: string;
 }
 
 export interface StudentPendingFineItem {

@@ -1136,7 +1136,9 @@ public record FeePaymentReceiptDto(
     string? AdvanceAdjustedFromReceipt = null,
     decimal StudentAdvanceBalance = 0,
     string? FooterNoteEnglish = null,
-    string? FooterNoteHindi = null
+    string? FooterNoteHindi = null,
+    DateTime? AdmissionDate = null,
+    string? AdmissionNumber = null
 );
 
 public record StudentPendingFineItemDto(
@@ -1202,7 +1204,9 @@ public record FeeDueSlipDto(
     string? BranchName = null,
     decimal StudentAdvanceBalance = 0,
     string? FooterNoteEnglish = null,
-    string? FooterNoteHindi = null
+    string? FooterNoteHindi = null,
+    DateTime? AdmissionDate = null,
+    string? AdmissionNumber = null
 );
 
 public record TestDto(

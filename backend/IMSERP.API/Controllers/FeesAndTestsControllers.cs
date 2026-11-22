@@ -1674,7 +1674,9 @@ public class FeesController : ControllerBase
                 !string.IsNullOrWhiteSpace(advAdjustedRefOnPaidInvoices) ? advAdjustedRefOnPaidInvoices : null,
                 student.AdvanceBalance,
                 (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
-                (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null
+                (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null,
+                student.JoiningDate,
+                student.AdmissionNumber
             ));
         });
     }
@@ -1938,7 +1940,9 @@ public class FeesController : ControllerBase
             !string.IsNullOrWhiteSpace(advAdjustedRefRec) ? advAdjustedRefRec : null,
             student?.AdvanceBalance ?? 0m,
             (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
-            (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null
+            (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null,
+            student?.JoiningDate,
+            student?.AdmissionNumber
         ));
     }
 
@@ -5450,7 +5454,9 @@ public class FeesController : ControllerBase
                 0m,
                 null,
                 tenant?.OfficialSeal,
-                tenant?.DigitalSignature
+                tenant?.DigitalSignature,
+                AdmissionDate: student?.JoiningDate,
+                AdmissionNumber: student?.AdmissionNumber
             );
 
             var targetWhatsApp = !string.IsNullOrWhiteSpace(dto.PayerPhone)
@@ -5677,7 +5683,9 @@ public class FeesController : ControllerBase
                 0m,
                 null,
                 tenant?.OfficialSeal,
-                tenant?.DigitalSignature
+                tenant?.DigitalSignature,
+                AdmissionDate: student?.JoiningDate,
+                AdmissionNumber: student?.AdmissionNumber
             );
 
             var targetWhatsAppFifo = !string.IsNullOrWhiteSpace(dto.PayerPhone)

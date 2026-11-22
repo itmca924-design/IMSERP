@@ -180,7 +180,12 @@ export interface FeeReceiptDialogData {
                 </div>
                 <div class="prof-row">
                   <span class="k">Roll / Admission No:</span>
-                  <span class="v"><strong>{{ data.receipt.rollNumber || 'N/A' }}</strong></span>
+                  <span class="v">
+                    <strong>{{ data.receipt.rollNumber || 'N/A' }}</strong>
+                    @if (data.receipt.admissionNumber && data.receipt.admissionNumber !== data.receipt.rollNumber) {
+                      <span class="meta-sub"> (Adm: {{ data.receipt.admissionNumber }})</span>
+                    }
+                  </span>
                 </div>
                 @if (data.receipt.className) {
                   <div class="prof-row">
@@ -219,6 +224,10 @@ export interface FeeReceiptDialogData {
                 <div class="prof-row">
                   <span class="k">Contact / WhatsApp:</span>
                   <span class="v">{{ data.receipt.parentPhone || 'N/A' }}</span>
+                </div>
+                <div class="prof-row">
+                  <span class="k">Admission Date:</span>
+                  <span class="v"><strong>{{ formatDateOnlyIST(data.receipt.admissionDate) }}</strong></span>
                 </div>
                 @if (data.receipt.batchName) {
                   <div class="prof-row">
@@ -1945,6 +1954,31 @@ export class FeeReceiptDialogComponent implements OnInit {
       else if (p.type === 'dayPeriod') dayPeriod = p.value.toUpperCase();
     }
     return `${day} ${month} ${year}, ${hour}:${minute}:${second}\u00A0${dayPeriod}`;
+  }
+
+  formatDateOnlyIST(dateVal: string | Date | undefined): string {
+    if (!dateVal) return 'N/A';
+    let str = String(dateVal).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes('T')) {
+      str += 'Z';
+    }
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return String(dateVal);
+
+    const parts = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).formatToParts(d);
+
+    let day = '', month = '', year = '';
+    for (const p of parts) {
+      if (p.type === 'day') day = p.value;
+      else if (p.type === 'month') month = p.value;
+      else if (p.type === 'year') year = p.value;
+    }
+    return `${day} ${month} ${year}`;
   }
 
   shareWhatsApp(): void {

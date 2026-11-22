@@ -45,13 +45,14 @@ public class MenuController : ControllerBase
             })
             .FirstOrDefaultAsync();
 
-        // 2. Lightweight projection: fetch only module flags
+        // 2. Lightweight projection: fetch only module flags and tenant code
         var tenantModules = await _dbContext.Tenants
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(t => t.Id == tenantId)
             .Select(t => new 
             {
+                t.Code,
                 t.HasSchoolModule,
                 t.HasCoachingModule,
                 t.HasHostelModule,
@@ -76,10 +77,20 @@ public class MenuController : ControllerBase
         };
 
         var disabledRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var disabledModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Platform-only routes: Subscription & Plan (/subscription) is strictly for Superadmin / SYSTEM tenant
+        var isSystemTenant = string.Equals(tenantModules?.Code, "SYSTEM", StringComparison.OrdinalIgnoreCase);
+        if (!isSystemTenant)
+        {
+            disabledRoutes.Add("/subscription");
+        }
+
         if (tenantModules != null)
         {
             if (!tenantModules.HasSchoolModule)
             {
+                disabledModules.Add("School");
                 disabledRoutes.Add("/school/classes");
                 disabledRoutes.Add("/school/exams");
                 disabledRoutes.Add("/students/promotion");
@@ -87,6 +98,7 @@ public class MenuController : ControllerBase
             }
             if (!tenantModules.HasCoachingModule)
             {
+                disabledModules.Add("Coaching");
                 disabledRoutes.Add("/batches");
                 disabledRoutes.Add("/coaching/batch-allocation");
                 disabledRoutes.Add("/coaching/attendance");
@@ -94,6 +106,7 @@ public class MenuController : ControllerBase
                 disabledRoutes.Add("/coaching/id-cards");
                 disabledRoutes.Add("/coaching/fee-vouchers");
                 disabledRoutes.Add("/coaching/analytics");
+                disabledRoutes.Add("/study-materials");
             }
             if (!tenantModules.HasSchoolModule && !tenantModules.HasCoachingModule)
             {
@@ -101,16 +114,19 @@ public class MenuController : ControllerBase
             }
             if (!tenantModules.HasHostelModule)
             {
+                disabledModules.Add("Hostel");
                 disabledRoutes.Add("/hostel");
             }
             if (!tenantModules.HasLibraryModule)
             {
+                disabledModules.Add("Library");
                 disabledRoutes.Add("/library/books");
                 disabledRoutes.Add("/library/circulation");
                 disabledRoutes.Add("/library/plans");
             }
             if (!tenantModules.HasTransportModule)
             {
+                disabledModules.Add("Transport");
                 disabledRoutes.Add("/transport");
             }
         }
@@ -122,9 +138,10 @@ public class MenuController : ControllerBase
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 
-        // Filter out permission-only routes and module-disabled routes in memory
+        // Filter out permission-only routes, module-disabled routes, and disabled tenant modules in memory
         var allMenuItems = allActiveMenuItems
-            .Where(m => m.RouteUrl == null || (!permissionOnlyRoutes.Contains(m.RouteUrl) && !disabledRoutes.Contains(m.RouteUrl)))
+            .Where(m => (string.IsNullOrEmpty(m.Module) || !disabledModules.Contains(m.Module)) &&
+                        (m.RouteUrl == null || (!permissionOnlyRoutes.Contains(m.RouteUrl) && !disabledRoutes.Contains(m.RouteUrl))))
             .ToList();
         HashSet<Guid> allowedMenuIds;
 

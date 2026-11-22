@@ -200,16 +200,20 @@ import { environment } from '../../../environments/environment';
               }
     
               <!-- Sticky Search Option inside Dropdown Panel -->
-              <mat-option disabled class="dropdown-search-option">
-                <div class="dropdown-search-box" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                  <mat-icon class="search-box-icon">search</mat-icon>
+              <mat-option
+                disabled
+                class="dropdown-search-option"
+                (click)="onSearchOptionClick($event)"
+                (mousedown)="$event.stopPropagation()">
+                <div class="dropdown-search-box" (click)="onSearchOptionClick($event)" (mousedown)="$event.stopPropagation()">
+                  <mat-icon class="search-box-icon" (click)="onSearchOptionClick($event)">search</mat-icon>
                   <input
                     id="student-fee-card-search-input"
                     type="text"
                     class="search-inner-input"
                     placeholder="Search student..."
                     [(ngModel)]="studentSearchQuery"
-                    (click)="$event.stopPropagation()"
+                    (click)="onSearchOptionClick($event)"
                     (mousedown)="$event.stopPropagation()"
                     (keydown)="$event.stopPropagation()"
                     />
@@ -225,7 +229,7 @@ import { environment } from '../../../environments/environment';
                   }
                 </div>
                 @if (students.length > 0) {
-                  <div class="search-meta-bar">
+                  <div class="search-meta-bar" (click)="onSearchOptionClick($event)" (mousedown)="$event.stopPropagation()">
                     <span>Showing <strong>{{ filteredStudents.length }}</strong> of {{ students.length }} students</span>
                   </div>
                 }
@@ -1176,7 +1180,9 @@ import { environment } from '../../../environments/environment';
         }
       }
 
-      .dropdown-search-option {
+      .dropdown-search-option,
+      &.dropdown-search-option,
+      &.mdc-list-item--disabled.dropdown-search-option {
         position: sticky !important;
         top: 0 !important;
         z-index: 100 !important;
@@ -1188,6 +1194,15 @@ import { environment } from '../../../environments/environment';
         opacity: 1 !important;
         line-height: normal !important;
         box-sizing: border-box !important;
+        pointer-events: auto !important;
+
+        .dropdown-search-box,
+        .search-inner-input,
+        .search-meta-bar,
+        .clear-mini-btn,
+        * {
+          pointer-events: auto !important;
+        }
 
         .dropdown-search-box {
           display: flex;
@@ -1763,8 +1778,8 @@ import { environment } from '../../../environments/environment';
       font-weight: 700;
     }
 
-    .th-sn { width: 35px; text-align: center; }
-    .th-month { width: 110px; }
+    .th-sn { width: 40px; text-align: center; }
+    .th-month { width: 145px; min-width: 140px; }
     .th-amount { width: 95px; text-align: right; }
     .th-status { width: 90px; text-align: center; }
     .th-receipt { width: 130px; }
@@ -1965,9 +1980,11 @@ import { environment } from '../../../environments/environment';
 
     .total-label {
       text-align: right;
-      padding: 8px 10px;
+      padding: 8px 12px;
       color: #0f172a;
       font-size: 0.85rem;
+      white-space: nowrap !important;
+      font-weight: 800;
     }
 
     .total-val {
@@ -2840,6 +2857,7 @@ import { environment } from '../../../environments/environment';
       .total-label, .total-val, .total-remarks {
         padding: 2.5px 4px !important;
         font-size: 8.5px !important;
+        white-space: nowrap !important;
       }
 
       .tfoot-total-row {
@@ -3118,6 +3136,19 @@ export class FeeCardComponent implements OnInit, AfterViewInit {
       return `SESSION TOTAL (${firstLabel}):`;
     }
     return `SESSION TOTAL (${firstLabel} – ${lastLabel}):`;
+  }
+
+  onSearchOptionClick(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    setTimeout(() => {
+      const el = document.getElementById('student-fee-card-search-input') as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+      }
+    }, 10);
   }
 
   focusSearchInput(): void {
