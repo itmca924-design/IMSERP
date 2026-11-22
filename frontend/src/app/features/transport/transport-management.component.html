@@ -388,7 +388,7 @@
                     <span>{{ r.vehicleNumber }} ({{ r.driverName || 'Crew' }})</span>
                   </div>
                 }
-                <span class="badge-riders">{{ r.allocatedStudentsCount || 0 }} Riders</span>
+                <span class="badge-riders">{{ (r.totalAllocations != null ? r.totalAllocations : r.allocatedStudentsCount) || 0 }} Riders</span>
               </div>
               <div class="rh-actions">
                 <button color="primary" (click)="manageStops(r)" matButton="filled">
@@ -436,7 +436,7 @@
                         <td><strong class="fare-highlight">₹{{ s.monthlyFare | number }}</strong><span class="per-mo">/mo</span></td>
                         <td>₹{{ (s.quarterlyFare || s.monthlyFare * 3) | number }}</td>
                         <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
-                        <td><span class="riders-count-pill">{{ s.allocatedStudentsCount || 0 }}</span></td>
+                        <td><span class="riders-count-pill">{{ (s.allocationCount != null ? s.allocationCount : s.allocatedStudentsCount) || 0 }}</span></td>
                         <td style="text-align: right;" class="td-action-col">
                           <button mat-icon-button [matMenuTriggerFor]="stopMenu" matTooltip="Actions" class="action-dots-btn">
                             <mat-icon>more_vert</mat-icon>

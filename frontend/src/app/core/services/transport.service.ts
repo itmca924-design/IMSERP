@@ -104,6 +104,7 @@ export interface TransportRouteStopDto {
   distanceKm?: number;
   isActive: boolean;
   allocatedStudentsCount?: number;
+  allocationCount?: number;
 }
 
 export interface CreateTransportRouteStopDto {
@@ -135,7 +136,9 @@ export interface TransportRouteDto {
   isActive: boolean;
   createdAt: string;
   stopsCount?: number;
+  stopCount?: number;
   allocatedStudentsCount?: number;
+  totalAllocations?: number;
   stops?: TransportRouteStopDto[];
 }
 
