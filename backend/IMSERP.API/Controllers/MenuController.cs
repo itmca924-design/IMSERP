@@ -79,11 +79,17 @@ public class MenuController : ControllerBase
         var disabledRoutes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var disabledModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // Platform-only routes: Subscription & Plan (/subscription) is strictly for Superadmin / SYSTEM tenant
+        // Platform-only routes: Subscription & Plan (/subscription) and Menu Management (/admin/menu-management) are strictly for Superadmin / SYSTEM tenant
+        var isSuperAdmin = await IsSuperAdminAsync();
         var isSystemTenant = string.Equals(tenantModules?.Code, "SYSTEM", StringComparison.OrdinalIgnoreCase);
         if (!isSystemTenant)
         {
             disabledRoutes.Add("/subscription");
+            disabledRoutes.Add("/admin/menu-management");
+        }
+        else if (!isSuperAdmin)
+        {
+            disabledRoutes.Add("/admin/menu-management");
         }
 
         if (tenantModules != null)
@@ -132,7 +138,6 @@ public class MenuController : ControllerBase
         }
 
         // 3. Fast index scan on MenuItems using IX_MenuItems_IsActive_SortOrder
-        var isSuperAdmin = await IsSuperAdminAsync();
         var allActiveMenuItems = await GetVisibleMenuItems(isSuperAdmin)
             .Where(m => m.IsActive)
             .OrderBy(m => m.SortOrder)
@@ -665,6 +670,11 @@ public class MenuController : ControllerBase
     private async Task<bool> HasManagementPermissionAsync(MenuPermission permission)
     {
         var isSuperAdmin = await IsSuperAdminAsync();
+        if (!isSuperAdmin)
+        {
+            return false;
+        }
+
         var roleId = await GetCurrentRoleIdAsync();
         if (!roleId.HasValue)
         {

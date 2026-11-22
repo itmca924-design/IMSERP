@@ -4374,6 +4374,11 @@ export class LayoutComponent implements OnInit {
         return false;
       }
 
+      // Menu Management (/admin/menu-management) is strictly restricted to SuperAdmin platform
+      if (!isSuperAdmin && (lower === '/admin/menu-management' || lower.includes('/menu-management'))) {
+        return false;
+      }
+
       // Finance & Accounts is strictly restricted to Admin & Accountant roles
       if (!canAccessFinance && lower.includes('/finance')) {
         return false;

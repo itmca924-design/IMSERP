@@ -31,6 +31,10 @@ export const adminExamDeskGuard: CanActivateFn = () => {
 
 export const menuManagementGuard: CanActivateFn = () => {
   const router = inject(Router);
+  const authService = inject(AuthService);
+  if (!authService.isSuperAdmin()) {
+    return router.createUrlTree(['/dashboard']);
+  }
   const menuService = inject(MenuService);
   return menuService.getMyMenu().pipe(
     map(menuItems => {
