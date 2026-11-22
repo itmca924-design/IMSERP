@@ -1817,13 +1817,13 @@ import ApexCharts from 'apexcharts';
     .card-container {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: 16px;
+      gap: 12px;
       margin-bottom: 8px;
 
-      @media (max-width: 1440px) {
-        grid-template-columns: repeat(3, 1fr);
+      @media (max-width: 1366px) {
+        gap: 10px;
       }
-      @media (max-width: 992px) {
+      @media (max-width: 1024px) {
         grid-template-columns: repeat(3, 1fr);
         gap: 12px;
       }
@@ -1831,7 +1831,7 @@ import ApexCharts from 'apexcharts';
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
       }
-      @media (max-width: 360px) {
+      @media (max-width: 480px) {
         grid-template-columns: 1fr;
       }
     }
@@ -1891,34 +1891,34 @@ import ApexCharts from 'apexcharts';
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 11px 14px !important;
+      padding: 10px 12px !important;
       box-sizing: border-box;
       width: 100%;
       height: 100%;
-      min-height: 96px;
+      min-height: 92px;
     }
 
     .stat-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 6px;
+      gap: 4px;
       width: 100%;
 
       .label {
-        font-size: 0.7rem;
+        font-size: 0.68rem;
         font-weight: 700;
         opacity: 0.95;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.03em;
         line-height: 1.25;
         flex: 1;
         min-width: 0;
       }
 
       .stat-icon-wrap {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.22);
         backdrop-filter: blur(8px);
@@ -1927,12 +1927,12 @@ import ApexCharts from 'apexcharts';
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        margin-left: 6px;
+        margin-left: 4px;
 
         .stat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
           color: #ffffff;
         }
       }
@@ -1944,11 +1944,14 @@ import ApexCharts from 'apexcharts';
       margin-top: 4px;
 
       .value {
-        font-size: 1.55rem;
+        font-size: clamp(1.15rem, 1.35vw, 1.5rem);
         font-weight: 800;
         letter-spacing: -0.02em;
         line-height: 1.1;
         margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .stat-footer {
@@ -1971,7 +1974,7 @@ import ApexCharts from 'apexcharts';
         }
 
         .sub-label {
-          font-size: 0.68rem;
+          font-size: 0.65rem;
           opacity: 0.88;
           white-space: nowrap;
           overflow: hidden;
