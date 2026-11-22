@@ -700,19 +700,9 @@ import { ClassFeeMatrixReportDialogComponent } from './class-fee-matrix-report-d
                             <td>
                               <mat-form-field appearance="outline" class="inline-month-field" density="compact" subscriptSizing="dynamic">
                                 <mat-select [(ngModel)]="row.applicableMonth" [disabled]="!row.isActive || row.frequency === 'Monthly'">
-                                  <mat-option [value]="null">All Months (Recurring)</mat-option>
-                                  <mat-option [value]="4">April (Session Start)</mat-option>
-                                  <mat-option [value]="5">May</mat-option>
-                                  <mat-option [value]="6">June</mat-option>
-                                  <mat-option [value]="7">July</mat-option>
-                                  <mat-option [value]="8">August</mat-option>
-                                  <mat-option [value]="9">September (Term 1 Exam)</mat-option>
-                                  <mat-option [value]="10">October</mat-option>
-                                  <mat-option [value]="11">November</mat-option>
-                                  <mat-option [value]="12">December</mat-option>
-                                  <mat-option [value]="1">January</mat-option>
-                                  <mat-option [value]="2">February (Final Exam)</mat-option>
-                                  <mat-option [value]="3">March</mat-option>
+                                  @for (m of academicMonths; track m.value) {
+                                    <mat-option [value]="m.value">{{ m.label }}</mat-option>
+                                  }
                                 </mat-select>
                               </mat-form-field>
                             </td>
@@ -2604,6 +2594,22 @@ export class FeeMasterDialogComponent implements OnInit {
   headForm!: FormGroup;
   savingHead = false;
   seedingPresets = false;
+
+  readonly academicMonths = [
+    { value: null, label: 'All Months (Recurring)' },
+    { value: 4, label: 'April (Session Start)' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March (Annual / Session End)' }
+  ];
 
   matrixRows: Array<{
     id?: string;

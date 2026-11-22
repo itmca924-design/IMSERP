@@ -1829,10 +1829,11 @@ import ApexCharts from 'apexcharts';
       }
       @media (max-width: 768px) {
         grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        gap: 8px;
       }
-      @media (max-width: 480px) {
+      @media (max-width: 320px) {
         grid-template-columns: 1fr;
+        gap: 8px;
       }
     }
 
@@ -1896,6 +1897,11 @@ import ApexCharts from 'apexcharts';
       width: 100%;
       height: 100%;
       min-height: 92px;
+
+      @media (max-width: 768px) {
+        padding: 9px 10px !important;
+        min-height: 86px;
+      }
     }
 
     .stat-header {
@@ -1914,6 +1920,10 @@ import ApexCharts from 'apexcharts';
         line-height: 1.25;
         flex: 1;
         min-width: 0;
+
+        @media (max-width: 768px) {
+          font-size: 0.64rem;
+        }
       }
 
       .stat-icon-wrap {
@@ -1935,6 +1945,16 @@ import ApexCharts from 'apexcharts';
           height: 16px;
           color: #ffffff;
         }
+
+        @media (max-width: 768px) {
+          width: 26px;
+          height: 26px;
+          .stat-icon {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+          }
+        }
       }
     }
 
@@ -1952,6 +1972,10 @@ import ApexCharts from 'apexcharts';
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+
+        @media (max-width: 768px) {
+          font-size: clamp(1.15rem, 4.2vw, 1.45rem);
+        }
       }
 
       .stat-footer {
@@ -1971,6 +1995,11 @@ import ApexCharts from 'apexcharts';
           backdrop-filter: blur(4px);
           color: #ffffff;
           white-space: nowrap;
+
+          @media (max-width: 768px) {
+            font-size: 0.54rem;
+            padding: 1px 5px;
+          }
         }
 
         .sub-label {
@@ -1979,6 +2008,10 @@ import ApexCharts from 'apexcharts';
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+
+          @media (max-width: 768px) {
+            font-size: 0.60rem;
+          }
         }
       }
     }

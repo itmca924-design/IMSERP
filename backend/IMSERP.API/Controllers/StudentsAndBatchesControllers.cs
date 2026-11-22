@@ -584,7 +584,7 @@ public class StudentsController : ControllerBase
         var year = DateTime.UtcNow.Year;
         var count = await _dbContext.Students
             .AsNoTracking()
-            .CountAsync(s => s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
+            .CountAsync(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
         var nextSeq = count + 1;
         var admissionNumber = $"ADM-{year}-{nextSeq:D4}";
         return Ok(new { admissionNumber });
@@ -599,7 +599,7 @@ public class StudentsController : ControllerBase
         // Count all school students in this class (class-wide, not section-wise)
         // Class 7 → 1,2,3,4... | Class 8 → 1,2,3,4... (each class resets independently)
         var count = await _dbContext.Students.AsNoTracking()
-            .CountAsync(s => s.ClassId == classId && s.IsSchoolStudent);
+            .CountAsync(s => s.TenantId == _currentUser.TenantId && s.ClassId == classId && s.IsSchoolStudent && !s.IsDeleted);
 
         return Ok(new { schoolRollNumber = (count + 1).ToString() });
     }
@@ -2800,6 +2800,26 @@ public class StudentsController : ControllerBase
 
             var targetClassId = dto.ClassId ?? batch?.ClassId;
 
+            // Handle Admission / SR Number with uniqueness check
+            string? admNo = !string.IsNullOrWhiteSpace(dto.AdmissionNumber) ? dto.AdmissionNumber.Trim() : null;
+            if (string.IsNullOrWhiteSpace(admNo) && dto.IsSchoolStudent)
+            {
+                var year = DateTime.UtcNow.Year;
+                var count = await _dbContext.Students.AsNoTracking()
+                    .CountAsync(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
+                admNo = $"ADM-{year}-{(count + 1):D4}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(admNo))
+            {
+                var isDuplicateAdm = await _dbContext.Students.AsNoTracking()
+                    .AnyAsync(s => s.TenantId == _currentUser.TenantId && !s.IsDeleted && s.AdmissionNumber == admNo);
+                if (isDuplicateAdm)
+                {
+                    return BadRequest(new { message = $"Admission / SR Number '{admNo}' is already assigned to another student in this institute." });
+                }
+            }
+
             var student = new Student
             {
                 TenantId = _currentUser.TenantId,
@@ -2810,7 +2830,7 @@ public class StudentsController : ControllerBase
                 RollNumber = !string.IsNullOrWhiteSpace(dto.RollNumber) ? dto.RollNumber : (dto.SchoolRollNumber ?? dto.CoachingRollNumber ?? "N/A"),
                 SchoolRollNumber = dto.SchoolRollNumber,
                 CoachingRollNumber = dto.IsCoachingStudent ? (!string.IsNullOrWhiteSpace(dto.CoachingRollNumber) ? dto.CoachingRollNumber : dto.RollNumber) : null,
-                AdmissionNumber = dto.AdmissionNumber,
+                AdmissionNumber = admNo,
                 IsSchoolStudent = dto.IsSchoolStudent,
                 IsCoachingStudent = dto.IsCoachingStudent,
                 IsHostelStudent = dto.IsHostelStudent,
@@ -3107,7 +3127,18 @@ public class StudentsController : ControllerBase
                 : (dto.SchoolRollNumber?.Trim() ?? dto.CoachingRollNumber?.Trim() ?? student.RollNumber ?? "N/A");
             student.SchoolRollNumber = dto.SchoolRollNumber?.Trim();
             student.CoachingRollNumber = dto.CoachingRollNumber?.Trim();
-            student.AdmissionNumber = dto.AdmissionNumber?.Trim();
+
+            var updateAdmNo = !string.IsNullOrWhiteSpace(dto.AdmissionNumber) ? dto.AdmissionNumber.Trim() : null;
+            if (!string.IsNullOrWhiteSpace(updateAdmNo))
+            {
+                var isDuplicateAdm = await _dbContext.Students.AsNoTracking()
+                    .AnyAsync(s => s.TenantId == _currentUser.TenantId && s.Id != id && !s.IsDeleted && s.AdmissionNumber == updateAdmNo);
+                if (isDuplicateAdm)
+                {
+                    return BadRequest(new { message = $"Admission / SR Number '{updateAdmNo}' is already assigned to another student in this institute." });
+                }
+            }
+            student.AdmissionNumber = updateAdmNo;
             if (dto.JoiningDate.HasValue)
             {
                 student.JoiningDate = dto.JoiningDate.Value;

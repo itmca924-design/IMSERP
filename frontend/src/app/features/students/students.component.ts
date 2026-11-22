@@ -361,10 +361,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   </mat-expansion-panel-header>
                   <div class="enrollment-panel-fields">
                 <mat-form-field appearance="outline">
-                  <mat-label>Admission / SR Number</mat-label>
-                  <input matInput formControlName="admissionNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
-                  <mat-icon matSuffix matTooltip="Auto-generated on admission">lock</mat-icon>
-                  <mat-hint>Auto-generated Institutional Admission / SR Number</mat-hint>
+                  <mat-label>Admission / SR Number (दाखिला / Reg No)</mat-label>
+                  <input matInput formControlName="admissionNumber" placeholder="e.g. 1042 or ADM-2026-0001" style="color:#1e40af;font-weight:600;" />
+                  <button type="button" mat-icon-button matSuffix (click)="generateAdmissionNumber(true)" matTooltip="Auto-suggest next institutional admission number">
+                    <mat-icon style="font-size: 20px; color: #2563eb;">autorenew</mat-icon>
+                  </button>
+                  <mat-hint>Enter manual register/reg no. or auto-suggest</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Admission / Joining Date</mat-label>
@@ -413,12 +415,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                   }
                 </mat-form-field>
                 <mat-form-field appearance="outline">
-                  <mat-label>School Roll Number</mat-label>
-                  <input matInput formControlName="schoolRollNumber" [readonly]="true" style="cursor:default;color:#1e40af;font-weight:600;" />
-                  <mat-icon matSuffix matTooltip="Auto-generated based on class">lock</mat-icon>
-                  @if (!isEditMode) {
-                    <mat-hint>Auto-generated when class is selected (starts from 1 per class)</mat-hint>
-                  }
+                  <mat-label>School Roll Number (क्रमांक)</mat-label>
+                  <input matInput formControlName="schoolRollNumber" placeholder="e.g. 1, 2, 3..." style="color:#1e40af;font-weight:600;" />
+                  <button type="button" mat-icon-button matSuffix (click)="generateSchoolRollNumber(true)" matTooltip="Auto-generate next roll number for class">
+                    <mat-icon style="font-size: 20px; color: #2563eb;">autorenew</mat-icon>
+                  </button>
+                  <mat-hint>Auto-generated or custom class roll number</mat-hint>
                 </mat-form-field>
                   </div>
                 </mat-expansion-panel>
@@ -4711,28 +4713,38 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
 
     if (!this.isEditMode && classId && this.studentForm.value.isSchoolStudent) {
-      // Auto-generate Admission/SR Number
+      // Auto-generate Admission/SR Number if not manually filled
       if (!this.studentForm.get('admissionNumber')?.value) {
-        this.coachingService.getNextAdmissionNumber().subscribe({
-          next: (res) => this.studentForm.get('admissionNumber')?.setValue(res.admissionNumber, { emitEvent: false }),
-          error: () => { }
-        });
+        this.generateAdmissionNumber();
       }
-      // Auto-generate School Roll Number
+      // Auto-generate School Roll Number if not manually filled
+      if (!this.studentForm.get('schoolRollNumber')?.value) {
+        this.generateSchoolRollNumber();
+      }
+    }
+  }
+
+  generateAdmissionNumber(force: boolean = false): void {
+    if (!this.isEditMode || force) {
+      this.coachingService.getNextAdmissionNumber().subscribe({
+        next: (res) => this.studentForm.get('admissionNumber')?.setValue(res.admissionNumber),
+        error: () => { }
+      });
+    }
+  }
+
+  generateSchoolRollNumber(force: boolean = false): void {
+    const classId = this.studentForm.get('classId')?.value;
+    if (classId && (!this.isEditMode || force)) {
       this.coachingService.getNextSchoolRollNumber(classId).subscribe({
-        next: (res) => this.studentForm.get('schoolRollNumber')?.setValue(res.schoolRollNumber, { emitEvent: false }),
+        next: (res) => this.studentForm.get('schoolRollNumber')?.setValue(res.schoolRollNumber),
         error: () => { }
       });
     }
   }
 
   autoGenerateSchoolRollNumber(classId: string): void {
-    if (!this.isEditMode && classId) {
-      this.coachingService.getNextSchoolRollNumber(classId).subscribe({
-        next: (res) => this.studentForm.get('schoolRollNumber')?.setValue(res.schoolRollNumber, { emitEvent: false }),
-        error: () => { }
-      });
-    }
+    this.generateSchoolRollNumber();
   }
 
   onHostelCheckChanged(): void {
@@ -5637,6 +5649,9 @@ export class StudentsComponent implements OnInit, OnDestroy {
         isSchoolStudent: initSchool,
         isCoachingStudent: initCoaching
       });
+      if (initSchool) {
+        this.generateAdmissionNumber();
+      }
       this.onStreamCheckChanged();
       setTimeout(() => {
         this.schoolAdmissionPanel?.open();
