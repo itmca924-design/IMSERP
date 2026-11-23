@@ -42,12 +42,12 @@ export interface TransportDriverDto {
 export interface CreateTransportDriverDto {
   fullName: string;
   phoneNumber: string;
-  emergencyPhone?: string;
-  licenseNumber: string;
-  licenseExpiry?: string;
-  aadhaarNumber?: string;
-  address?: string;
-  photoUrl?: string;
+  emergencyPhone?: string | null;
+  licenseNumber?: string | null;
+  licenseExpiry?: string | null;
+  aadhaarNumber?: string | null;
+  address?: string | null;
+  photoUrl?: string | null;
 }
 
 export interface TransportVehicleDto {
@@ -77,15 +77,15 @@ export interface CreateTransportVehicleDto {
   vehicleNumber: string;
   vehicleType: string;
   totalCapacity: number;
-  model?: string;
-  color?: string;
-  driverId?: string;
-  conductorName?: string;
-  conductorPhone?: string;
-  gpsDeviceId?: string;
-  insuranceExpiry?: string;
-  fitnessExpiry?: string;
-  pollutionExpiry?: string;
+  model?: string | null;
+  color?: string | null;
+  driverId?: string | null;
+  conductorName?: string | null;
+  conductorPhone?: string | null;
+  gpsDeviceId?: string | null;
+  insuranceExpiry?: string | null;
+  fitnessExpiry?: string | null;
+  pollutionExpiry?: string | null;
 }
 
 export interface TransportRouteStopDto {

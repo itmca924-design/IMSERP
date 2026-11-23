@@ -573,13 +573,14 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
 
   openEditVehicle(v: TransportVehicleDto): void {
     this.editingVehicleId = v.id;
+    let vType = (v.vehicleType || 'Bus').trim();
     this.vehicleForm.patchValue({
       vehicleNumber: v.vehicleNumber,
-      vehicleType: v.vehicleType,
+      vehicleType: vType,
       totalCapacity: v.totalCapacity,
       model: v.model,
       color: v.color,
-      driverId: v.driverId,
+      driverId: v.driverId || null,
       conductorName: v.conductorName,
       conductorPhone: v.conductorPhone,
       gpsDeviceId: v.gpsDeviceId,
@@ -591,8 +592,29 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
   }
 
   saveVehicle(): void {
-    if (this.vehicleForm.invalid) return;
-    const val: CreateTransportVehicleDto = this.vehicleForm.value;
+    if (this.vehicleForm.invalid) {
+      this.vehicleForm.markAllAsTouched();
+      return;
+    }
+    const raw = this.vehicleForm.value;
+    const cleanDate = (d: any) => (d && typeof d === 'string' && d.trim().length > 0) ? new Date(d).toISOString() : null;
+    const cleanStr = (s: any) => (s && typeof s === 'string' && s.trim().length > 0) ? s.trim() : null;
+
+    const val: CreateTransportVehicleDto = {
+      vehicleNumber: (raw.vehicleNumber || '').trim().toUpperCase(),
+      vehicleType: raw.vehicleType || 'Bus',
+      totalCapacity: Number(raw.totalCapacity) || 40,
+      model: cleanStr(raw.model),
+      color: cleanStr(raw.color),
+      driverId: cleanStr(raw.driverId),
+      conductorName: cleanStr(raw.conductorName),
+      conductorPhone: cleanStr(raw.conductorPhone),
+      gpsDeviceId: cleanStr(raw.gpsDeviceId),
+      insuranceExpiry: cleanDate(raw.insuranceExpiry),
+      fitnessExpiry: cleanDate(raw.fitnessExpiry),
+      pollutionExpiry: cleanDate(raw.pollutionExpiry)
+    };
+
     if (this.editingVehicleId) {
       this.confirmDialog.confirm(
         'Confirm Vehicle Update',
@@ -609,7 +631,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
             this.loadOverview();
             this.confirmDialog.alert('Vehicle Updated', `Vehicle "${val.vehicleNumber}" details updated successfully.`, 'success');
           },
-          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update vehicle.', 'danger')
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || err.error?.title || 'Failed to update vehicle.', 'danger')
         });
       });
     } else {
@@ -620,7 +642,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
           this.loadOverview();
           this.confirmDialog.alert('Vehicle Added', `Vehicle "${val.vehicleNumber}" added to fleet successfully.`, 'success');
         },
-        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to add vehicle.', 'danger')
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || err.error?.title || 'Failed to add vehicle.', 'danger')
       });
     }
   }
@@ -665,8 +687,23 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
   }
 
   saveDriver(): void {
-    if (this.driverForm.invalid) return;
-    const val: CreateTransportDriverDto = this.driverForm.value;
+    if (this.driverForm.invalid) {
+      this.driverForm.markAllAsTouched();
+      return;
+    }
+    const rawD = this.driverForm.value;
+    const cleanDate = (d: any) => (d && typeof d === 'string' && d.trim().length > 0) ? new Date(d).toISOString() : null;
+    const cleanStr = (s: any) => (s && typeof s === 'string' && s.trim().length > 0) ? s.trim() : null;
+
+    const val: CreateTransportDriverDto = {
+      fullName: (rawD.fullName || '').trim(),
+      phoneNumber: (rawD.phoneNumber || '').trim(),
+      emergencyPhone: cleanStr(rawD.emergencyPhone),
+      licenseNumber: cleanStr(rawD.licenseNumber),
+      licenseExpiry: cleanDate(rawD.licenseExpiry),
+      aadhaarNumber: cleanStr(rawD.aadhaarNumber),
+      address: cleanStr(rawD.address)
+    };
     if (this.editingDriverId) {
       this.confirmDialog.confirm(
         'Confirm Driver Update',
@@ -682,7 +719,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
             this.loadDrivers();
             this.confirmDialog.alert('Driver Updated', `Driver "${val.fullName}" details updated successfully.`, 'success');
           },
-          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || 'Failed to update driver.', 'danger')
+          error: (err) => this.confirmDialog.alert('Update Failed', err.error?.message || err.error?.title || 'Failed to update driver.', 'danger')
         });
       });
     } else {
@@ -692,7 +729,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
           this.loadDrivers();
           this.confirmDialog.alert('Driver Registered', `Driver "${val.fullName}" registered successfully.`, 'success');
         },
-        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || 'Failed to register driver.', 'danger')
+        error: (err) => this.confirmDialog.alert('Creation Failed', err.error?.message || err.error?.title || 'Failed to register driver.', 'danger')
       });
     }
   }
