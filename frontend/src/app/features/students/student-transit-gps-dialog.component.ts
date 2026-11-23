@@ -8,6 +8,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { TransportService, RouteLiveLocationDto, TransportRouteDto } from '../../core/services/transport.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
+import { environment } from '../../../environments/environment';
+
+const API_BASE = environment.apiBaseUrl;
 
 export interface StudentTransitGpsDialogData {
   student: any;
@@ -55,11 +58,11 @@ export interface StudentTransitGpsDialogData {
         <!-- 1. Student Identity Header Banner -->
         <div class="student-hero-banner">
           <div class="hero-avatar">
-            @if (student.photoUrl) {
-              <img [src]="student.photoUrl" alt="{{ student.studentName }}" class="avatar-img" />
+            @if (hasPhoto()) {
+              <img [src]="getStudentPhotoUrl()" alt="{{ student.studentName }}" class="avatar-img" (error)="onPhotoError()" />
             } @else {
-              <div class="avatar-fallback">
-                {{ student.studentName?.charAt(0) || 'S' }}
+              <div class="avatar-fallback" [style.background]="getAvatarBackground(student.studentName)">
+                {{ getInitials(student.studentName) }}
               </div>
             }
           </div>
@@ -396,13 +399,14 @@ export interface StudentTransitGpsDialogData {
         .avatar-fallback {
           width: 100%;
           height: 100%;
-          background: #2563eb;
           color: #ffffff;
-          font-size: 1.5rem;
+          font-size: 1.15rem;
           font-weight: 700;
+          letter-spacing: 0.5px;
           display: flex;
           align-items: center;
           justify-content: center;
+          text-transform: uppercase;
         }
       }
 
@@ -888,7 +892,8 @@ export interface StudentTransitGpsDialogData {
           height: 44px;
 
           .avatar-fallback {
-            font-size: 1.2rem;
+            font-size: 1rem;
+            letter-spacing: 0.3px;
           }
         }
 
@@ -1055,6 +1060,7 @@ export class StudentTransitGpsDialogComponent implements OnInit {
   liveGps?: RouteLiveLocationDto;
   routeDetails?: TransportRouteDto;
   loading: boolean = false;
+  photoLoadError: boolean = false;
 
   private router = inject(Router);
 
@@ -1064,6 +1070,52 @@ export class StudentTransitGpsDialogComponent implements OnInit {
     private transportService: TransportService
   ) {
     this.student = data.student || {};
+  }
+
+  hasPhoto(): boolean {
+    const photo = this.student.profilePhoto || this.student.photoUrl || this.student.avatarUrl;
+    return !!photo && !this.photoLoadError;
+  }
+
+  getStudentPhotoUrl(): string {
+    const path = this.student.profilePhoto || this.student.photoUrl || this.student.avatarUrl;
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+      return path;
+    }
+    return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  }
+
+  getInitials(name: string): string {
+    if (!name) return 'S';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  getAvatarBackground(name: string): string {
+    if (!name) return '#2563eb';
+    const colors = [
+      '#2563eb', // Blue
+      '#7c3aed', // Purple
+      '#059669', // Emerald
+      '#d97706', // Amber
+      '#dc2626', // Red
+      '#0284c7', // Sky
+      '#4f46e5', // Indigo
+      '#0d9488', // Teal
+      '#db2777'  // Pink
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  }
+
+  onPhotoError(): void {
+    this.photoLoadError = true;
   }
 
   ngOnInit(): void {
