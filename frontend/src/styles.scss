@@ -4771,3 +4771,33 @@ button.utr-copy-btn {
   }
 }
 
+/* ── Student Counseling Intervention Dialog Panel ── */
+.responsive-counseling-dialog,
+.cdk-overlay-pane.responsive-counseling-dialog,
+.cdk-overlay-pane:has(app-record-counseling-dialog),
+.cdk-overlay-pane:has(app-counseling-history-dialog) {
+  max-width: 96vw !important;
+  width: 680px !important;
+
+  .mat-mdc-dialog-container,
+  .mdc-dialog__surface {
+    padding: 0 !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35) !important;
+  }
+
+  @media (max-width: 640px) {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    margin: 8px auto !important;
+
+    .mat-mdc-dialog-container,
+    .mdc-dialog__surface {
+      border-radius: 12px !important;
+      max-height: 94vh !important;
+    }
+  }
+}
+

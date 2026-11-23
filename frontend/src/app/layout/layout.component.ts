@@ -541,27 +541,6 @@ export interface BreadcrumbItem {
               </button>
             }
 
-            <button [matMenuTriggerFor]="quickActionsMenu" class="quick-actions-button" matButton="filled">
-              <mat-icon>bolt</mat-icon><span>Quick Actions</span>
-            </button>
-            <mat-menu #quickActionsMenu="matMenu" xPosition="before" class="quick-actions-menu">
-              <div class="menu-section-title">
-                <mat-icon style="font-size:16px; width:16px; height:16px; margin-right:4px; vertical-align:middle;">bolt</mat-icon>
-                <span>Quick Actions ({{ currentUser()?.role || 'User' }})</span>
-              </div>
-              @for (a of dynamicQuickActions; track a.route) {
-                <button mat-menu-item [routerLink]="a.route">
-                  <mat-icon [style.color]="a.color">{{ a.icon }}</mat-icon>
-                  <span>{{ translationService.translate(a.title) }}</span>
-                </button>
-              }
-              @if (dynamicQuickActions.length === 0) {
-                <div style="padding: 10px 16px; font-size: 12px; color: #64748b;">
-                  No quick actions configured for your role
-                </div>
-              }
-            </mat-menu>
-
             <!-- 🔔 Smart Bell Live Tracker Widget -->
             @if (smartBell.settings().isEnabled) {
               <button [matMenuTriggerFor]="bellStatusMenu"

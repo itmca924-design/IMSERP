@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -40,7 +40,7 @@ export interface RecordCounselingDialogData {
         </div>
         <div class="header-titles">
           <h2 mat-dialog-title class="main-title">Record Student Counseling Intervention</h2>
-          <p class="subtitle">Log parent meeting, telephonic counseling & early intervention outcome for <strong>{{ data.student.studentName }}</strong>.</p>
+          <p class="subtitle">Log parent meeting, telephonic counseling & early intervention outcome for <strong>{{ data?.student?.studentName || 'Student' }}</strong>.</p>
         </div>
         <button type="button" class="close-btn" (click)="onCancel()" [disabled]="saving" mat-icon-button>
           <mat-icon>close</mat-icon>
@@ -48,7 +48,7 @@ export interface RecordCounselingDialogData {
       </div>
 
       <!-- Student Mini Profile Card -->
-      <div class="student-mini-banner">
+      <div class="student-mini-banner" *ngIf="data?.student">
         <div class="student-avatar-box">
           <mat-icon>school</mat-icon>
         </div>
@@ -56,27 +56,27 @@ export interface RecordCounselingDialogData {
           <div class="name-row">
             <span class="st-name">{{ data.student.studentName }}</span>
             <span class="st-roll">(Roll: {{ data.student.rollNumber || 'N/A' }} | Adm: {{ data.student.admissionNumber || 'N/A' }})</span>
-            <span class="risk-badge" [ngClass]="data.student.riskLevel.toLowerCase()">
-              {{ data.student.riskScore }}% {{ data.student.riskLevel }} Risk
+            <span class="risk-badge" [ngClass]="(data.student.riskLevel || 'safe').toLowerCase()">
+              {{ data.student.riskScore || 0 }}% {{ data.student.riskLevel || 'Monitored' }} Risk
             </span>
           </div>
           <div class="details-row">
             <span><strong>Class/Batch:</strong> {{ data.student.className || data.student.batchName || 'General' }}</span>
             <span>•</span>
-            <span><strong>Parent:</strong> {{ data.student.parentName }} ({{ data.student.parentPhone }})</span>
+            <span><strong>Parent:</strong> {{ data.student.parentName || 'N/A' }} ({{ data.student.parentPhone || 'N/A' }})</span>
             <span>•</span>
-            <span><strong>Attendance:</strong> {{ data.student.attendancePercentage }}%</span>
+            <span><strong>Attendance:</strong> {{ data.student.attendancePercentage || 0 }}%</span>
             <span>•</span>
-            <span><strong>Overdue:</strong> ₹{{ data.student.overdueFeeAmount | number:'1.0-0' }} ({{ data.student.overdueFeeDays }}d)</span>
+            <span><strong>Overdue:</strong> ₹{{ (data.student.overdueFeeAmount || 0) | number:'1.0-0' }} ({{ data.student.overdueFeeDays || 0 }}d)</span>
           </div>
         </div>
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" *ngIf="form">
         <mat-dialog-content class="dialog-content">
           <div class="form-grid">
 
-            <!-- Intervention Type -->
+            <!-- 1. Intervention Type -->
             <mat-form-field appearance="outline" class="col-half">
               <mat-label>Intervention Channel / Type</mat-label>
               <mat-select formControlName="interventionType">
@@ -90,14 +90,14 @@ export interface RecordCounselingDialogData {
               <mat-icon matSuffix color="primary">hub</mat-icon>
             </mat-form-field>
 
-            <!-- Counselor Name -->
+            <!-- 2. Counselor Name -->
             <mat-form-field appearance="outline" class="col-half">
               <mat-label>Counselor / Faculty Name</mat-label>
               <input matInput formControlName="counselorName" placeholder="e.g. Principal / Class Teacher" />
               <mat-icon matSuffix color="primary">person</mat-icon>
             </mat-form-field>
 
-            <!-- Primary Reason for Risk -->
+            <!-- 3. Primary Reason for Risk -->
             <mat-form-field appearance="outline" class="col-half">
               <mat-label>Identified Root Cause (मूल कारण)</mat-label>
               <mat-select formControlName="reasonForRisk">
@@ -113,7 +113,7 @@ export interface RecordCounselingDialogData {
               <mat-icon matSuffix color="primary">psychology</mat-icon>
             </mat-form-field>
 
-            <!-- Outcome Status -->
+            <!-- 4. Outcome Status -->
             <mat-form-field appearance="outline" class="col-half">
               <mat-label>Counseling Outcome (अंतिम परिणाम)</mat-label>
               <mat-select formControlName="outcomeStatus">
@@ -126,21 +126,32 @@ export interface RecordCounselingDialogData {
               <mat-icon matSuffix color="primary">task_alt</mat-icon>
             </mat-form-field>
 
-            <!-- Next Follow-up Date -->
+            <!-- 5. Next Follow-up Date -->
             <mat-form-field appearance="outline" class="col-half">
               <mat-label>Next Follow-Up Date (अगली समीक्षा तारीख)</mat-label>
               <input matInput type="date" formControlName="nextFollowUpDate" />
               <mat-icon matSuffix color="primary">event</mat-icon>
             </mat-form-field>
 
-            <!-- Parent Feedback -->
+            <!-- 6. Priority -->
+            <mat-form-field appearance="outline" class="col-half">
+              <mat-label>Intervention Priority</mat-label>
+              <mat-select formControlName="priority">
+                <mat-option value="High">🔴 High Priority (Immediate Follow-up)</mat-option>
+                <mat-option value="Medium">🟡 Medium Priority (Weekly Review)</mat-option>
+                <mat-option value="Routine">🟢 Routine Check-in</mat-option>
+              </mat-select>
+              <mat-icon matSuffix color="primary">flag</mat-icon>
+            </mat-form-field>
+
+            <!-- 7. Parent Feedback -->
             <mat-form-field appearance="outline" class="col-full">
               <mat-label>Parent / Guardian Feedback (अभिभावक का पक्ष)</mat-label>
               <textarea matInput rows="3" formControlName="parentFeedback" placeholder="What did the parent explain? Any commitments made?"></textarea>
               <mat-icon matSuffix color="primary">record_voice_over</mat-icon>
             </mat-form-field>
 
-            <!-- Action Notes -->
+            <!-- 8. Action Notes -->
             <mat-form-field appearance="outline" class="col-full">
               <mat-label>Remedial Action Taken & Internal Notes (कदम व आंतरिक निर्देश)</mat-label>
               <textarea matInput rows="2" formControlName="actionNotes" placeholder="e.g. Assigned remedial classes; Allowed 2-part fee payment; Follow-up in 10 days."></textarea>
@@ -168,12 +179,9 @@ export interface RecordCounselingDialogData {
   `,
   styles: [`
     :host {
-      display: flex;
-      flex-direction: column;
+      display: block;
       width: 100%;
-      height: 100%;
       box-sizing: border-box;
-      overflow: hidden;
     }
 
     .dialog-wrapper {
@@ -182,8 +190,8 @@ export interface RecordCounselingDialogData {
       width: 100%;
       display: flex;
       flex-direction: column;
-      flex: 1 1 auto;
-      min-height: 0;
+      background: #ffffff;
+      border-radius: 14px;
       overflow: hidden;
     }
 
@@ -191,7 +199,7 @@ export interface RecordCounselingDialogData {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 18px 24px 14px;
+      padding: 16px 22px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border-bottom: 1px solid #bfdbfe;
 
@@ -233,7 +241,7 @@ export interface RecordCounselingDialogData {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 24px;
+      padding: 12px 22px;
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
 
@@ -300,21 +308,22 @@ export interface RecordCounselingDialogData {
     form {
       display: flex;
       flex-direction: column;
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: hidden;
+      margin: 0;
     }
 
     .dialog-content {
-      padding: 18px 24px;
+      padding: 18px 22px;
       overflow-y: auto;
-      flex: 1 1 auto;
+      max-height: 60vh;
+      box-sizing: border-box;
     }
 
     .form-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 14px;
+      gap: 14px 16px;
+      width: 100%;
+      box-sizing: border-box;
 
       .col-half {
         grid-column: span 1;
@@ -326,34 +335,42 @@ export interface RecordCounselingDialogData {
         width: 100%;
       }
 
+      mat-form-field {
+        width: 100%;
+        display: block;
+      }
+
       @media (max-width: 640px) {
         grid-template-columns: 1fr;
-        .col-half {
-          grid-column: span 1;
-        }
-        .col-full {
+        .col-half, .col-full {
           grid-column: span 1;
         }
       }
     }
 
     .dialog-actions {
-      padding: 14px 24px;
+      padding: 12px 22px;
       border-top: 1px solid #e2e8f0;
       background: #f8fafc;
       display: flex;
       justify-content: flex-end;
       gap: 10px;
+      margin: 0;
 
       .cancel-btn {
         color: #64748b;
+        font-weight: 600;
       }
 
       .submit-btn {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 6px;
         font-weight: 600;
+        background: #2563eb;
+        color: #ffffff;
+        border-radius: 8px;
+        padding: 0 18px;
       }
     }
   `],
@@ -366,7 +383,7 @@ export class RecordCounselingDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<RecordCounselingDialogComponent>);
   private confirmDialog = inject(ConfirmDialogService);
 
-  @Inject(MAT_DIALOG_DATA) public data!: RecordCounselingDialogData;
+  public data: RecordCounselingDialogData = inject(MAT_DIALOG_DATA);
 
   form!: FormGroup;
   saving = false;
@@ -388,15 +405,17 @@ export class RecordCounselingDialogComponent implements OnInit {
       reasonForRisk: [this.determineDefaultRiskReason(), Validators.required],
       outcomeStatus: ['UnderMonitoring', Validators.required],
       nextFollowUpDate: [defaultDateStr],
+      priority: ['High', Validators.required],
       parentFeedback: ['', [Validators.required, Validators.minLength(5)]],
       actionNotes: ['']
     });
   }
 
   private determineDefaultRiskReason(): string {
-    const s = this.data.student;
-    if (s.attendancePercentage < 65 || s.consecutiveAbsentDays >= 3) return 'IrregularityAbsence';
-    if (s.overdueFeeAmount > 2000) return 'FinancialDistress';
+    const s = this.data?.student;
+    if (!s) return 'Other';
+    if ((s.attendancePercentage || 100) < 65 || (s.consecutiveAbsentDays || 0) >= 3) return 'IrregularityAbsence';
+    if ((s.overdueFeeAmount || 0) > 2000) return 'FinancialDistress';
     if (s.latestTestPercentage !== undefined && s.latestTestPercentage < 40) return 'AcademicDifficulties';
     return 'Other';
   }
@@ -406,7 +425,7 @@ export class RecordCounselingDialogComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.form.invalid || this.saving) return;
+    if (this.form.invalid || this.saving || !this.data?.student) return;
 
     this.saving = true;
     const fv = this.form.value;

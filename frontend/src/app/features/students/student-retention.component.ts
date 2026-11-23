@@ -1323,8 +1323,8 @@ export class StudentRetentionComponent implements OnInit, OnDestroy {
   openRecordCounselingDialog(student: StudentDropoutRiskItemDto): void {
     const dialogRef = this.dialog.open(RecordCounselingDialogComponent, {
       width: '680px',
-      maxWidth: '94vw',
-      panelClass: 'erp-custom-dialog-panel',
+      maxWidth: '96vw',
+      panelClass: 'responsive-counseling-dialog',
       data: { student }
     });
 
@@ -1337,9 +1337,9 @@ export class StudentRetentionComponent implements OnInit, OnDestroy {
 
   openCounselingHistoryDialog(student: StudentDropoutRiskItemDto): void {
     this.dialog.open(CounselingHistoryDialogComponent, {
-      width: '720px',
-      maxWidth: '94vw',
-      panelClass: 'erp-custom-dialog-panel',
+      width: '740px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-counseling-dialog',
       data: { student }
     });
   }

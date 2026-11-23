@@ -432,7 +432,7 @@ export class CounselingHistoryDialogComponent implements OnInit {
   private retentionService = inject(StudentRetentionService);
   private dialogRef = inject(MatDialogRef<CounselingHistoryDialogComponent>);
 
-  @Inject(MAT_DIALOG_DATA) public data!: CounselingHistoryDialogData;
+  public data: CounselingHistoryDialogData = inject(MAT_DIALOG_DATA);
 
   loading = true;
   interventions: StudentRetentionInterventionDto[] = [];
@@ -442,6 +442,10 @@ export class CounselingHistoryDialogComponent implements OnInit {
   }
 
   loadHistory(): void {
+    if (!this.data?.student?.studentId) {
+      this.loading = false;
+      return;
+    }
     this.loading = true;
     this.retentionService.getInterventions(this.data.student.studentId).subscribe({
       next: (list: StudentRetentionInterventionDto[]) => {
