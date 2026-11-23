@@ -1138,18 +1138,18 @@ import ApexCharts from 'apexcharts';
           </div>
 
           <!-- Principal AI Morning Briefing Action Banner (Positioned directly below KPI cards) -->
-          <div class="briefing-quick-banner" style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px 18px; margin: 14px 0 16px; flex-wrap: wrap; gap: 10px;">
+          <div class="briefing-quick-banner" style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #bfdbfe; border-radius: 12px; padding: 10px 16px; margin: 12px 0 14px; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 40px; height: 40px; border-radius: 10px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25); flex-shrink: 0;">
-                <mat-icon style="font-size: 22px; width: 22px; height: 22px;">campaign</mat-icon>
+              <div style="width: 38px; height: 38px; border-radius: 9px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.25); flex-shrink: 0;">
+                <mat-icon style="font-size: 20px; width: 20px; height: 20px;">campaign</mat-icon>
               </div>
               <div>
-                <h4 style="margin: 0; font-size: 0.96rem; font-weight: 700; color: #1e3a8a;">Principal AI Morning Briefing Desk</h4>
-                <p style="margin: 2px 0 0; font-size: 0.78rem; color: #3b82f6;">Today's real-time collections, student/staff presence radar, unassigned periods, and AI voice summary.</p>
+                <h4 style="margin: 0; font-size: 0.94rem; font-weight: 700; color: #1e3a8a;">Principal AI Morning Briefing Desk</h4>
+                <p style="margin: 2px 0 0; font-size: 0.76rem; color: #3b82f6;">Today's real-time collections, student/staff presence radar, unassigned periods, and AI voice summary.</p>
               </div>
             </div>
-            <a matButton="filled" routerLink="/dashboard/briefing" style="background: #2563eb; color: #ffffff; font-weight: 600; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 36px;">
-              <mat-icon style="font-size: 18px; width: 18px; height: 18px;">auto_awesome</mat-icon>
+            <a matButton="filled" routerLink="/dashboard/briefing" style="background: #2563eb; color: #ffffff; font-weight: 600; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 34px;">
+              <mat-icon style="font-size: 16px; width: 16px; height: 16px;">auto_awesome</mat-icon>
               <span>Open Briefing Desk</span>
             </a>
           </div>
@@ -1843,7 +1843,7 @@ import ApexCharts from 'apexcharts';
       flex-wrap: nowrap;
       gap: 10px;
       width: 100%;
-      margin-bottom: 8px;
+      margin-bottom: 0px;
 
       & > mat-card,
       & > .stat-card {
