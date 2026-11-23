@@ -346,6 +346,8 @@ export interface FeeDueSlip {
   hostelInfo?: string;
   branchName?: string;
   studentAdvanceBalance?: number;
+  admissionDate?: string | Date;
+  admissionNumber?: string;
 }
 
 @Injectable({

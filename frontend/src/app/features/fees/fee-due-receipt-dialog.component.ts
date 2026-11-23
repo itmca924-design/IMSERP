@@ -183,7 +183,22 @@ export interface FeeDueReceiptDialogData {
                   </div>
                   <div class="prof-row">
                     <span class="k">Roll / Admission No:</span>
-                    <span class="v"><strong>{{ dueSlip.rollNumber || 'N/A' }}</strong></span>
+                    <span class="v">
+                      <strong>{{ dueSlip.rollNumber || 'N/A' }}</strong>
+                      @if (dueSlip.admissionNumber && dueSlip.admissionNumber !== dueSlip.rollNumber) {
+                        <span> (Adm: {{ dueSlip.admissionNumber }})</span>
+                      }
+                    </span>
+                  </div>
+                  <div class="prof-row">
+                    <span class="k">Admission Date:</span>
+                    <span class="v">
+                      @if (dueSlip.admissionDate) {
+                        <strong>{{ formatDateOnlyIST(dueSlip.admissionDate) }}</strong>
+                      } @else {
+                        <span>N/A</span>
+                      }
+                    </span>
                   </div>
                   <div class="prof-row">
                     <span class="k">Batch / Class:</span>
@@ -1316,6 +1331,31 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return d < today;
+  }
+
+  formatDateOnlyIST(dateVal: string | Date | undefined): string {
+    if (!dateVal) return 'N/A';
+    let str = String(dateVal).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes('T')) {
+      str += 'Z';
+    }
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return String(dateVal);
+
+    const parts = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).formatToParts(d);
+
+    let day = '', month = '', year = '';
+    for (const p of parts) {
+      if (p.type === 'day') day = p.value;
+      else if (p.type === 'month') month = p.value;
+      else if (p.type === 'year') year = p.value;
+    }
+    return `${day}-${month}-${year}`;
   }
 
   get flattenedDueRows(): {

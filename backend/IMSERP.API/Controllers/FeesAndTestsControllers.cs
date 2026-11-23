@@ -2061,6 +2061,10 @@ public class FeesController : ControllerBase
         string? noteEn = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null;
         string? noteHi = (autoSettings?.ShowFooterNoteOnDueSlip ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null;
 
+        var effectiveAdmissionDate = (student.IsCoachingStudent && !student.IsSchoolStudent && student.CoachingJoiningDate.HasValue)
+            ? student.CoachingJoiningDate.Value
+            : student.JoiningDate;
+
         return Ok(new FeeDueSlipDto(
             student.Id,
             student.StudentName,
@@ -2077,7 +2081,9 @@ public class FeesController : ControllerBase
             dueSlipBranch,
             student.AdvanceBalance,
             noteEn,
-            noteHi
+            noteHi,
+            effectiveAdmissionDate,
+            student.AdmissionNumber
         ));
     }
 
@@ -5281,7 +5287,11 @@ public class FeesController : ControllerBase
             upiIntentUri,
             allUnpaid.Count,
             noteEn,
-            noteHi
+            noteHi,
+            invoice.Student != null && invoice.Student.IsCoachingStudent && !invoice.Student.IsSchoolStudent && invoice.Student.CoachingJoiningDate.HasValue
+                ? invoice.Student.CoachingJoiningDate.Value
+                : invoice.Student?.JoiningDate,
+            invoice.Student?.AdmissionNumber
         );
 
         return Ok(dto);

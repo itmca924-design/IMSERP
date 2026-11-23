@@ -1782,7 +1782,9 @@ public record PublicInvoiceDueSlipDto(
     string UpiIntentUri,
     int TotalUnpaidInvoices = 1,
     string? FooterNoteEnglish = null,
-    string? FooterNoteHindi = null
+    string? FooterNoteHindi = null,
+    DateTime? AdmissionDate = null,
+    string? AdmissionNumber = null
 );
 
 public record CollectUpiPaymentRequestDto(
