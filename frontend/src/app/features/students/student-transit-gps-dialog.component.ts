@@ -97,10 +97,12 @@ export interface StudentTransitGpsDialogData {
         <!-- 2. Academic & Class Teacher Info -->
         <div class="info-card academic-card">
           <div class="card-title-row">
-            <div class="icon-tag blue-tag">
-              <mat-icon>menu_book</mat-icon>
+            <div class="title-left">
+              <div class="icon-tag blue-tag">
+                <mat-icon>menu_book</mat-icon>
+              </div>
+              <h4>Academic Classroom Allocation</h4>
             </div>
-            <h4>Academic Classroom Allocation</h4>
           </div>
           <div class="card-grid">
             <div class="grid-item">
@@ -125,10 +127,12 @@ export interface StudentTransitGpsDialogData {
         @if (student.isTransportStudent) {
           <div class="info-card transport-card">
             <div class="card-title-row">
-              <div class="icon-tag amber-tag">
-                <mat-icon>commute</mat-icon>
+              <div class="title-left">
+                <div class="icon-tag amber-tag">
+                  <mat-icon>commute</mat-icon>
+                </div>
+                <h4>Assigned Bus Route &amp; Crew</h4>
               </div>
-              <h4>Assigned Bus Route &amp; Crew</h4>
               @if ((liveGps?.speed || 0) > 2) {
                 <span class="motion-pill moving">
                   <mat-icon>speed</mat-icon> On Route (Moving)
@@ -499,37 +503,47 @@ export interface StudentTransitGpsDialogData {
     .info-card {
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 16px;
+      padding: 14px 16px;
       background: #ffffff;
 
       .card-title-row {
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 14px;
-        padding-bottom: 10px;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
         border-bottom: 1px solid #f1f5f9;
+        flex-wrap: wrap;
 
-        h4 {
-          margin: 0;
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: #1e293b;
+        .title-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
           flex: 1;
+
+          h4 {
+            margin: 0;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #1e293b;
+          }
         }
 
         .icon-tag {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
 
           mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
+            font-size: 17px;
+            width: 17px;
+            height: 17px;
           }
 
           &.blue-tag {
@@ -551,6 +565,8 @@ export interface StudentTransitGpsDialogData {
           font-weight: 700;
           padding: 2px 8px;
           border-radius: 12px;
+          white-space: nowrap;
+          flex-shrink: 0;
 
           mat-icon {
             font-size: 14px;
@@ -573,32 +589,30 @@ export interface StudentTransitGpsDialogData {
       .card-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-
-        @media (max-width: 600px) {
-          grid-template-columns: 1fr;
-        }
+        gap: 10px 14px;
 
         .grid-item {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          min-width: 0;
 
           &.full-width-item {
             grid-column: 1 / -1;
           }
 
           .item-label {
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
             font-weight: 600;
           }
 
           .item-value {
-            font-size: 0.88rem;
+            font-size: 0.86rem;
             color: #1e293b;
+            word-break: break-word;
 
             &.bold {
               font-weight: 700;
@@ -628,11 +642,15 @@ export interface StudentTransitGpsDialogData {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            margin-left: 6px;
-            font-size: 0.8rem;
+            margin-top: 2px;
+            padding: 2px 8px;
+            background: #eff6ff;
+            border-radius: 6px;
+            font-size: 0.78rem;
             color: #2563eb;
             text-decoration: none;
             font-weight: 600;
+            width: fit-content;
 
             mat-icon {
               font-size: 13px;
@@ -641,6 +659,7 @@ export interface StudentTransitGpsDialogData {
             }
 
             &:hover {
+              background: #dbeafe;
               text-decoration: underline;
             }
           }
@@ -650,8 +669,8 @@ export interface StudentTransitGpsDialogData {
 
     /* GPS Telemetry Strip */
     .gps-telemetry-strip {
-      margin-top: 14px;
-      padding: 12px 14px;
+      margin-top: 12px;
+      padding: 10px 12px;
       background: #f8fafc;
       border: 1px dashed #cbd5e1;
       border-radius: 10px;
@@ -659,21 +678,18 @@ export interface StudentTransitGpsDialogData {
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
 
-      @media (max-width: 600px) {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
-
       .telemetry-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+        min-width: 0;
 
         mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
           color: #3b82f6;
+          flex-shrink: 0;
 
           &.pulse-icon {
             color: #10b981;
@@ -682,7 +698,7 @@ export interface StudentTransitGpsDialogData {
 
         .tel-label {
           display: block;
-          font-size: 0.68rem;
+          font-size: 0.65rem;
           color: #64748b;
           text-transform: uppercase;
           font-weight: 600;
@@ -690,9 +706,12 @@ export interface StudentTransitGpsDialogData {
 
         .tel-val {
           display: block;
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           font-weight: 700;
           color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
 
           &.text-green {
             color: #059669;
@@ -735,10 +754,6 @@ export interface StudentTransitGpsDialogData {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 12px;
-
-      @media (max-width: 600px) {
-        grid-template-columns: 1fr;
-      }
 
       .compact-amenity-card {
         display: flex;
@@ -786,24 +801,251 @@ export interface StudentTransitGpsDialogData {
       align-items: center;
       justify-content: flex-end;
       gap: 10px;
-      padding: 14px 20px;
+      padding: 12px 20px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
 
+      .cancel-btn {
+        height: 38px;
+        border-radius: 8px;
+        font-weight: 600;
+        color: #475569;
+      }
+
       .radar-action-btn {
+        height: 38px;
         background: #2563eb;
         color: #ffffff;
         font-weight: 600;
         border-radius: 8px;
-        padding: 0 18px;
+        padding: 0 16px;
+        font-size: 0.88rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
 
         mat-icon {
-          margin-right: 6px;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 2px;
         }
 
         &:hover {
           background: #1d4ed8;
         }
+      }
+    }
+
+    /* ── RESPONSIVE MEDIA QUERIES FOR ALL MODES ── */
+    /* Mobile Devices (< 640px) */
+    @media (max-width: 640px) {
+      .transit-dialog-container {
+        max-height: 94vh;
+        border-radius: 10px;
+      }
+
+      .dialog-header {
+        padding: 10px 12px;
+        gap: 8px;
+
+        .header-left {
+          gap: 10px;
+        }
+
+        .header-icon-box {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        .dialog-title {
+          font-size: 0.98rem;
+        }
+
+        .dialog-subtitle {
+          font-size: 0.74rem;
+        }
+      }
+
+      .dialog-body {
+        padding: 10px 12px;
+        gap: 10px;
+      }
+
+      .student-hero-banner {
+        padding: 10px 12px;
+        gap: 10px;
+
+        .hero-avatar {
+          width: 44px;
+          height: 44px;
+
+          .avatar-fallback {
+            font-size: 1.2rem;
+          }
+        }
+
+        .hero-name-row {
+          gap: 5px;
+          margin-bottom: 2px;
+
+          .hero-name {
+            font-size: 0.96rem;
+          }
+
+          .gender-pill,
+          .transit-live-badge {
+            font-size: 0.68rem;
+            padding: 1px 6px;
+          }
+        }
+
+        .hero-meta-row {
+          gap: 6px 8px;
+          font-size: 0.74rem;
+
+          .meta-tag mat-icon {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+          }
+        }
+      }
+
+      .info-card {
+        padding: 10px 12px;
+
+        .card-title-row {
+          margin-bottom: 10px;
+          padding-bottom: 6px;
+          gap: 6px;
+
+          .title-left {
+            gap: 6px;
+
+            h4 {
+              font-size: 0.86rem;
+            }
+          }
+
+          .icon-tag {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+
+            mat-icon {
+              font-size: 15px;
+              width: 15px;
+              height: 15px;
+            }
+          }
+
+          .motion-pill {
+            font-size: 0.68rem;
+            padding: 1px 6px;
+
+            mat-icon {
+              font-size: 12px;
+              width: 12px;
+              height: 12px;
+            }
+          }
+        }
+
+        .card-grid {
+          grid-template-columns: 1fr;
+          gap: 8px;
+
+          .grid-item {
+            .item-label {
+              font-size: 0.66rem;
+            }
+
+            .item-value {
+              font-size: 0.82rem;
+            }
+          }
+        }
+      }
+
+      .gps-telemetry-strip {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 8px 10px;
+
+        .telemetry-item {
+          gap: 6px;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+
+          .tel-label {
+            font-size: 0.62rem;
+          }
+
+          .tel-val {
+            font-size: 0.78rem;
+          }
+        }
+      }
+
+      .two-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .dialog-actions {
+        flex-direction: column-reverse;
+        width: 100%;
+        padding: 10px 12px;
+        gap: 8px;
+
+        .cancel-btn {
+          width: 100%;
+          height: 40px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          color: #475569;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .radar-action-btn {
+          width: 100%;
+          height: 42px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.86rem;
+        }
+      }
+    }
+
+    /* Tablet Mode (641px - 1024px) */
+    @media (min-width: 641px) and (max-width: 1024px) {
+      .transit-dialog-container {
+        max-height: 88vh;
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .gps-telemetry-strip {
+        grid-template-columns: repeat(3, 1fr);
       }
     }
   `]
