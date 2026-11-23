@@ -561,23 +561,25 @@ import ApexCharts from 'apexcharts';
             </mat-card>
     
             <!-- 2. Assigned Batches -->
-            <mat-card class="stat-card teal mat-elevation-z2" routerLink="/batches">
-              <mat-card-content class="stat-content">
-                <div class="stat-header">
-                  <span class="label">Assigned Batches</span>
-                  <div class="stat-icon-wrap">
-                    <mat-icon class="stat-icon">groups</mat-icon>
+            @if (authService.hasCoachingModule()) {
+              <mat-card class="stat-card teal mat-elevation-z2" routerLink="/batches">
+                <mat-card-content class="stat-content">
+                  <div class="stat-header">
+                    <span class="label">Assigned Batches</span>
+                    <div class="stat-icon-wrap">
+                      <mat-icon class="stat-icon">groups</mat-icon>
+                    </div>
                   </div>
-                </div>
-                <div class="stat-body">
-                  <span class="value">{{ tc.assignedBatchesCount }}</span>
-                  <div class="stat-footer">
-                    <span class="stat-badge-pill">Classrooms</span>
-                    <span class="sub-label">Active sections under you</span>
+                  <div class="stat-body">
+                    <span class="value">{{ tc.assignedBatchesCount }}</span>
+                    <div class="stat-footer">
+                      <span class="stat-badge-pill">Classrooms</span>
+                      <span class="sub-label">Active sections under you</span>
+                    </div>
                   </div>
-                </div>
-              </mat-card-content>
-            </mat-card>
+                </mat-card-content>
+              </mat-card>
+            }
     
             <!-- 3. Pending Marks Entry -->
             <mat-card class="stat-card orange mat-elevation-z2" routerLink="/tests" style="cursor: pointer;">
@@ -1078,23 +1080,25 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
     
-            <mat-card class="stat-card teal mat-elevation-z2">
-              <mat-card-content class="stat-content">
-                <div class="stat-header">
-                  <span class="label">Active Batches</span>
-                  <div class="stat-icon-wrap">
-                    <mat-icon class="stat-icon">groups</mat-icon>
+            @if (authService.hasCoachingModule()) {
+              <mat-card class="stat-card teal mat-elevation-z2" routerLink="/batches" style="cursor: pointer;" matTooltip="Open Active Batches">
+                <mat-card-content class="stat-content">
+                  <div class="stat-header">
+                    <span class="label">Active Batches</span>
+                    <div class="stat-icon-wrap">
+                      <mat-icon class="stat-icon">groups</mat-icon>
+                    </div>
                   </div>
-                </div>
-                <div class="stat-body">
-                  <span class="value">{{ summary.activeBatches }}</span>
-                  <div class="stat-footer">
-                    <span class="stat-badge-pill">Running</span>
-                    <span class="sub-label">Academic classrooms</span>
+                  <div class="stat-body">
+                    <span class="value">{{ summary.activeBatches }}</span>
+                    <div class="stat-footer">
+                      <span class="stat-badge-pill">Running</span>
+                      <span class="sub-label">Academic classrooms</span>
+                    </div>
                   </div>
-                </div>
-              </mat-card-content>
-            </mat-card>
+                </mat-card-content>
+              </mat-card>
+            }
     
             <mat-card class="stat-card emerald mat-elevation-z2" routerLink="/students/attendance" style="cursor: pointer;" matTooltip="Open Student Attendance & Roll Call">
               <mat-card-content class="stat-content">
@@ -1236,7 +1240,7 @@ import ApexCharts from 'apexcharts';
           </div>
     
           <!-- 3. Batch Enrollment & Fee Potential Chart -->
-          @if (summary.batchDistributions && summary.batchDistributions.length > 0) {
+          @if (authService.hasCoachingModule() && summary.batchDistributions && summary.batchDistributions.length > 0) {
             <mat-card class="chart-card full-chart-card mat-elevation-z2">
               <div class="chart-header">
                 <div class="chart-header-left">
@@ -1486,29 +1490,31 @@ import ApexCharts from 'apexcharts';
                 </div>
 
                 <!-- Tri-Modal Division Scope Selector (All, School, Coaching) -->
-                <div class="fee-scope-toggle">
-                  <button
-                    type="button"
-                    class="scope-pill-btn"
-                    [class.active]="feeScopeControl.value === 'All'"
-                    (click)="feeScopeControl.setValue('All')">
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    class="scope-pill-btn"
-                    [class.active]="feeScopeControl.value === 'School'"
-                    (click)="feeScopeControl.setValue('School')">
-                    School
-                  </button>
-                  <button
-                    type="button"
-                    class="scope-pill-btn"
-                    [class.active]="feeScopeControl.value === 'Coaching'"
-                    (click)="feeScopeControl.setValue('Coaching')">
-                    Coaching
-                  </button>
-                </div>
+                @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+                  <div class="fee-scope-toggle">
+                    <button
+                      type="button"
+                      class="scope-pill-btn"
+                      [class.active]="feeScopeControl.value === 'All'"
+                      (click)="feeScopeControl.setValue('All')">
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      class="scope-pill-btn"
+                      [class.active]="feeScopeControl.value === 'School'"
+                      (click)="feeScopeControl.setValue('School')">
+                      School
+                    </button>
+                    <button
+                      type="button"
+                      class="scope-pill-btn"
+                      [class.active]="feeScopeControl.value === 'Coaching'"
+                      (click)="feeScopeControl.setValue('Coaching')">
+                      Coaching
+                    </button>
+                  </div>
+                }
               </div>
 
               <!-- Single Prominent Smooth Loader -->
@@ -1816,15 +1822,16 @@ import ApexCharts from 'apexcharts';
     /* ─── Top KPI Stat Cards (Responsive Grid across all devices) ─── */
     .card-container {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
       margin-bottom: 8px;
 
       @media (max-width: 1366px) {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 10px;
       }
       @media (max-width: 1024px) {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 12px;
       }
       @media (max-width: 768px) {
