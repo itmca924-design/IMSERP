@@ -4910,20 +4910,30 @@ mat-hint {
   .card-stop-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    flex-wrap: wrap;
     font-size: 0.78rem;
+
+    .stop-details-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1;
+      min-width: 0;
+    }
 
     .stop-pill, .time-pill {
       display: inline-flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      padding: 2px 7px;
+      padding: 3px 8px;
       border-radius: 6px;
       color: #334155;
       font-weight: 600;
+      white-space: nowrap;
 
       mat-icon {
         font-size: 14px;
@@ -4934,15 +4944,21 @@ mat-hint {
     }
 
     .phone-link {
-      margin-left: auto;
+      flex-shrink: 0;
 
       a {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         color: #059669;
         text-decoration: none;
         font-weight: 600;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        padding: 3px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        transition: all 0.15s ease;
 
         mat-icon {
           font-size: 14px;
@@ -4951,21 +4967,52 @@ mat-hint {
         }
 
         &:hover {
-          text-decoration: underline;
+          background: #dcfce7;
+          border-color: #86efac;
+          text-decoration: none;
         }
       }
     }
   }
 
   .card-status-strip {
+    display: flex;
+    align-items: center;
+
     .status-indicator-badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.75rem;
+      gap: 6px;
+      font-size: 0.76rem;
       font-weight: 700;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+
+      &.status-boarded-bg {
+        background: #dcfce7;
+        border-color: #86efac;
+        color: #15803d;
+      }
+
+      &.status-dropped-bg {
+        background: #dbeafe;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+      }
+
+      &.status-absent-bg {
+        background: #ffe4e6;
+        border-color: #fecdd3;
+        color: #b91c1c;
+      }
+
+      &.status-pending-bg {
+        background: #fef3c7;
+        border-color: #fde68a;
+        color: #b45309;
+      }
 
       mat-icon {
         font-size: 16px;
@@ -4979,49 +5026,60 @@ mat-hint {
         flex-shrink: 0;
       }
 
-      .badge-boarded {
+      .badge-boarded, .badge-dropped, .badge-absent, .badge-pending {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        color: #15803d;
-      }
-
-      .badge-dropped {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: #1d4ed8;
-      }
-
-      .badge-absent {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: #b91c1c;
-      }
-
-      .badge-pending {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        color: #b45309;
+        gap: 5px;
       }
     }
   }
 
   /* One-Tap Buttons (Big Touch Targets) */
   .card-tap-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
+    margin-top: 6px;
+    width: 100%;
+
+    .tap-buttons-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .tap-buttons-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+
+      &.primary-actions {
+        .tap-btn {
+          height: 38px;
+          font-size: 0.84rem;
+        }
+      }
+
+      &.secondary-actions {
+        .tap-btn {
+          height: 32px;
+          font-size: 0.78rem;
+          font-weight: 600;
+        }
+      }
+
+      &.morning-row {
+        .tap-btn {
+          height: 38px;
+        }
+      }
+    }
 
     .tap-btn {
       flex: 1;
-      height: 40px;
+      height: 38px;
       padding: 0 10px;
       border-radius: 8px;
-      border: 1px solid #cbd5e1;
+      border: 1.5px solid #cbd5e1;
       background: #ffffff;
       color: #334155;
       font-size: 0.82rem;
@@ -5031,14 +5089,17 @@ mat-hint {
       justify-content: center;
       gap: 6px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: all 0.15s ease-in-out;
       white-space: nowrap;
+      user-select: none;
+      outline: none;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
       mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        line-height: 20px;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -5052,8 +5113,13 @@ mat-hint {
         line-height: 1;
       }
 
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      }
+
       &:active {
-        transform: scale(0.97);
+        transform: translateY(1px);
       }
 
       &.tap-board {
@@ -5061,11 +5127,24 @@ mat-hint {
         background: #f0fdf4;
         color: #166534;
 
+        mat-icon {
+          color: #16a34a;
+        }
+
+        &:hover {
+          background: #dcfce7;
+          border-color: #4ade80;
+        }
+
         &.active {
-          background: #16a34a;
-          border-color: #16a34a;
-          color: #ffffff;
-          box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+          background: #16a34a !important;
+          border-color: #15803d !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35) !important;
+
+          mat-icon {
+            color: #ffffff !important;
+          }
         }
       }
 
@@ -5074,11 +5153,24 @@ mat-hint {
         background: #eff6ff;
         color: #1e40af;
 
+        mat-icon {
+          color: #2563eb;
+        }
+
+        &:hover {
+          background: #dbeafe;
+          border-color: #60a5fa;
+        }
+
         &.active {
-          background: #2563eb;
-          border-color: #2563eb;
-          color: #ffffff;
-          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+          background: #2563eb !important;
+          border-color: #1d4ed8 !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35) !important;
+
+          mat-icon {
+            color: #ffffff !important;
+          }
         }
       }
 
@@ -5087,34 +5179,49 @@ mat-hint {
         background: #fff1f2;
         color: #9f1239;
 
+        mat-icon {
+          color: #e11d48;
+        }
+
+        &:hover {
+          background: #ffe4e6;
+          border-color: #fb7185;
+        }
+
         &.active {
-          background: #e11d48;
-          border-color: #e11d48;
-          color: #ffffff;
-          box-shadow: 0 2px 6px rgba(225, 29, 72, 0.3);
+          background: #e11d48 !important;
+          border-color: #be123c !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35) !important;
+
+          mat-icon {
+            color: #ffffff !important;
+          }
         }
       }
 
       &.tap-reset {
-        flex: 0 0 38px;
-        padding: 0;
+        flex: 0 0 auto;
+        padding: 0 10px;
         color: #64748b;
         border-color: #e2e8f0;
+        background: #f8fafc;
 
         mat-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
-          line-height: 20px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          overflow: visible !important;
+          color: #64748b;
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
         }
 
         &:hover {
           background: #f1f5f9;
           color: #0f172a;
+          border-color: #cbd5e1;
+
+          mat-icon {
+            color: #0f172a;
+          }
         }
       }
     }

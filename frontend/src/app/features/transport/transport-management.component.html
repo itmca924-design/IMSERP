@@ -1213,16 +1213,18 @@
                     </div>
                   </div>
                   <div class="card-stop-row">
-                    <div class="stop-pill">
-                      <mat-icon>location_on</mat-icon>
-                      <span>{{ p.stopName }}</span>
-                    </div>
-                    @if (p.pickupTime || p.scheduledTime) {
-                      <div class="time-pill">
-                        <mat-icon>schedule</mat-icon>
-                        <span>{{ p.pickupTime || p.scheduledTime }}</span>
+                    <div class="stop-details-group">
+                      <div class="stop-pill" [title]="'Boarding Stop: ' + p.stopName">
+                        <mat-icon>location_on</mat-icon>
+                        <span>{{ p.stopName }}</span>
                       </div>
-                    }
+                      @if (p.pickupTime || p.scheduledTime) {
+                        <div class="time-pill" [title]="'Scheduled Time: ' + (p.pickupTime || p.scheduledTime)">
+                          <mat-icon>schedule</mat-icon>
+                          <span>{{ p.pickupTime || p.scheduledTime }}</span>
+                        </div>
+                      }
+                    </div>
                     @if (p.parentPhone || p.contactNumber) {
                       <div class="phone-link">
                         <a [href]="'tel:' + (p.parentPhone || p.contactNumber)" title="Call Emergency Contact">
@@ -1233,7 +1235,13 @@
                   </div>
                   <!-- Status Indicator Pill -->
                   <div class="card-status-strip">
-                    <div class="status-indicator-badge">
+                    <div class="status-indicator-badge"
+                         [ngClass]="{
+                           'status-boarded-bg': (p.status === 'Boarded' || (p.isBoarded && p.status !== 'Dropped')),
+                           'status-dropped-bg': p.status === 'Dropped',
+                           'status-absent-bg': p.status === 'Absent',
+                           'status-pending-bg': (!p.status || p.status === 'Pending') && !p.isBoarded
+                         }">
                       @switch (p.status || (p.isBoarded ? 'Boarded' : 'Pending')) {
                         @case ('Boarded') {
                           <span class="badge-boarded">
@@ -1252,7 +1260,7 @@
                         }
                         @default {
                           <span class="badge-pending">
-                            <mat-icon>hourglass_empty</mat-icon> ⏳ Awaiting Transit Tap
+                            <mat-icon>schedule</mat-icon> ⏳ Awaiting Transit Tap
                           </span>
                         }
                       }
@@ -1262,67 +1270,82 @@
                   <div class="card-tap-actions">
                     <!-- Morning Actions -->
                     @if (manifestDeparture === 'Morning') {
-                      <button
-                        type="button"
-                        class="tap-btn tap-board"
-                        [class.active]="p.status === 'Boarded' || p.isBoarded"
-                        (click)="tapPassenger(p, 'Boarded')" matButton="filled">
-                        <mat-icon>done</mat-icon>
-                        <span>Tap to Board</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="tap-btn tap-absent"
-                        [class.active]="p.status === 'Absent'"
-                        (click)="tapPassenger(p, 'Absent')" matButton="filled">
-                        <mat-icon>close</mat-icon>
-                        <span>Absent</span>
-                      </button>
-                      @if (p.status && p.status !== 'Pending') {
+                      <div class="tap-buttons-row morning-row">
                         <button
                           type="button"
-                          class="tap-btn tap-reset"
-                          title="Reset to Pending"
-                          (click)="tapPassenger(p, 'Pending')" mat-icon-button>
-                          <mat-icon>undo</mat-icon>
+                          class="tap-btn tap-board"
+                          [class.active]="p.status === 'Boarded' || p.isBoarded"
+                          (click)="tapPassenger(p, 'Boarded')"
+                          title="Mark student boarded into bus at stop">
+                          <mat-icon>check_circle</mat-icon>
+                          <span>Tap to Board</span>
                         </button>
-                      }
+                        <button
+                          type="button"
+                          class="tap-btn tap-absent"
+                          [class.active]="p.status === 'Absent'"
+                          (click)="tapPassenger(p, 'Absent')"
+                          title="Mark student absent / missed bus today">
+                          <mat-icon>cancel</mat-icon>
+                          <span>Absent</span>
+                        </button>
+                        @if (p.status && p.status !== 'Pending') {
+                          <button
+                            type="button"
+                            class="tap-btn tap-reset"
+                            title="Reset to Pending"
+                            (click)="tapPassenger(p, 'Pending')">
+                            <mat-icon>undo</mat-icon>
+                            <span>Reset</span>
+                          </button>
+                        }
+                      </div>
                     }
                     <!-- Evening Actions -->
                     @if (manifestDeparture === 'Evening') {
-                      <button
-                        type="button"
-                        class="tap-btn tap-board"
-                        [class.active]="p.status === 'Boarded'"
-                        (click)="tapPassenger(p, 'Boarded')" matButton="filled">
-                        <mat-icon>login</mat-icon>
-                        <span>Board at Campus</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="tap-btn tap-drop"
-                        [class.active]="p.status === 'Dropped'"
-                        (click)="tapPassenger(p, 'Dropped')" matButton="filled">
-                        <mat-icon>check_circle</mat-icon>
-                        <span>Safely Dropped</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="tap-btn tap-absent"
-                        [class.active]="p.status === 'Absent'"
-                        (click)="tapPassenger(p, 'Absent')" matButton="filled">
-                        <mat-icon>close</mat-icon>
-                        <span>Absent</span>
-                      </button>
-                      @if (p.status && p.status !== 'Pending') {
-                        <button
-                          type="button"
-                          class="tap-btn tap-reset"
-                          title="Reset to Pending"
-                          (click)="tapPassenger(p, 'Pending')" mat-icon-button>
-                          <mat-icon>undo</mat-icon>
-                        </button>
-                      }
+                      <div class="tap-buttons-column evening-col">
+                        <div class="tap-buttons-row primary-actions">
+                          <button
+                            type="button"
+                            class="tap-btn tap-board"
+                            [class.active]="p.status === 'Boarded'"
+                            (click)="tapPassenger(p, 'Boarded')"
+                            title="Student boarded into bus at campus departure">
+                            <mat-icon>login</mat-icon>
+                            <span>Board at Campus</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="tap-btn tap-drop"
+                            [class.active]="p.status === 'Dropped'"
+                            (click)="tapPassenger(p, 'Dropped')"
+                            title="Student safely dropped at boarding stop">
+                            <mat-icon>task_alt</mat-icon>
+                            <span>Safely Dropped</span>
+                          </button>
+                        </div>
+                        <div class="tap-buttons-row secondary-actions">
+                          <button
+                            type="button"
+                            class="tap-btn tap-absent"
+                            [class.active]="p.status === 'Absent'"
+                            (click)="tapPassenger(p, 'Absent')"
+                            title="Mark student absent / not traveling evening run">
+                            <mat-icon>cancel</mat-icon>
+                            <span>Absent</span>
+                          </button>
+                          @if (p.status && p.status !== 'Pending') {
+                            <button
+                              type="button"
+                              class="tap-btn tap-reset"
+                              title="Reset status back to Pending"
+                              (click)="tapPassenger(p, 'Pending')">
+                              <mat-icon>undo</mat-icon>
+                              <span>Reset</span>
+                            </button>
+                          }
+                        </div>
+                      </div>
                     }
                   </div>
                 </div>
