@@ -3376,7 +3376,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)";
 
     if (context.Request.IsHttps || !app.Environment.IsDevelopment())
     {
