@@ -7138,5 +7138,102 @@ public record UpdateFeeDueAutomationSettingsDto(
     string? WhatsAppBusinessAccountId
 );
 
+// --- Teacher Copilot & Autonomous Academic Paper / Lesson Plan DTOs ---
+
+public record QuestionItemDto(
+    int QuestionNumber,
+    string QuestionTextEn,
+    string? QuestionTextHi,
+    int Marks,
+    string QuestionType, // MCQ, VeryShort, Short, Long, CaseStudy
+    List<string>? OptionsEn,
+    List<string>? OptionsHi,
+    string? CorrectAnswerOrKey,
+    string? StepWiseExplanation
+);
+
+public record QuestionSectionDto(
+    string SectionName, // e.g. "Section A", "Section B"
+    string SectionTitle, // e.g. "Multiple Choice Questions (1 Mark Each)"
+    int MarksPerQuestion,
+    int TotalQuestions,
+    int SectionTotalMarks,
+    List<QuestionItemDto> Questions
+);
+
+public record GenerateQuestionPaperRequestDto(
+    Guid? BranchId,
+    string Title,
+    string Subject,
+    string ClassName,
+    string? BoardOrCurriculum,
+    int TotalMarks,
+    int DurationMinutes,
+    string DifficultyLevel, // Easy, Moderate, Challenging, Balanced
+    string Language, // English, Hindi, Bilingual
+    string ChaptersList,
+    bool IncludeSolutions
+);
+
+public record TeacherQuestionPaperDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string Title,
+    string Subject,
+    string ClassName,
+    string BoardOrCurriculum,
+    int TotalMarks,
+    int DurationMinutes,
+    string DifficultyLevel,
+    string Language,
+    string ChaptersList,
+    string GeneralInstructions,
+    List<QuestionSectionDto> Sections,
+    string? MarkingSchemeHtmlOrJson,
+    string CreatedBy,
+    DateTime CreatedAt
+);
+
+public record LessonPeriodItemDto(
+    int PeriodNumber,
+    string PhaseName, // e.g. "Engage", "Explore", "Explain", "Elaborate", "Evaluate"
+    string KeyConcept,
+    string TeacherAction,
+    string StudentActivity,
+    string TeachingAidsUsed,
+    string AssessmentCheck
+);
+
+public record GenerateAiLessonPlanRequestDto(
+    Guid? BranchId,
+    string Subject,
+    string ClassName,
+    string TopicOrChapter,
+    int TotalPeriods,
+    string? PedagogicalApproach
+);
+
+public record TeacherAiLessonPlanDto(
+    Guid Id,
+    Guid TenantId,
+    Guid? BranchId,
+    string? BranchName,
+    string Title,
+    string Subject,
+    string ClassName,
+    string TopicOrChapter,
+    int TotalPeriods,
+    string PedagogicalApproach,
+    string LearningObjectives,
+    string TeachingAidsAndResources,
+    List<LessonPeriodItemDto> Periods,
+    string FormativeAssessmentQuestions,
+    string HomeworkAndWorksheetAssignment,
+    string CreatedBy,
+    DateTime CreatedAt
+);
+
 
 

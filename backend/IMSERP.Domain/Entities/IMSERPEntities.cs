@@ -77,6 +77,53 @@ public class StudentRetentionIntervention
     public Branch? Branch { get; set; }
 }
 
+public class TeacherQuestionPaper
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
+    public string BoardOrCurriculum { get; set; } = "CBSE / State Board";
+    public int TotalMarks { get; set; } = 50;
+    public int DurationMinutes { get; set; } = 90;
+    public string DifficultyLevel { get; set; } = "Balanced"; // Easy, Moderate, Challenging, Balanced
+    public string Language { get; set; } = "Bilingual"; // Hindi, English, Bilingual
+    public string ChaptersList { get; set; } = string.Empty;
+    public string GeneralInstructions { get; set; } = string.Empty;
+    public string PaperSectionsJson { get; set; } = string.Empty; // JSON structure of sections & questions
+    public string MarkingSchemeJson { get; set; } = string.Empty; // Answers and step marking
+    public string CreatedBy { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class TeacherAiLessonPlan
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
+    public string TopicOrChapter { get; set; } = string.Empty;
+    public int TotalPeriods { get; set; } = 4;
+    public string PedagogicalApproach { get; set; } = "Experiential & Inquiry-Based (NEP 2020)";
+    public string LearningObjectives { get; set; } = string.Empty;
+    public string TeachingAidsAndResources { get; set; } = string.Empty;
+    public string PlanPeriodsJson { get; set; } = string.Empty; // Period-by-period 5E breakdown
+    public string FormativeAssessmentQuestions { get; set; } = string.Empty;
+    public string HomeworkAndWorksheetAssignment { get; set; } = string.Empty;
+    public string CreatedBy { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 public class Branch
 {
     public Guid Id { get; set; } = Guid.NewGuid();

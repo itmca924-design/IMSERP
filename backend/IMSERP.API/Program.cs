@@ -1939,6 +1939,53 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_Retention_Branch ON StudentRetentionInterventions (TenantId, BranchId);
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherQuestionPapers')
+                    BEGIN
+                        CREATE TABLE TeacherQuestionPapers (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Title NVARCHAR(300) NOT NULL DEFAULT '',
+                            Subject NVARCHAR(150) NOT NULL DEFAULT '',
+                            ClassName NVARCHAR(150) NOT NULL DEFAULT '',
+                            BoardOrCurriculum NVARCHAR(150) NOT NULL DEFAULT 'CBSE / State Board',
+                            TotalMarks INT NOT NULL DEFAULT 50,
+                            DurationMinutes INT NOT NULL DEFAULT 90,
+                            DifficultyLevel NVARCHAR(50) NOT NULL DEFAULT 'Balanced',
+                            Language NVARCHAR(50) NOT NULL DEFAULT 'Bilingual',
+                            ChaptersList NVARCHAR(1000) NOT NULL DEFAULT '',
+                            GeneralInstructions NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            PaperSectionsJson NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            MarkingSchemeJson NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            CreatedBy NVARCHAR(200) NOT NULL DEFAULT '',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_QuestionPapers_Tenant_Branch ON TeacherQuestionPapers (TenantId, BranchId);
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'TeacherAiLessonPlans')
+                    BEGIN
+                        CREATE TABLE TeacherAiLessonPlans (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            Title NVARCHAR(300) NOT NULL DEFAULT '',
+                            Subject NVARCHAR(150) NOT NULL DEFAULT '',
+                            ClassName NVARCHAR(150) NOT NULL DEFAULT '',
+                            TopicOrChapter NVARCHAR(300) NOT NULL DEFAULT '',
+                            TotalPeriods INT NOT NULL DEFAULT 4,
+                            PedagogicalApproach NVARCHAR(150) NOT NULL DEFAULT 'Experiential & Inquiry-Based (NEP 2020)',
+                            LearningObjectives NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            TeachingAidsAndResources NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            PlanPeriodsJson NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            FormativeAssessmentQuestions NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            HomeworkAndWorksheetAssignment NVARCHAR(MAX) NOT NULL DEFAULT '',
+                            CreatedBy NVARCHAR(200) NOT NULL DEFAULT '',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_AiLessonPlans_Tenant_Branch ON TeacherAiLessonPlans (TenantId, BranchId);
+                    END
+
                     -- Seed 'Campus Chat' Menu Item & Role Permissions
                     IF NOT EXISTS (SELECT 1 FROM MenuItems WHERE RouteUrl = '/chat')
                     BEGIN

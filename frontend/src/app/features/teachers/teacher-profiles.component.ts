@@ -39,6 +39,9 @@ import { environment } from '../../../environments/environment';
       <p class="page-subtitle">Manage complete faculty and administrative staff directory — add, update, and monitor credentials.</p>
     </div>
     <div class="header-actions-row">
+      <a matButton="filled" [routerLink]="['/teachers/copilot']" style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #fff; font-weight: 600; text-decoration: none; border-radius: 8px;">
+        <mat-icon style="color: #fff;">auto_awesome</mat-icon> AI Copilot Studio
+      </a>
       @if (!showForm && canManageStaff && teachers.length > 0) {
         <button color="primary" (click)="openBulkIdCards()" matButton="filled">
           <mat-icon>badge</mat-icon> Staff ID Cards

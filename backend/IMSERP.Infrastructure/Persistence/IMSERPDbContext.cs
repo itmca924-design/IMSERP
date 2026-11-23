@@ -135,6 +135,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<FeeRecoveryPlan> FeeRecoveryPlans => Set<FeeRecoveryPlan>();
     public DbSet<FeePromiseToPay> FeePromisesToPay => Set<FeePromiseToPay>();
     public DbSet<StudentRetentionIntervention> StudentRetentionInterventions => Set<StudentRetentionIntervention>();
+    public DbSet<TeacherQuestionPaper> TeacherQuestionPapers => Set<TeacherQuestionPaper>();
+    public DbSet<TeacherAiLessonPlan> TeacherAiLessonPlans => Set<TeacherAiLessonPlan>();
     public DbSet<SubscriptionPlanConfig> SubscriptionPlanConfigs => Set<SubscriptionPlanConfig>();
     public DbSet<SubscriptionRenewalRequest> SubscriptionRenewalRequests => Set<SubscriptionRenewalRequest>();
 

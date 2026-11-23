@@ -276,6 +276,10 @@ export const routes: Routes = [
         path: 'teachers/lesson-plans',
         loadComponent: () => import('./features/teachers/teacher-lesson-plans.component').then(m => m.TeacherLessonPlansComponent)
       },
+      {
+        path: 'teachers/copilot',
+        loadComponent: () => import('./features/teachers/teacher-copilot.component').then(m => m.TeacherCopilotComponent)
+      },
 
       // Academic Operations
       {

@@ -46,6 +46,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ["StudentLeaves"] = "/students/leaves",
             ["StudentRegularization"] = "/students/attendance",
             ["StudentRetention"] = "/students/retention",
+            ["TeacherCopilot"] = "/teachers/copilot",
             ["Students"] = "/students",
             ["Batches"] = "/batches",
             ["StudyMaterials"] = "/study-materials",
