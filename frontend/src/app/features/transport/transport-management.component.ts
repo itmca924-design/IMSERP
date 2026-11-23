@@ -2120,8 +2120,8 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 12000,
-      maximumAge: 4000
+      timeout: 20000,
+      maximumAge: 5000
     };
 
     this.gpsWatchId = navigator.geolocation.watchPosition(
@@ -2135,6 +2135,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
           heading: crd.heading != null ? Math.round(crd.heading) : undefined,
           accuracy: crd.accuracy != null ? Math.round(crd.accuracy) : undefined
         };
+        this.gpsErrorMsg = '';
         this.gpsBroadcastStatus = 'Broadcasting Live';
         this.gpsLastHeartbeat = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
@@ -2151,9 +2152,13 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
         });
       },
       (err) => {
-        console.error('GPS Watch error', err);
-        this.gpsErrorMsg = err.message || 'Unable to retrieve location';
-        this.gpsBroadcastStatus = 'GPS Error';
+        if (err.code === 1) {
+          this.gpsErrorMsg = 'Location permission denied by user';
+          this.gpsBroadcastStatus = 'Permission Denied';
+        } else if (!this.currentGpsCoords) {
+          this.gpsErrorMsg = 'Searching for GPS satellite signal...';
+          this.gpsBroadcastStatus = 'Searching GPS';
+        }
       },
       options
     );
@@ -2175,6 +2180,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
       this.gpsWatchId = null;
     }
     this.isGpsBroadcasting = false;
+    this.gpsErrorMsg = '';
     this.gpsBroadcastStatus = 'Offline';
   }
 
