@@ -2191,6 +2191,8 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19
         }).addTo(this.liveMap);
+      } else {
+        this.liveMap.invalidateSize();
       }
 
       this.renderMapMarkers();

@@ -6342,6 +6342,43 @@ mat-hint {
     }
   }
 
+  .gps-actions-col {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    .btn-view-map-radar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1.5px solid #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2563eb;
+      }
+
+      &:hover {
+        background: #dbeafe;
+        border-color: #2563eb;
+        transform: translateY(-1px);
+      }
+    }
+  }
+
   .btn-gps-toggle {
     display: inline-flex;
     align-items: center;
@@ -6405,11 +6442,102 @@ mat-hint {
       }
     }
 
-    .btn-gps-toggle {
+    .gps-actions-col {
       width: 100%;
-      height: 44px;
-      font-size: 0.88rem;
-      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .btn-gps-toggle {
+        width: 100%;
+        height: 44px;
+        font-size: 0.88rem;
+        border-radius: 10px;
+        justify-content: center;
+      }
+
+      .btn-view-map-radar {
+        width: 100%;
+        height: 40px;
+        font-size: 0.84rem;
+        border-radius: 10px;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+.radar-top-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+
+  .btn-back-to-console {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1.5px solid #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+    transition: all 0.15s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+  }
+
+  .btn-refresh-radar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #64748b;
+    }
+
+    &:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    .btn-back-to-console,
+    .btn-refresh-radar {
+      width: 100%;
       justify-content: center;
     }
   }

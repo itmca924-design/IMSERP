@@ -1045,7 +1045,7 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'driver'"
-              (click)="manifestViewMode = 'driver'" matButton="filled">
+              (click)="manifestViewMode = 'driver'">
               <mat-icon>touch_app</mat-icon>
               <span>Driver / Tap Console</span>
             </button>
@@ -1053,9 +1053,9 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'admin'"
-              (click)="manifestViewMode = 'admin'; loadLiveTracker()" matButton="filled">
+              (click)="manifestViewMode = 'admin'; loadLiveTracker()">
               <mat-icon>radar</mat-icon>
-              <span>Admin Fleet Radar</span>
+              <span>Admin Fleet Radar (Live Map)</span>
             </button>
           </div>
           <div class="whatsapp-toggle-wrap">
@@ -1171,14 +1171,24 @@
                     }
                   </div>
                 </div>
-                <button
-                  type="button"
-                  class="btn-gps-toggle"
-                  [class.active]="isGpsBroadcasting"
-                  (click)="toggleGpsBroadcast()">
-                  <mat-icon>{{ isGpsBroadcasting ? 'portable_wifi_off' : 'satellite_alt' }}</mat-icon>
-                  <span>{{ isGpsBroadcasting ? 'Stop GPS Broadcast' : 'Start Live GPS Broadcast' }}</span>
-                </button>
+                <div class="gps-actions-col">
+                  <button
+                    type="button"
+                    class="btn-gps-toggle"
+                    [class.active]="isGpsBroadcasting"
+                    (click)="toggleGpsBroadcast()">
+                    <mat-icon>{{ isGpsBroadcasting ? 'portable_wifi_off' : 'satellite_alt' }}</mat-icon>
+                    <span>{{ isGpsBroadcasting ? 'Stop GPS Broadcast' : 'Start Live GPS Broadcast' }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-view-map-radar"
+                    (click)="manifestViewMode = 'admin'; loadLiveTracker()"
+                    title="Open Live GPS Fleet Radar Map">
+                    <mat-icon>radar</mat-icon>
+                    <span>View Fleet Radar &amp; Map</span>
+                  </button>
+                </div>
               </div>
             }
             <!-- Live Status Metric Counters -->
@@ -1483,6 +1493,22 @@
       <!-- ========================================================================= -->
       @if (manifestViewMode === 'admin') {
         <div class="admin-radar-view">
+          <div class="radar-top-action-bar">
+            <button
+              type="button"
+              class="btn-back-to-console"
+              (click)="manifestViewMode = 'driver'">
+              <mat-icon>touch_app</mat-icon>
+              <span>Back to Driver / Tap Console</span>
+            </button>
+            <button
+              type="button"
+              class="btn-refresh-radar"
+              (click)="loadLiveTracker()">
+              <mat-icon>refresh</mat-icon>
+              <span>Refresh Fleet Radar &amp; Map</span>
+            </button>
+          </div>
           <!-- Fleet KPI Deck -->
           <div class="radar-kpi-grid">
             <div class="radar-card kpi-active-buses">
