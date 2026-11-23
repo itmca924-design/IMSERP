@@ -2183,9 +2183,10 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
           initLng = liveRoute.longitude;
         }
 
-        this.liveMap = L.map('fleetLiveMap', {
+        this.liveMap = (L.map as any)('fleetLiveMap', {
           zoomControl: true,
-          attributionControl: false
+          attributionControl: false,
+          tap: false
         }).setView([initLat, initLng], 14);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -2196,7 +2197,12 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
       }
 
       this.renderMapMarkers();
-    }, 150);
+      setTimeout(() => {
+        if (this.liveMap) {
+          this.liveMap.invalidateSize();
+        }
+      }, 300);
+    }, 200);
   }
 
   renderMapMarkers(): void {
