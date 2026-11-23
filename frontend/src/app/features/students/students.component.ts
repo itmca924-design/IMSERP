@@ -37,6 +37,7 @@ import { StudentBonafideDialogComponent } from './student-bonafide-dialog.compon
 import { StudentProfile360DialogComponent } from './student-profile-360-dialog.component';
 import { StudentRollSequencerDialogComponent } from './student-roll-sequencer-dialog.component';
 import { StudentPortalLoginDialogComponent } from './student-portal-login-dialog.component';
+import { StudentTransitGpsDialogComponent } from './student-transit-gps-dialog.component';
 import { AuthService } from '../../core/services/auth.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryItem } from '../inventory/inventory.models';
@@ -1300,56 +1301,34 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                             </div>
                           </td>
                         </ng-container>
-                        <!-- Academic Allocation: Class & Batch -->
+                        <!-- Academic Allocation: Class & Batch & Transit -->
                         <ng-container matColumnDef="batchOrClass">
-                          <th mat-header-cell *matHeaderCellDef>Academic</th>
+                          <th mat-header-cell *matHeaderCellDef>Academic &amp; Transit</th>
                           <td mat-cell *matCellDef="let s">
                             <div class="academic-stack">
                               @if (s.isSchoolStudent) {
-                                <div class="school-alloc">
-                                  <mat-icon class="icon-school">domain</mat-icon>
-                                  <span><strong>{{ s.className || 'Class' }}</strong> - Sec {{ s.sectionName || 'A' }}</span>
+                                <div class="school-alloc-chip" (click)="openTransitGpsDialog(s)" matTooltip="Click to open Academic &amp; Transit 360">
+                                  <mat-icon class="icon-school">school</mat-icon>
+                                  <span class="alloc-title"><strong>{{ s.className || 'Class' }}</strong> - {{ s.sectionName || 'A' }}</span>
                                 </div>
                               }
-                              @if (s.isSchoolStudent && s.classTeacherName) {
-                                <div class="teacher-alloc" [matTooltip]="'Class Teacher: ' + s.classTeacherName + (s.classTeacherPhone ? ' (📞 ' + s.classTeacherPhone + ')' : '')">
-                                  <mat-icon class="icon-teacher">supervisor_account</mat-icon>
-                                  <span>CT: <strong>{{ s.classTeacherName }}</strong></span>
-                                </div>
-                              }
-                              @if (s.isCoachingStudent) {
-                                <div class="coaching-alloc">
-                                  <mat-icon class="icon-coaching">school</mat-icon>
-                                  <span class="batch-title-text">{{ s.batchName || 'Coaching Batch' }}</span>
-                                  @if (s.className || getBatchClassName(s.batchId)) {
-                                    <span class="batch-class-tag" [matTooltip]="'Target Academic Class: ' + (s.className || getBatchClassName(s.batchId))">
-                                      {{ s.className || getBatchClassName(s.batchId) }}
-                                    </span>
-                                  }
-                                </div>
-                              }
-                              @if (s.isHostelStudent) {
-                                <div class="hostel-alloc">
-                                  <mat-icon class="icon-hostel">hotel</mat-icon>
-                                  <span>{{ s.hostelName || 'Hostel' }} - Rm {{ s.roomNumber || '' }} ({{ s.bedCode || 'Bed' }})</span>
-                                </div>
-                              }
-                              @if (s.isLibraryMember) {
-                                <div class="library-alloc">
-                                  <mat-icon class="icon-library">local_library</mat-icon>
-                                  <span>{{ s.libraryMembershipType || 'Standard Lending' }} (Limit: {{ s.maxLibraryBooks || 2 }}{{ s.monthlyLibraryFee > 0 ? ' • ₹' + s.monthlyLibraryFee + '/mo' : '' }})</span>
+                              @if (s.isCoachingStudent && authService.hasCoachingModule()) {
+                                <div class="coaching-alloc-chip" (click)="openTransitGpsDialog(s)" matTooltip="Coaching Batch details">
+                                  <mat-icon class="icon-coaching">groups</mat-icon>
+                                  <span class="alloc-title">{{ s.batchName || 'Coaching Batch' }}</span>
                                 </div>
                               }
                               @if (s.isTransportStudent) {
-                                <div class="transport-alloc">
-                                  <mat-icon class="icon-transport">directions_bus</mat-icon>
-                                  <span>{{ s.transportRouteName || 'Transport' }}{{ s.transportStopName ? ' • ' + s.transportStopName : '' }}{{ s.monthlyTransportFare > 0 ? ' (₹' + s.monthlyTransportFare + '/mo)' : '' }}</span>
-                                </div>
+                                <button type="button" class="transit-chip-btn" (click)="openTransitGpsDialog(s)" matTooltip="Click to view Live GPS Transit &amp; Vehicle Radar">
+                                  <span class="live-pulse-dot"></span>
+                                  <mat-icon class="icon-bus">directions_bus</mat-icon>
+                                  <span class="stop-name">{{ s.transportStopName || s.transportRouteName || 'Bus Transit' }}</span>
+                                </button>
                               }
-                              @if (s.hasAdmissionKit) {
-                                <div class="kit-alloc" [matTooltip]="'Admission Kit Issued' + (s.kitStatus ? ' (' + s.kitStatus + ')' : '')">
-                                  <mat-icon class="icon-kit">inventory_2</mat-icon>
-                                  <span>Kit Issued{{ s.kitStatus ? ' • ' + s.kitStatus : '' }}</span>
+                              @if (s.isHostelStudent) {
+                                <div class="hostel-alloc-chip" (click)="openTransitGpsDialog(s)" matTooltip="Hostel Room &amp; Bed">
+                                  <mat-icon class="icon-hostel">hotel</mat-icon>
+                                  <span>Rm {{ s.roomNumber || 'N/A' }}</span>
                                 </div>
                               }
                             </div>
@@ -3109,7 +3088,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     }
     .full-width {
       width: 100%;
-      min-width: 960px;
+      min-width: 1060px;
 
       tr.mat-mdc-row {
         height: auto !important;
@@ -3175,6 +3154,16 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
 
       .mat-column-whatsappPhone {
         white-space: nowrap !important;
+      }
+
+      .mat-column-batchOrClass {
+        white-space: nowrap !important;
+        min-width: 175px;
+      }
+
+      .mat-column-parentName {
+        white-space: nowrap !important;
+        min-width: 140px;
       }
 
       th.actions-th {
@@ -3370,74 +3359,135 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
       }
     }
 
-    /* Academic Allocations */
+    /* Academic & Transit Allocations */
     .academic-stack {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       font-size: 0.82rem;
 
-      .school-alloc {
-        display: flex;
+      .school-alloc-chip {
+        display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
         color: #047857;
-        .icon-school { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #10b981; }
-      }
-      .teacher-alloc {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: #1d4ed8;
-        font-size: 0.76rem;
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 4px;
-        padding: 1px 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        transition: all 0.15s ease;
         width: fit-content;
-        .icon-teacher { font-size: 13px; width: 13px; height: 13px; line-height: 13px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #2563eb; }
+
+        &:hover {
+          background: #dcfce7;
+          border-color: #86efac;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 5px rgba(16, 185, 129, 0.15);
+        }
+
+        .icon-school {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #10b981;
+        }
       }
-      .coaching-alloc {
-        display: flex;
+
+      .transit-chip-btn {
+        display: inline-flex;
         align-items: center;
-        gap: 4px;
-        color: #4338ca;
-        .icon-coaching { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #6366f1; }
-      }
-      .hostel-alloc {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: #7e22ce;
-        .icon-hostel { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #a855f7; }
-      }
-      .library-alloc {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: #0f766e;
-        .icon-library { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #14b8a6; }
-      }
-      .transport-alloc {
-        display: flex;
-        align-items: center;
-        gap: 4px;
+        gap: 6px;
         color: #c2410c;
-        .icon-transport { font-size: 14px; width: 14px; height: 14px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center; overflow: visible; color: #f97316; }
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 3px 9px;
+        border-radius: 14px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        outline: none;
+        transition: all 0.15s ease;
+        width: fit-content;
+
+        &:hover {
+          background: #ffedd5;
+          border-color: #fdba74;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(249, 115, 22, 0.22);
+        }
+
+        .icon-bus {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #ea580c;
+        }
+
+        .stop-name {
+          max-width: 160px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .live-pulse-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          animation: radarPulse 1.8s infinite;
+        }
       }
-      .kit-alloc {
+
+      .coaching-alloc-chip {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        color: #0369a1;
+        color: #4338ca;
+        font-size: 0.76rem;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: #eef2ff;
+        border: 1px solid #e0e7ff;
+        width: fit-content;
+
+        &:hover {
+          background: #e0e7ff;
+        }
+
+        .icon-coaching {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #6366f1;
+        }
+      }
+
+      .hostel-alloc-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #7e22ce;
         font-size: 0.74rem;
         font-weight: 600;
-        background: #e0f2fe;
-        border: 1px solid #bae6fd;
-        border-radius: 4px;
-        padding: 1px 6px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: #faf5ff;
+        border: 1px solid #f3e8ff;
         width: fit-content;
-        .icon-kit { font-size: 13px; width: 13px; height: 13px; color: #0284c7; }
+        cursor: pointer;
+
+        .icon-hostel {
+          font-size: 13px;
+          width: 13px;
+          height: 13px;
+          color: #a855f7;
+        }
       }
     }
 
@@ -5544,6 +5594,17 @@ export class StudentsComponent implements OnInit, OnDestroy {
       if (changed) {
         this.loadStudents();
       }
+    });
+  }
+
+  // ── Student Academic & Live Transit 360 Dialog ──────────────
+  openTransitGpsDialog(student: any): void {
+    this.dialog.open(StudentTransitGpsDialogComponent, {
+      width: '680px',
+      maxWidth: '96vw',
+      panelClass: 'responsive-transit-gps-dialog',
+      disableClose: false,
+      data: { student }
     });
   }
 
