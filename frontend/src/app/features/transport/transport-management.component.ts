@@ -1629,7 +1629,7 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
 
   quickSwitchRouteFromLiveTracker(routeId: string): void {
     this.manifestRouteId = routeId;
-    this.manifestViewMode = 'driver';
+    this.switchManifestView('driver');
     this.loadManifest();
   }
 
@@ -2184,10 +2184,52 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
     this.gpsBroadcastStatus = 'Offline';
   }
 
+  switchManifestView(mode: 'driver' | 'admin'): void {
+    this.manifestViewMode = mode;
+    if (mode === 'admin') {
+      this.loadLiveTracker();
+      setTimeout(() => {
+        this.initOrUpdateLiveMap();
+      }, 50);
+      setTimeout(() => {
+        if (this.liveMap) {
+          this.liveMap.invalidateSize();
+        }
+      }, 300);
+    }
+  }
+
+  centerLiveMap(): void {
+    if (!this.liveMap) {
+      this.initOrUpdateLiveMap();
+      return;
+    }
+    const liveRoute = this.liveTracker?.routes?.find(r => r.isLiveGps && r.latitude && r.longitude);
+    if (liveRoute && liveRoute.latitude && liveRoute.longitude) {
+      this.liveMap.setView([liveRoute.latitude, liveRoute.longitude], 15);
+    } else {
+      this.liveMap.setView([25.9686, 85.1278], 14);
+    }
+    this.liveMap.invalidateSize();
+  }
+
   initOrUpdateLiveMap(): void {
     setTimeout(() => {
       const mapEl = document.getElementById('fleetLiveMap');
       if (!mapEl) return;
+
+      // Check if existing map instance is attached to a detached or stale DOM element
+      if (this.liveMap) {
+        try {
+          const container = this.liveMap.getContainer ? this.liveMap.getContainer() : null;
+          if (!container || !document.body.contains(container) || container !== mapEl) {
+            this.liveMap.remove();
+            this.liveMap = null;
+          }
+        } catch (e) {
+          this.liveMap = null;
+        }
+      }
 
       if (!this.liveMap) {
         let initLat = 25.9686;
@@ -2199,26 +2241,33 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
           initLng = liveRoute.longitude;
         }
 
-        this.liveMap = (L.map as any)('fleetLiveMap', {
-          zoomControl: true,
-          attributionControl: false,
-          tap: false
-        }).setView([initLat, initLng], 14);
+        try {
+          this.liveMap = (L.map as any)('fleetLiveMap', {
+            zoomControl: true,
+            attributionControl: false,
+            tap: false
+          }).setView([initLat, initLng], 14);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19
-        }).addTo(this.liveMap);
-      } else {
-        this.liveMap.invalidateSize();
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            subdomains: ['a', 'b', 'c']
+          }).addTo(this.liveMap);
+        } catch (err) {
+          console.warn('Leaflet map initialization warning:', err);
+        }
       }
 
-      this.renderMapMarkers();
+      if (this.liveMap) {
+        this.liveMap.invalidateSize();
+        this.renderMapMarkers();
+      }
+
       setTimeout(() => {
         if (this.liveMap) {
           this.liveMap.invalidateSize();
         }
-      }, 300);
-    }, 200);
+      }, 250);
+    }, 100);
   }
 
   renderMapMarkers(): void {

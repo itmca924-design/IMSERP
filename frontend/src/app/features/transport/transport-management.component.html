@@ -1045,7 +1045,7 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'driver'"
-              (click)="manifestViewMode = 'driver'">
+              (click)="switchManifestView('driver')">
               <mat-icon>touch_app</mat-icon>
               <span>Driver / Tap Console</span>
             </button>
@@ -1053,7 +1053,7 @@
               type="button"
               class="mode-btn"
               [class.active]="manifestViewMode === 'admin'"
-              (click)="manifestViewMode = 'admin'; loadLiveTracker()">
+              (click)="switchManifestView('admin')">
               <mat-icon>radar</mat-icon>
               <span>Admin Fleet Radar (Live Map)</span>
             </button>
@@ -1068,8 +1068,7 @@
       <!-- ========================================================================= -->
       <!-- VIEW A: DRIVER / ATTENDANT TAP CONSOLE (Mobile/Touch Optimized)           -->
       <!-- ========================================================================= -->
-      @if (manifestViewMode === 'driver') {
-        <div class="driver-console-view">
+      <div class="driver-console-view" [style.display]="manifestViewMode === 'driver' ? 'block' : 'none'">
           <!-- Route & Run Selectors -->
           <div class="console-selector-card mat-elevation-z1">
             <div class="selector-row">
@@ -1183,7 +1182,7 @@
                   <button
                     type="button"
                     class="btn-view-map-radar"
-                    (click)="manifestViewMode = 'admin'; loadLiveTracker()"
+                    (click)="switchManifestView('admin')"
                     title="Open Live GPS Fleet Radar Map">
                     <mat-icon>radar</mat-icon>
                     <span>View Fleet Radar &amp; Map</span>
@@ -1487,17 +1486,15 @@
             </div>
           }
         </div>
-      }
       <!-- ========================================================================= -->
       <!-- VIEW B: ADMIN LIVE FLEET RADAR & COMMUTER LOOKUP DESK                     -->
       <!-- ========================================================================= -->
-      @if (manifestViewMode === 'admin') {
-        <div class="admin-radar-view">
-          <div class="radar-top-action-bar">
-            <button
-              type="button"
-              class="btn-back-to-console"
-              (click)="manifestViewMode = 'driver'">
+      <div class="admin-radar-view" [style.display]="manifestViewMode === 'admin' ? 'block' : 'none'">
+        <div class="radar-top-action-bar">
+          <button
+            type="button"
+            class="btn-back-to-console"
+            (click)="switchManifestView('driver')">
               <mat-icon>touch_app</mat-icon>
               <span>Back to Driver / Tap Console</span>
             </button>
@@ -1577,7 +1574,7 @@
                     <mat-icon>sensors_off</mat-icon> GPS Standby (Turn ON in Tap Console)
                   </span>
                 }
-                <button type="button" class="btn-map-action" (click)="initOrUpdateLiveMap()">
+                <button type="button" class="btn-map-action" (click)="centerLiveMap()">
                   <mat-icon>my_location</mat-icon> Center Map
                 </button>
               </div>
@@ -1809,9 +1806,8 @@
             </div>
           </div>
         </div>
-      }
-    </div>
-  }
+      </div>
+    }
 
   <!-- TAB 7: CAMPUS GATE PASSES -->
   @if (activeTab === 7) {
