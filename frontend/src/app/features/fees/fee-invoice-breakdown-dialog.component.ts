@@ -24,6 +24,10 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
   iconBg: string;
   iconColor: string;
   note: string;
+  frequencyBadge: string;
+  frequencyBadgeClass: string;
+  cycleDetail: string;
+  cycleTooltip?: string;
   isTuition: boolean;
 }
 
@@ -202,12 +206,15 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
                       </div>
                     </td>
                     <td class="td-note">
-                      @if (it.note) {
-                        <span class="cycle-note-pill">{{ it.note }}</span>
-                      }
-                      @if (!it.note) {
-                        <span class="text-muted-dash">—</span>
-                      }
+                      <div class="frequency-cell" [matTooltip]="it.cycleTooltip || ''">
+                        <span class="freq-badge" [ngClass]="it.frequencyBadgeClass">
+                          <span class="badge-dot"></span>
+                          {{ it.frequencyBadge }}
+                        </span>
+                        @if (it.cycleDetail) {
+                          <span class="freq-detail-text">{{ it.cycleDetail }}</span>
+                        }
+                      </div>
                     </td>
                     <td class="td-amt text-right">
                       <strong class="amt-val">₹{{ (it.amount || 0) | number:'1.2-2' }}</strong>
@@ -935,16 +942,81 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
           }
         }
 
-        .cycle-note-pill {
-          display: inline-block;
-          font-size: 0.72rem;
-          color: #475569;
-          background: #f1f5f9;
-          border: 1px solid #e2e8f0;
-          padding: 2px 7px;
-          border-radius: 6px;
-          font-weight: 500;
-          white-space: nowrap;
+        .frequency-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          align-items: flex-start;
+          cursor: default;
+
+          .freq-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            line-height: 1.3;
+            letter-spacing: 0.2px;
+
+            .badge-dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              flex-shrink: 0;
+            }
+
+            &.freq-monthly {
+              background: #ecfdf5;
+              color: #047857;
+              border: 1px solid #a7f3d0;
+              .badge-dot { background: #10b981; }
+            }
+
+            &.freq-annual {
+              background: #eff6ff;
+              color: #1d4ed8;
+              border: 1px solid #bfdbfe;
+              .badge-dot { background: #2563eb; }
+            }
+
+            &.freq-exam {
+              background: #faf5ff;
+              color: #6d28d9;
+              border: 1px solid #ddd6fe;
+              .badge-dot { background: #8b5cf6; }
+            }
+
+            &.freq-transport {
+              background: #fffbeb;
+              color: #b45309;
+              border: 1px solid #fde68a;
+              .badge-dot { background: #f59e0b; }
+            }
+
+            &.freq-kit {
+              background: #f0fdfa;
+              color: #0f766e;
+              border: 1px solid #99f6e4;
+              .badge-dot { background: #14b8a6; }
+            }
+
+            &.freq-general {
+              background: #f8fafc;
+              color: #475569;
+              border: 1px solid #cbd5e1;
+              .badge-dot { background: #64748b; }
+            }
+          }
+
+          .freq-detail-text {
+            font-size: 0.75rem;
+            color: #475569;
+            font-weight: 500;
+            line-height: 1.25;
+            white-space: nowrap;
+          }
         }
 
         .text-muted-dash {
@@ -1261,11 +1333,25 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
               font-size: 0.76rem;
             }
           }
-          .cycle-note-pill {
-            white-space: normal;
-            font-size: 0.66rem;
-            padding: 2px 5px;
-            line-height: 1.25;
+          .frequency-cell {
+            gap: 2px;
+
+            .freq-badge {
+              font-size: 0.65rem;
+              padding: 1px 6px;
+              gap: 4px;
+
+              .badge-dot {
+                width: 5px;
+                height: 5px;
+              }
+            }
+
+            .freq-detail-text {
+              font-size: 0.68rem;
+              white-space: normal;
+              word-break: break-word;
+            }
           }
           .amt-val {
             font-size: 0.8rem;
@@ -1476,22 +1562,75 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
         iconColor = '#0284c7';
       }
 
-      // Compute note
-      const isKit = /(kit|pen|tie|belt|bag|uniform|dress|book|station)/i.test(n);
-      let note = '';
-      if (isKit) {
-        note = 'One-time Kit';
+      // Compute frequency classification and cycle note
+      const isKit = /(kit|pen|tie|belt|bag|uniform|dress|book|station|notebook)/i.test(n);
+      const isAnnual = /(annual|development|admission|registration|activity|maintenance|building)/i.test(n);
+      const isExam = /(exam|test|term|assessment|evaluation|half yearly|mid term)/i.test(n);
+      const isTransport = /(transport|bus|van|transit|route|vehicle|conveyance)/i.test(n);
+
+      let frequencyBadge = 'Monthly Cycle';
+      let frequencyBadgeClass = 'freq-monthly';
+      let cycleDetail = '';
+      let cycleTooltip = '';
+
+      const amt = Number(it.amount) || 0;
+      let monthRangeStr = '';
+      if (this.billedMonths.length > 1) {
+        const firstM = this.formatMonthShort(this.billedMonths[0]);
+        const lastM = this.formatMonthShort(this.billedMonths[this.billedMonths.length - 1]);
+        monthRangeStr = `${firstM} – ${lastM}`;
+        cycleTooltip = this.billedMonths.join(', ');
       } else if (this.billedMonths.length === 1) {
-        note = this.billedMonths[0];
-      } else if (this.billedMonths.length > 1) {
-        const shortMonths = this.billedMonths.map(m => m.split(' ')[0].substring(0, 3)).join(', ');
-        const amt = Number(it.amount) || 0;
-        if (amt > 0 && Math.round(amt % this.billedMonths.length) === 0) {
-          const perMo = Math.round(amt / this.billedMonths.length);
-          note = `${this.billedMonths.length} Mos: ${shortMonths} @ ₹${perMo.toLocaleString('en-IN')}/mo`;
+        monthRangeStr = this.billedMonths[0];
+        cycleTooltip = this.billedMonths[0];
+      }
+
+      if (isKit) {
+        frequencyBadge = 'One-time Kit';
+        frequencyBadgeClass = 'freq-kit';
+        cycleDetail = 'Session Kit & Supplies';
+      } else if (isAnnual) {
+        frequencyBadge = 'Annual / Session';
+        frequencyBadgeClass = 'freq-annual';
+        cycleDetail = 'One-time Academic Session';
+      } else if (isExam) {
+        frequencyBadge = 'Term Examination';
+        frequencyBadgeClass = 'freq-exam';
+        cycleDetail = 'Evaluation / Exam Fee';
+      } else if (isTransport) {
+        frequencyBadge = 'Transit Route';
+        frequencyBadgeClass = 'freq-transport';
+        if (this.billedMonths.length > 1) {
+          if (amt > 0 && Math.round(amt % this.billedMonths.length) === 0) {
+            const perMo = Math.round(amt / this.billedMonths.length);
+            cycleDetail = `₹${perMo.toLocaleString('en-IN')}/mo × ${this.billedMonths.length} Mos (${monthRangeStr})`;
+          } else {
+            cycleDetail = `${this.billedMonths.length} Mos (${monthRangeStr})`;
+          }
+        } else if (this.billedMonths.length === 1) {
+          cycleDetail = `${this.billedMonths[0]} Coverage`;
         } else {
-          note = `${this.billedMonths.length} Mos: ${shortMonths}`;
+          cycleDetail = 'Designated Route Slab';
         }
+      } else if (isTuition || /(tuition|coaching|monthly)/i.test(n) || this.billedMonths.length > 0) {
+        frequencyBadge = 'Monthly Cycle';
+        frequencyBadgeClass = 'freq-monthly';
+        if (this.billedMonths.length > 1) {
+          if (amt > 0 && Math.round(amt % this.billedMonths.length) === 0) {
+            const perMo = Math.round(amt / this.billedMonths.length);
+            cycleDetail = `₹${perMo.toLocaleString('en-IN')}/mo × ${this.billedMonths.length} Mos (${monthRangeStr})`;
+          } else {
+            cycleDetail = `${this.billedMonths.length} Mos (${monthRangeStr})`;
+          }
+        } else if (this.billedMonths.length === 1) {
+          cycleDetail = this.billedMonths[0];
+        } else {
+          cycleDetail = 'Monthly Tuition';
+        }
+      } else {
+        frequencyBadge = 'Standard Fee';
+        frequencyBadgeClass = 'freq-general';
+        cycleDetail = 'Institutional Head';
       }
 
       return {
@@ -1502,10 +1641,25 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
         icon,
         iconBg,
         iconColor,
-        note,
+        note: cycleDetail,
+        frequencyBadge,
+        frequencyBadgeClass,
+        cycleDetail,
+        cycleTooltip,
         isTuition
       };
     });
+  }
+
+  formatMonthShort(m: string): string {
+    if (!m) return '';
+    const parts = m.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      const monthShort = parts[0].substring(0, 3);
+      const yearShort = parts[1].slice(-2);
+      return `${monthShort} '${yearShort}`;
+    }
+    return m.substring(0, 3);
   }
 
   parseBilledMonthsList(inv: FeeInvoicePagedItem): string[] {
