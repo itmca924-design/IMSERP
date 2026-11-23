@@ -1,9 +1,10 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
+import { lastValueFrom, Subscription } from 'rxjs';
+import * as L from 'leaflet';
 import { MatCardModule } from '@angular/material/card';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
@@ -74,7 +75,7 @@ import {
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./transport-management.component.scss']
 })
-export class TransportManagementComponent implements OnInit {
+export class TransportManagementComponent implements OnInit, OnDestroy {
   activeTab = 0;
   activeTopAction: 'student' | 'faculty' | 'gatePass' = 'student';
   loading = false;
@@ -133,6 +134,24 @@ export class TransportManagementComponent implements OnInit {
   showGatePassModal = false;
   showBusPassModal = false;
   showClosePassModal = false;
+  showStopRidersModal = false;
+  selectedStopForRidersView: any = null;
+  selectedRouteForRidersView: any = null;
+
+  // Phase 1 Live GPS Broadcast & Tracking State
+  isGpsBroadcasting = false;
+  gpsWatchId: number | null = null;
+  currentGpsCoords: { latitude: number; longitude: number; speed?: number; heading?: number; accuracy?: number } | null = null;
+  gpsBroadcastStatus: string = 'Offline';
+  gpsLastHeartbeat: string = '';
+  gpsErrorMsg: string = '';
+  activeLiveRouteGps: any = null;
+
+  // Leaflet Map State
+  private liveMap: any = null;
+  private busMarker: any = null;
+  private stopMarkers: any[] = [];
+  private mapPollTimer: any = null;
 
   // Editing state
   editingVehicleId: string | null = null;
@@ -1549,6 +1568,7 @@ export class TransportManagementComponent implements OnInit {
       next: (res) => {
         this.liveTracker = res;
         this.isLoadingLiveTracker = false;
+        this.initOrUpdateLiveMap();
       },
       error: (err) => {
         console.error('Failed to load live tracker', err);
@@ -2024,5 +2044,242 @@ export class TransportManagementComponent implements OnInit {
     const roll = s.schoolRollNumber || s.rollNumber || s.coachingRollNumber;
     const adm = s.admissionNumber ? ` • Adm: ${s.admissionNumber}` : '';
     return `${s.studentName} (${cls}${roll ? ' • Roll: ' + roll : ''}${adm})`;
+  }
+
+  ngOnDestroy(): void {
+    this.stopGpsBroadcast();
+    if (this.mapPollTimer) {
+      clearInterval(this.mapPollTimer);
+      this.mapPollTimer = null;
+    }
+    if (this.liveMap) {
+      this.liveMap.remove();
+      this.liveMap = null;
+    }
+  }
+
+  // Feature 1: Stop Riders Roster Modal
+  getStopRidersCount(s: any): number {
+    if (!s) return 0;
+    return (s.allocationCount != null ? s.allocationCount : s.allocatedStudentsCount) || 0;
+  }
+
+  openStopRidersModal(route: any, stop: any): void {
+    this.selectedRouteForRidersView = route;
+    this.selectedStopForRidersView = stop;
+    this.showStopRidersModal = true;
+  }
+
+  getStopRidersList(stopId?: string): any[] {
+    if (!stopId) return [];
+    return this.allActiveStudentAllocations
+      .filter(a => a.routeStopId === stopId && (a.status === 'Active' || !a.status))
+      .map(a => {
+        const student = this.studentsList.find(s => s.id === a.studentId);
+        return {
+          ...a,
+          parentName: student?.parentName || 'N/A',
+          parentPhone: student?.parentWhatsAppPhone || student?.mobileNumber || ''
+        };
+      });
+  }
+
+  openAddPassForStop(route: any, stop: any): void {
+    this.openAddAllocation('Student');
+    this.allocationForm.patchValue({
+      memberType: 'Student',
+      routeId: route?.id,
+      routeStopId: stop?.id,
+      monthlyFare: stop?.monthlyFare || 0,
+      vehicleId: route?.vehicleId || null
+    });
+  }
+
+  // Feature 2: Phase 1 Live GPS Broadcast & Fleet Radar
+  toggleGpsBroadcast(): void {
+    if (this.isGpsBroadcasting) {
+      this.stopGpsBroadcast();
+    } else {
+      this.startGpsBroadcast();
+    }
+  }
+
+  startGpsBroadcast(): void {
+    if (!this.manifestRouteId) {
+      this.confirmDialog.alert('Select Bus Route', 'Please select a bus route above to broadcast live GPS location.', 'warning');
+      return;
+    }
+    if (!('geolocation' in navigator)) {
+      this.confirmDialog.alert('GPS Not Supported', 'Geolocation is not supported by your browser or device.', 'danger');
+      return;
+    }
+
+    this.isGpsBroadcasting = true;
+    this.gpsBroadcastStatus = 'Connecting...';
+    this.gpsErrorMsg = '';
+
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 4000
+    };
+
+    this.gpsWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const crd = pos.coords;
+        const speedKmH = crd.speed != null ? Math.round(crd.speed * 3.6) : null;
+        this.currentGpsCoords = {
+          latitude: crd.latitude,
+          longitude: crd.longitude,
+          speed: speedKmH != null ? speedKmH : undefined,
+          heading: crd.heading != null ? Math.round(crd.heading) : undefined,
+          accuracy: crd.accuracy != null ? Math.round(crd.accuracy) : undefined
+        };
+        this.gpsBroadcastStatus = 'Broadcasting Live';
+        this.gpsLastHeartbeat = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+        // Send heartbeat to backend
+        this.transportService.updateLiveLocation(this.manifestRouteId, {
+          latitude: crd.latitude,
+          longitude: crd.longitude,
+          speed: speedKmH != null ? speedKmH : undefined,
+          heading: crd.heading != null ? Math.round(crd.heading) : undefined,
+          accuracy: crd.accuracy != null ? Math.round(crd.accuracy) : undefined,
+          deviceType: 'DriverMobile'
+        }).subscribe({
+          error: (err) => console.warn('Failed to send GPS heartbeat', err)
+        });
+      },
+      (err) => {
+        console.error('GPS Watch error', err);
+        this.gpsErrorMsg = err.message || 'Unable to retrieve location';
+        this.gpsBroadcastStatus = 'GPS Error';
+      },
+      options
+    );
+  }
+
+  stopGpsBroadcast(): void {
+    if (this.gpsWatchId != null) {
+      navigator.geolocation.clearWatch(this.gpsWatchId);
+      this.gpsWatchId = null;
+    }
+    this.isGpsBroadcasting = false;
+    this.gpsBroadcastStatus = 'Offline';
+  }
+
+  initOrUpdateLiveMap(): void {
+    setTimeout(() => {
+      const mapEl = document.getElementById('fleetLiveMap');
+      if (!mapEl) return;
+
+      if (!this.liveMap) {
+        let initLat = 25.9686;
+        let initLng = 85.1278;
+
+        const liveRoute = this.liveTracker?.routes?.find(r => r.isLiveGps && r.latitude && r.longitude);
+        if (liveRoute && liveRoute.latitude && liveRoute.longitude) {
+          initLat = liveRoute.latitude;
+          initLng = liveRoute.longitude;
+        }
+
+        this.liveMap = L.map('fleetLiveMap', {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([initLat, initLng], 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19
+        }).addTo(this.liveMap);
+      }
+
+      this.renderMapMarkers();
+    }, 150);
+  }
+
+  renderMapMarkers(): void {
+    if (!this.liveMap) return;
+
+    if (this.busMarker) {
+      this.liveMap.removeLayer(this.busMarker);
+      this.busMarker = null;
+    }
+    this.stopMarkers.forEach(m => this.liveMap.removeLayer(m));
+    this.stopMarkers = [];
+
+    const liveRoute = this.liveTracker?.routes?.find(r => r.isLiveGps && r.latitude && r.longitude);
+    this.activeLiveRouteGps = liveRoute || null;
+
+    if (liveRoute && liveRoute.latitude && liveRoute.longitude) {
+      const busDivIcon = L.divIcon({
+        className: 'custom-bus-div-icon',
+        html: `
+          <div class="bus-beacon-marker">
+            <span class="beacon-pulse"></span>
+            <div class="bus-badge">
+              <span class="material-icons">directions_bus</span>
+            </div>
+            <div class="bus-tooltip-tag">
+              <strong>${liveRoute.vehicleNumber}</strong>
+              <span>${liveRoute.speed != null ? liveRoute.speed + ' km/h' : 'Live'}</span>
+            </div>
+          </div>
+        `,
+        iconSize: [48, 48],
+        iconAnchor: [24, 24]
+      });
+
+      this.busMarker = L.marker([liveRoute.latitude, liveRoute.longitude], { icon: busDivIcon })
+        .addTo(this.liveMap)
+        .bindPopup(`
+          <div class="map-popup-bus">
+            <h4>${liveRoute.vehicleNumber} (${liveRoute.routeCode})</h4>
+            <p><strong>Route:</strong> ${liveRoute.routeName}</p>
+            <p><strong>Driver:</strong> ${liveRoute.driverName || 'Assigned'} (${liveRoute.driverPhone || 'N/A'})</p>
+            <p><strong>Speed:</strong> ${liveRoute.speed != null ? liveRoute.speed + ' km/h' : 'Stationary'}</p>
+            <p><strong>Status:</strong> <span style="color: #16a34a; font-weight: 700;">🟢 Live In-Transit</span></p>
+          </div>
+        `);
+
+      this.liveMap.panTo([liveRoute.latitude, liveRoute.longitude]);
+    }
+
+    // Render stops markers if route has stops
+    if (this.routes && this.routes.length > 0) {
+      const activeRouteData = this.routes.find(r => r.id === (liveRoute?.routeId || this.manifestRouteId)) || this.routes[0];
+      if (activeRouteData && activeRouteData.stops) {
+        activeRouteData.stops.forEach((s, idx) => {
+          const stopLat = (liveRoute?.latitude || 25.9686) + (idx * 0.005 * (idx % 2 === 0 ? 1 : -1));
+          const stopLng = (liveRoute?.longitude || 85.1278) + (idx * 0.007);
+
+          const stopDivIcon = L.divIcon({
+            className: 'custom-stop-div-icon',
+            html: `
+              <div class="stop-pin-marker">
+                <span class="stop-pin-num">${s.stopOrder || (idx + 1)}</span>
+              </div>
+            `,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
+
+          const stopM = L.marker([stopLat, stopLng], { icon: stopDivIcon })
+            .addTo(this.liveMap)
+            .bindPopup(`
+              <div class="map-popup-stop">
+                <h4>#${s.stopOrder || (idx + 1)} ${s.stopName}</h4>
+                <p><strong>Pickup:</strong> ${s.pickupTime || '07:15 AM'} &bull; <strong>Drop:</strong> ${s.dropTime || '03:45 PM'}</p>
+                <p><strong>Fare:</strong> ₹${s.monthlyFare}/mo</p>
+                <p><strong>Riders:</strong> ${this.getStopRidersCount(s)} Students</p>
+              </div>
+            `);
+          this.stopMarkers.push(stopM);
+        });
+      }
+    }
+  }
+
+  refreshLiveMap(): void {
+    this.loadLiveTracker();
   }
 }

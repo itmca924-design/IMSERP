@@ -311,6 +311,31 @@ export interface LiveRouteProgressDto {
   lastActivityStop?: string;
   lastActivityAt?: string;
   lastActivityTimeFormatted?: string;
+  latitude?: number;
+  longitude?: number;
+  speed?: number;
+  heading?: number;
+  accuracy?: number;
+  isLiveGps?: boolean;
+  gpsUpdatedAt?: string;
+}
+
+export interface RouteLiveLocationDto {
+  routeId: string;
+  routeCode: string;
+  routeName: string;
+  vehicleNumber: string;
+  driverName?: string;
+  latitude: number;
+  longitude: number;
+  speed?: number;
+  heading?: number;
+  accuracy?: number;
+  deviceType: string;
+  updatedAtUtc: string;
+  updatedAtFormatted: string;
+  isLive: boolean;
+  secondsAgo: number;
 }
 
 export interface LiveBoardingFeedItemDto {
@@ -615,6 +640,15 @@ export class TransportService {
 
   verifyPassQr(qrPayload: string): Observable<any> {
     return this.http.post<any>(`${API_BASE}/transport/verify-pass-qr`, { qrPayload });
+  }
+
+  // Phase 1 Live GPS Broadcast & Tracking
+  updateLiveLocation(routeId: string, payload: { latitude: number; longitude: number; speed?: number; heading?: number; accuracy?: number; deviceType?: string }): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/transport/routes/${routeId}/live-location`, payload);
+  }
+
+  getRouteLiveLocation(routeId: string): Observable<RouteLiveLocationDto> {
+    return this.http.get<RouteLiveLocationDto>(`${API_BASE}/transport/routes/${routeId}/live-location`);
   }
 
   // Teacher Lookup

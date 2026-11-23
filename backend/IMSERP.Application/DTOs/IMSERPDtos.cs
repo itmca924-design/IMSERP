@@ -4110,7 +4110,41 @@ public record LiveRouteProgressDto(
     int EveningAbsent,
     string? LastActivityStop,
     DateTime? LastActivityAt,
-    string? LastActivityTimeFormatted
+    string? LastActivityTimeFormatted,
+    double? Latitude = null,
+    double? Longitude = null,
+    double? Speed = null,
+    double? Heading = null,
+    double? Accuracy = null,
+    bool IsLiveGps = false,
+    DateTime? GpsUpdatedAt = null
+);
+
+public record UpdateRouteLiveLocationDto(
+    double Latitude,
+    double Longitude,
+    double? Speed,
+    double? Heading,
+    double? Accuracy,
+    string? DeviceType = "DriverMobile"
+);
+
+public record RouteLiveLocationDto(
+    Guid RouteId,
+    string RouteCode,
+    string RouteName,
+    string VehicleNumber,
+    string? DriverName,
+    double Latitude,
+    double Longitude,
+    double? Speed,
+    double? Heading,
+    double? Accuracy,
+    string DeviceType,
+    DateTime UpdatedAtUtc,
+    string UpdatedAtFormatted,
+    bool IsLive,
+    int SecondsAgo
 );
 
 public record LiveBoardingFeedItemDto(

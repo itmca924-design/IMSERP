@@ -436,12 +436,31 @@
                         <td><strong class="fare-highlight">₹{{ s.monthlyFare | number }}</strong><span class="per-mo">/mo</span></td>
                         <td>₹{{ (s.quarterlyFare || s.monthlyFare * 3) | number }}</td>
                         <td>₹{{ (s.annualFare || s.monthlyFare * 11) | number }}</td>
-                        <td><span class="riders-count-pill">{{ (s.allocationCount != null ? s.allocationCount : s.allocatedStudentsCount) || 0 }}</span></td>
+                        <td>
+                          <button
+                            type="button"
+                            class="riders-count-pill"
+                            [class.has-riders]="getStopRidersCount(s) > 0"
+                            (click)="openStopRidersModal(r, s)"
+                            [title]="getStopRidersCount(s) > 0 ? 'Click to view mapped students for ' + s.stopName : 'No students mapped yet'">
+                            @if (getStopRidersCount(s) > 0) {
+                              <mat-icon class="pill-ico">people</mat-icon>
+                            }
+                            <span class="count-num">{{ getStopRidersCount(s) }}</span>
+                            @if (getStopRidersCount(s) > 0) {
+                              <mat-icon class="pill-arr">chevron_right</mat-icon>
+                            }
+                          </button>
+                        </td>
                         <td style="text-align: right;" class="td-action-col">
                           <button mat-icon-button [matMenuTriggerFor]="stopMenu" matTooltip="Actions" class="action-dots-btn">
                             <mat-icon>more_vert</mat-icon>
                           </button>
                           <mat-menu #stopMenu="matMenu" xPosition="before" class="stop-action-menu">
+                            <button mat-menu-item (click)="openStopRidersModal(r, s)">
+                              <mat-icon style="color: #2563eb;">groups</mat-icon>
+                              <span>View Mapped Students ({{ getStopRidersCount(s) }})</span>
+                            </button>
                             <button mat-menu-item (click)="openEditStop(r, s)">
                               <mat-icon style="color: #2563eb;">edit</mat-icon>
                               <span>Edit Stop &amp; Fares</span>
@@ -1119,6 +1138,37 @@
                   <span>{{ manifest.manifestDate }} &bull; {{ manifest.departureType }}</span>
                 </div>
               </div>
+
+              <!-- Phase 1 Driver Mobile Live GPS Transmitter Bar -->
+              <div class="driver-gps-bar" [class.is-broadcasting]="isGpsBroadcasting">
+                <div class="gps-status-col">
+                  <div class="gps-indicator">
+                    <span class="gps-dot" [class.pulse]="isGpsBroadcasting"></span>
+                    <span class="gps-label">{{ isGpsBroadcasting ? 'LIVE GPS BROADCASTING' : 'PHASE 1 LIVE GPS TRANSMITTER' }}</span>
+                  </div>
+                  <div class="gps-meta-text">
+                    @if (isGpsBroadcasting && currentGpsCoords) {
+                      <span>Speed: <strong>{{ currentGpsCoords.speed != null ? currentGpsCoords.speed + ' km/h' : '0 km/h' }}</strong></span>
+                      <span>&bull; Accuracy: &plusmn;{{ currentGpsCoords.accuracy || 5 }}m</span>
+                      <span>&bull; Last Sync: {{ gpsLastHeartbeat }}</span>
+                    }
+                    @if (!isGpsBroadcasting) {
+                      <span>Turn ON to stream this bus location in real-time to school fleet radar &amp; parent live tracking desk.</span>
+                    }
+                    @if (gpsErrorMsg) {
+                      <span class="gps-err-msg"><mat-icon>warning</mat-icon> {{ gpsErrorMsg }}</span>
+                    }
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="btn-gps-toggle"
+                  [class.active]="isGpsBroadcasting"
+                  (click)="toggleGpsBroadcast()">
+                  <mat-icon>{{ isGpsBroadcasting ? 'satellite_alt' : 'location_searching' }}</mat-icon>
+                  <span>{{ isGpsBroadcasting ? 'Stop GPS Broadcast' : 'Start Live GPS Broadcast' }}</span>
+                </button>
+              </div>
             }
             <!-- Live Status Metric Counters -->
             @if (manifest) {
@@ -1465,6 +1515,41 @@
               </div>
             </div>
           </div>
+          <!-- Phase 1 Live GPS Fleet Radar Map -->
+          <div class="fleet-live-map-card mat-elevation-z1">
+            <div class="map-card-header">
+              <div class="map-header-left">
+                <div class="map-header-icon">
+                  <mat-icon>satellite_alt</mat-icon>
+                </div>
+                <div>
+                  <h4 class="map-title">Live GPS Fleet Radar &amp; Transit Map</h4>
+                  <p class="map-subtitle">Real-time bus tracking streamed from driver mobile console &bull; Zero hardware required</p>
+                </div>
+              </div>
+              <div class="map-header-actions">
+                @if (activeLiveRouteGps) {
+                  <span class="live-beacon-pill">
+                    <span class="live-dot pulse"></span>
+                    <strong>{{ activeLiveRouteGps.vehicleNumber }}</strong>
+                    <span>{{ activeLiveRouteGps.speed != null ? activeLiveRouteGps.speed + ' km/h' : 'Moving' }}</span>
+                  </span>
+                }
+                @if (!activeLiveRouteGps) {
+                  <span class="offline-beacon-pill">
+                    <mat-icon>sensors_off</mat-icon> GPS Standby (Turn ON in Tap Console)
+                  </span>
+                }
+                <button type="button" class="btn-map-action" (click)="initOrUpdateLiveMap()">
+                  <mat-icon>my_location</mat-icon> Center Map
+                </button>
+              </div>
+            </div>
+            <div class="map-container-wrapper">
+              <div id="fleetLiveMap" class="fleet-leaflet-map"></div>
+            </div>
+          </div>
+
           <!-- Active Buses Progress Deck -->
           <div class="fleet-routes-deck mat-elevation-z1">
             <div class="deck-header">
@@ -2947,6 +3032,123 @@
       </div>
       <div class="modal-footer">
         <button type="button" (click)="showQrScanModal = false" matButton="filled" class="app-button-cancel">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ========================================================================= -->
+<!-- MODAL: STOP MAPPED STUDENTS ROSTER (Light Blue Header strictly following AGENTS.md) -->
+<!-- ========================================================================= -->
+@if (showStopRidersModal) {
+  <div class="modal-backdrop" (click)="showStopRidersModal = false">
+    <div class="modal-dialog stop-riders-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-header-icon">
+            <mat-icon>directions_bus</mat-icon>
+          </div>
+          <div>
+            <h3 class="modal-title">Mapped Commuters &bull; {{ selectedStopForRidersView?.stopName }}</h3>
+            <p class="modal-subtitle">
+              Route: <strong>{{ selectedRouteForRidersView?.routeCode }} - {{ selectedRouteForRidersView?.routeName }}</strong>
+              &bull; Morning: <strong>{{ selectedStopForRidersView?.pickupTime || '07:00 AM' }}</strong>
+              &bull; Evening: <strong>{{ selectedStopForRidersView?.dropTime || '03:30 PM' }}</strong>
+            </p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="showStopRidersModal = false" mat-icon-button>
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="modal-body stop-riders-body">
+        <div class="stop-summary-strip">
+          <div class="ss-item">
+            <span class="ss-lbl">Boarding Stop</span>
+            <strong class="ss-val">{{ selectedStopForRidersView?.stopName }}</strong>
+          </div>
+          <div class="ss-item">
+            <span class="ss-lbl">Distance &amp; Fare</span>
+            <strong class="ss-val">{{ selectedStopForRidersView?.distanceKm || 0 }} km &bull; ₹{{ selectedStopForRidersView?.monthlyFare | number }}/mo</strong>
+          </div>
+          <div class="ss-item">
+            <span class="ss-lbl">Total Enrolled Riders</span>
+            <strong class="ss-val highlight-riders">{{ getStopRidersList(selectedStopForRidersView?.id).length }} Student(s)</strong>
+          </div>
+        </div>
+
+        @if (getStopRidersList(selectedStopForRidersView?.id).length > 0) {
+          <div class="table-responsive riders-table-wrap">
+            <table class="stop-riders-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">#</th>
+                  <th>Student Details</th>
+                  <th>Class &amp; Roll</th>
+                  <th>Parent / Emergency Contact</th>
+                  <th>Trip Plan</th>
+                  <th>Monthly Fare</th>
+                  <th>Pass Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of getStopRidersList(selectedStopForRidersView?.id); track r.id; let idx = $index) {
+                  <tr>
+                    <td><span class="sr-badge">{{ idx + 1 }}</span></td>
+                    <td>
+                      <div class="rider-name-block">
+                        <strong class="r-name">{{ r.studentName }}</strong>
+                        @if (r.admissionNumber) {
+                          <span class="r-adm">Adm: {{ r.admissionNumber }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <div class="r-class-pill">{{ r.studentClassName || r.studentClass || 'Play Group - A' }}</div>
+                      <span class="r-roll">Roll: {{ r.studentRollNumber || r.rollNumber || 'N/A' }}</span>
+                    </td>
+                    <td>
+                      <div class="r-parent-block">
+                        <span class="parent-name"><mat-icon class="mini-ico">person</mat-icon> {{ r.parentName }}</span>
+                        @if (r.parentPhone) {
+                          <a class="parent-phone" [href]="'tel:' + r.parentPhone">
+                            <mat-icon class="mini-ico">call</mat-icon> {{ r.parentPhone }}
+                          </a>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <span class="trip-type-pill">{{ r.pickupDropType || 'Both Ways' }}</span>
+                    </td>
+                    <td>
+                      <strong class="r-fare">₹{{ r.monthlyFare | number }}</strong><span class="fare-unit">/mo</span>
+                    </td>
+                    <td>
+                      <span class="pass-status-pill active">
+                        <mat-icon class="mini-ico">verified</mat-icon> Active Pass
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        @if (getStopRidersList(selectedStopForRidersView?.id).length === 0) {
+          <div class="empty-stop-riders">
+            <mat-icon>person_off</mat-icon>
+            <h4>No Students Enrolled at this Stop</h4>
+            <p>Click "Issue Student Pass" from the top bar to enroll students to <strong>{{ selectedStopForRidersView?.stopName }}</strong>.</p>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="app-button-cancel" (click)="showStopRidersModal = false" matButton="filled">
+          Close
+        </button>
+        <button color="primary" type="button" (click)="showStopRidersModal = false; openAddPassForStop(selectedRouteForRidersView, selectedStopForRidersView)" matButton="filled">
+          <mat-icon>add</mat-icon> Add More Students to this Stop
+        </button>
       </div>
     </div>
   </div>

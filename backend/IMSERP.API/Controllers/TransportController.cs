@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
@@ -13,6 +14,8 @@ namespace IMSERP.API.Controllers;
 [Authorize]
 public class TransportController : ControllerBase
 {
+    private static readonly ConcurrentDictionary<string, RouteLiveLocationRecord> _liveLocations = new();
+
     private readonly IIMSERPDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IWhatsAppService _whatsAppService;
@@ -847,6 +850,10 @@ public class TransportController : ControllerBase
                 ? TimeZoneInfo.ConvertTimeFromUtc(lastAct.Value, istTimeZone).ToString("hh:mm tt")
                 : null;
 
+            var liveKey = $"{_currentUser.TenantId}:{r.Id}";
+            _liveLocations.TryGetValue(liveKey, out var liveLoc);
+            bool isLiveGps = liveLoc != null && (DateTime.UtcNow - liveLoc.UpdatedAtUtc).TotalMinutes <= 15;
+
             routeProgressList.Add(new LiveRouteProgressDto(
                 r.Id,
                 r.RouteCode,
@@ -863,7 +870,14 @@ public class TransportController : ControllerBase
                 eAbsent,
                 lastAtt?.StopName,
                 lastAct,
-                lastActFormatted
+                lastActFormatted,
+                liveLoc?.Latitude,
+                liveLoc?.Longitude,
+                liveLoc?.Speed,
+                liveLoc?.Heading,
+                liveLoc?.Accuracy,
+                isLiveGps,
+                liveLoc?.UpdatedAtUtc
             ));
         }
 
@@ -1179,7 +1193,108 @@ public class TransportController : ControllerBase
             await _db.SaveChangesAsync();
         }
     }
+    // =========================================================================
+    // 10. Phase 1 Live GPS Broadcast & Tracking (Driver Mobile & Fleet Radar)
+    // =========================================================================
+
+    [HttpPost("routes/{routeId}/live-location")]
+    public async Task<IActionResult> UpdateLiveLocation(Guid routeId, [FromBody] UpdateRouteLiveLocationDto dto)
+    {
+        var route = await _db.TransportRoutes.AsNoTracking()
+            .Include(r => r.Vehicle).ThenInclude(v => v!.Driver)
+            .FirstOrDefaultAsync(r => r.Id == routeId);
+        if (route == null) return NotFound(new { message = "Transport route not found." });
+
+        var key = $"{_currentUser.TenantId}:{routeId}";
+        var record = new RouteLiveLocationRecord(
+            route.Id,
+            route.RouteCode,
+            route.RouteName,
+            route.Vehicle?.VehicleNumber ?? "Bus",
+            route.Vehicle?.Driver?.FullName,
+            dto.Latitude,
+            dto.Longitude,
+            dto.Speed,
+            dto.Heading,
+            dto.Accuracy,
+            dto.DeviceType ?? "DriverMobile",
+            DateTime.UtcNow
+        );
+        _liveLocations[key] = record;
+        return Ok(new { success = true, updatedAt = DateTime.UtcNow });
+    }
+
+    [HttpGet("routes/{routeId}/live-location")]
+    public async Task<ActionResult<RouteLiveLocationDto>> GetRouteLiveLocation(Guid routeId)
+    {
+        var key = $"{_currentUser.TenantId}:{routeId}";
+        var istTimeZone = IstTimeZoneHelper.Zone;
+        var nowUtc = DateTime.UtcNow;
+
+        if (!_liveLocations.TryGetValue(key, out var record))
+        {
+            var route = await _db.TransportRoutes.AsNoTracking()
+                .Include(r => r.Vehicle).ThenInclude(v => v!.Driver)
+                .FirstOrDefaultAsync(r => r.Id == routeId);
+            if (route == null) return NotFound(new { message = "Route not found." });
+
+            return Ok(new RouteLiveLocationDto(
+                route.Id,
+                route.RouteCode,
+                route.RouteName,
+                route.Vehicle?.VehicleNumber ?? "Bus",
+                route.Vehicle?.Driver?.FullName,
+                0,
+                0,
+                null,
+                null,
+                null,
+                "None",
+                nowUtc,
+                "Offline",
+                false,
+                0
+            ));
+        }
+
+        var diff = nowUtc - record.UpdatedAtUtc;
+        bool isLive = diff.TotalMinutes <= 15;
+        var formatted = TimeZoneInfo.ConvertTimeFromUtc(record.UpdatedAtUtc, istTimeZone).ToString("hh:mm:ss tt");
+
+        return Ok(new RouteLiveLocationDto(
+            record.RouteId,
+            record.RouteCode,
+            record.RouteName,
+            record.VehicleNumber,
+            record.DriverName,
+            record.Latitude,
+            record.Longitude,
+            record.Speed,
+            record.Heading,
+            record.Accuracy,
+            record.DeviceType,
+            record.UpdatedAtUtc,
+            formatted,
+            isLive,
+            (int)diff.TotalSeconds
+        ));
+    }
 }
+
+public record RouteLiveLocationRecord(
+    Guid RouteId,
+    string RouteCode,
+    string RouteName,
+    string VehicleNumber,
+    string? DriverName,
+    double Latitude,
+    double Longitude,
+    double? Speed,
+    double? Heading,
+    double? Accuracy,
+    string DeviceType,
+    DateTime UpdatedAtUtc
+);
 
 public record CloseGatePassDto(DateTime? ActualInDateTime, string? Remarks);
 
