@@ -1044,7 +1044,7 @@ import ApexCharts from 'apexcharts';
               </mat-card-content>
             </mat-card>
     
-            <mat-card class="stat-card orange mat-elevation-z2">
+            <mat-card class="stat-card orange mat-elevation-z2" routerLink="/fees" style="cursor: pointer;" matTooltip="Open Fee Collection & Counter Dues Desk">
               <mat-card-content class="stat-content">
                 <div class="stat-header">
                   <span class="label">Pending Fee Dues</span>
