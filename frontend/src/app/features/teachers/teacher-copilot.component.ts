@@ -23,6 +23,7 @@ import {
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolService, SchoolClassDto } from '../../core/services/school.service';
 import { BranchService, BranchDto } from '../../core/services/branch.service';
+import { SubjectsService, SubjectDto, ClassSubjectDto } from '../../core/services/subjects.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
@@ -112,40 +113,22 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
                     </mat-form-field>
 
                     <div class="form-row-2">
-                      <!-- Subject -->
+                      <!-- Subject (Dynamic from DB) -->
                       <mat-form-field appearance="outline">
                         <mat-label>Subject (विषय)</mat-label>
                         <mat-select formControlName="subject">
-                          <mat-option value="Mathematics">📐 Mathematics (गणित)</mat-option>
-                          <mat-option value="Science">🔬 Science (विज्ञान)</mat-option>
-                          <mat-option value="Physics">⚡ Physics (भौतिक विज्ञान)</mat-option>
-                          <mat-option value="Chemistry">🧪 Chemistry (रसायन विज्ञान)</mat-option>
-                          <mat-option value="Biology">🧬 Biology (जीव विज्ञान)</mat-option>
-                          <mat-option value="Social Science">🌍 Social Science (सामाजिक विज्ञान)</mat-option>
-                          <mat-option value="Hindi">🇮🇳 Hindi (हिंदी साहित्य व व्याकरण)</mat-option>
-                          <mat-option value="English">📖 English (Language &amp; Literature)</mat-option>
-                          <mat-option value="Sanskrit">🕉️ Sanskrit (संस्कृत)</mat-option>
-                          <mat-option value="Computer Science">💻 Computer Science / IT</mat-option>
-                          <mat-option value="Economics">📊 Economics (अर्थशास्त्र)</mat-option>
-                          <mat-option value="Accountancy">📑 Accountancy (लेखाशास्त्र)</mat-option>
-                          <mat-option value="Business Studies">💼 Business Studies (व्यावसायिक अध्ययन)</mat-option>
+                          @for (s of paperSubjects; track s.id) {
+                            <mat-option [value]="s.name">{{ s.name }}</mat-option>
+                          }
                         </mat-select>
                       </mat-form-field>
 
-                      <!-- Class Name -->
+                      <!-- Class Name (Dynamic from DB) -->
                       <mat-form-field appearance="outline">
                         <mat-label>Target Class (कक्षा)</mat-label>
-                        <mat-select formControlName="className">
-                          @if (classes.length > 0) {
-                            @for (c of classes; track c.id) {
-                              <mat-option [value]="c.name">{{ c.name }}</mat-option>
-                            }
-                          } @else {
-                            <mat-option value="Class 10">Class 10</mat-option>
-                            <mat-option value="Class 9">Class 9</mat-option>
-                            <mat-option value="Class 8">Class 8</mat-option>
-                            <mat-option value="Class 11">Class 11</mat-option>
-                            <mat-option value="Class 12">Class 12</mat-option>
+                        <mat-select formControlName="className" (selectionChange)="onPaperClassChange($event.value)">
+                          @for (c of classes; track c.id) {
+                            <mat-option [value]="c.name">{{ c.name }}</mat-option>
                           }
                         </mat-select>
                       </mat-form-field>
@@ -388,35 +371,22 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
                   <form [formGroup]="planForm" (ngSubmit)="generateLessonPlan()" class="copilot-form">
                     
                     <div class="form-row-2">
-                      <!-- Subject -->
+                      <!-- Subject (Dynamic from DB) -->
                       <mat-form-field appearance="outline">
                         <mat-label>Subject (विषय)</mat-label>
                         <mat-select formControlName="subject">
-                          <mat-option value="Mathematics">Mathematics (गणित)</mat-option>
-                          <mat-option value="Science">Science (विज्ञान)</mat-option>
-                          <mat-option value="Physics">Physics (भौतिकी)</mat-option>
-                          <mat-option value="Chemistry">Chemistry (रसायन)</mat-option>
-                          <mat-option value="Biology">Biology (जीव विज्ञान)</mat-option>
-                          <mat-option value="Social Science">Social Science (सामाजिक विज्ञान)</mat-option>
-                          <mat-option value="English">English</mat-option>
-                          <mat-option value="Hindi">Hindi</mat-option>
-                          <mat-option value="Computer Science">Computer Science</mat-option>
+                          @for (s of planSubjects; track s.id) {
+                            <mat-option [value]="s.name">{{ s.name }}</mat-option>
+                          }
                         </mat-select>
                       </mat-form-field>
 
-                      <!-- Class Name -->
+                      <!-- Class Name (Dynamic from DB) -->
                       <mat-form-field appearance="outline">
                         <mat-label>Class (कक्षा)</mat-label>
-                        <mat-select formControlName="className">
-                          @if (classes.length > 0) {
-                            @for (c of classes; track c.id) {
-                              <mat-option [value]="c.name">{{ c.name }}</mat-option>
-                            }
-                          } @else {
-                            <mat-option value="Class 10">Class 10</mat-option>
-                            <mat-option value="Class 9">Class 9</mat-option>
-                            <mat-option value="Class 8">Class 8</mat-option>
-                            <mat-option value="Class 7">Class 7</mat-option>
+                        <mat-select formControlName="className" (selectionChange)="onPlanClassChange($event.value)">
+                          @for (c of classes; track c.id) {
+                            <mat-option [value]="c.name">{{ c.name }}</mat-option>
                           }
                         </mat-select>
                       </mat-form-field>
@@ -1407,6 +1377,7 @@ export class TeacherCopilotComponent implements OnInit {
   private authService = inject(AuthService);
   private schoolService = inject(SchoolService);
   private branchService = inject(BranchService);
+  private subjectsService = inject(SubjectsService);
   private confirmDialog = inject(ConfirmDialogService);
   private cdr = inject(ChangeDetectorRef);
 
@@ -1426,6 +1397,10 @@ export class TeacherCopilotComponent implements OnInit {
   classes: SchoolClassDto[] = [];
   branches: BranchDto[] = [];
 
+  allSubjects: SubjectDto[] = [];
+  paperSubjects: SubjectDto[] = [];
+  planSubjects: SubjectDto[] = [];
+
   instituteName = '';
   instituteLogo = '';
 
@@ -1437,28 +1412,29 @@ export class TeacherCopilotComponent implements OnInit {
 
     this.paperForm = this.fb.group({
       branchId: [activeBranchId],
-      title: ['Term 1 Periodic Examination', Validators.required],
-      subject: ['Mathematics', Validators.required],
-      className: ['Class 10', Validators.required],
+      title: ['Term Examination / Periodic Assessment', Validators.required],
+      subject: ['', Validators.required],
+      className: ['', Validators.required],
       boardOrCurriculum: ['CBSE / State Board Standard'],
       totalMarks: [50, Validators.required],
       durationMinutes: [90, Validators.required],
       difficultyLevel: ['Balanced', Validators.required],
       language: ['Bilingual', Validators.required],
-      chaptersList: ['Chapter 1: Real Numbers, Chapter 4: Quadratic Equations, Chapter 6: Triangles'],
+      chaptersList: [''],
       includeSolutions: [true]
     });
 
     this.planForm = this.fb.group({
       branchId: [activeBranchId],
-      subject: ['Science', Validators.required],
-      className: ['Class 10', Validators.required],
-      topicOrChapter: ["Newton's Laws of Motion & Friction", Validators.required],
+      subject: ['', Validators.required],
+      className: ['', Validators.required],
+      topicOrChapter: ['', Validators.required],
       totalPeriods: [4, Validators.required],
       pedagogicalApproach: ['5E Inquiry Model (NEP 2020)', Validators.required]
     });
 
     this.loadClasses();
+    this.loadSubjects();
     this.loadBranches();
     this.loadSavedLibrary();
   }
@@ -1467,14 +1443,107 @@ export class TeacherCopilotComponent implements OnInit {
     this.schoolService.getClasses().subscribe({
       next: (cList: SchoolClassDto[]) => {
         this.classes = cList || [];
-        if (this.classes.length > 0 && !this.paperForm.get('className')?.value) {
-          this.paperForm.patchValue({ className: this.classes[0].name });
-          this.planForm.patchValue({ className: this.classes[0].name });
+        if (this.classes.length > 0) {
+          const firstClass = this.classes[0].name;
+          if (!this.paperForm.get('className')?.value) {
+            this.paperForm.patchValue({ className: firstClass });
+            this.onPaperClassChange(firstClass);
+          }
+          if (!this.planForm.get('className')?.value) {
+            this.planForm.patchValue({ className: firstClass });
+            this.onPlanClassChange(firstClass);
+          }
         }
         this.cdr.markForCheck();
       },
       error: () => {}
     });
+  }
+
+  loadSubjects(): void {
+    this.subjectsService.getSubjects(true).subscribe({
+      next: (sList: SubjectDto[]) => {
+        this.allSubjects = sList || [];
+        if (this.paperSubjects.length === 0) {
+          this.paperSubjects = [...this.allSubjects];
+          if (this.paperSubjects.length > 0 && !this.paperForm.get('subject')?.value) {
+            this.paperForm.patchValue({ subject: this.paperSubjects[0].name });
+          }
+        }
+        if (this.planSubjects.length === 0) {
+          this.planSubjects = [...this.allSubjects];
+          if (this.planSubjects.length > 0 && !this.planForm.get('subject')?.value) {
+            this.planForm.patchValue({ subject: this.planSubjects[0].name });
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {}
+    });
+  }
+
+  onPaperClassChange(className: string): void {
+    const matchedClass = this.classes.find(c => c.name === className);
+    if (matchedClass) {
+      this.subjectsService.getClassSubjects(matchedClass.id).subscribe({
+        next: (csList: ClassSubjectDto[]) => {
+          if (csList && csList.length > 0) {
+            this.paperSubjects = csList.map(cs => ({
+              id: cs.subjectId,
+              name: cs.subjectName,
+              isActive: true,
+              createdAt: cs.createdAt
+            }));
+          } else {
+            this.paperSubjects = [...this.allSubjects];
+          }
+          if (this.paperSubjects.length > 0) {
+            const currentSub = this.paperForm.get('subject')?.value;
+            const exists = this.paperSubjects.some(s => s.name === currentSub);
+            if (!exists) {
+              this.paperForm.patchValue({ subject: this.paperSubjects[0].name });
+            }
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.paperSubjects = [...this.allSubjects];
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  onPlanClassChange(className: string): void {
+    const matchedClass = this.classes.find(c => c.name === className);
+    if (matchedClass) {
+      this.subjectsService.getClassSubjects(matchedClass.id).subscribe({
+        next: (csList: ClassSubjectDto[]) => {
+          if (csList && csList.length > 0) {
+            this.planSubjects = csList.map(cs => ({
+              id: cs.subjectId,
+              name: cs.subjectName,
+              isActive: true,
+              createdAt: cs.createdAt
+            }));
+          } else {
+            this.planSubjects = [...this.allSubjects];
+          }
+          if (this.planSubjects.length > 0) {
+            const currentSub = this.planForm.get('subject')?.value;
+            const exists = this.planSubjects.some(s => s.name === currentSub);
+            if (!exists) {
+              this.planForm.patchValue({ subject: this.planSubjects[0].name });
+            }
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.planSubjects = [...this.allSubjects];
+          this.cdr.markForCheck();
+        }
+      });
+    }
   }
 
   loadBranches(): void {

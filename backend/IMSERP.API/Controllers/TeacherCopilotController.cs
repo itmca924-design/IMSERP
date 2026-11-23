@@ -494,109 +494,269 @@ public class TeacherCopilotController : ControllerBase
     private QuestionItemDto BuildAcademicMCQ(string subject, string className, string chapters, int qNum, int idx, bool isHindi, bool isBilingual)
     {
         string subLower = subject.ToLowerInvariant();
+        var chList = (chapters ?? string.Empty)
+            .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        string currentTopic = chList.Count > 0 ? chList[(idx - 1) % chList.Count] : subject;
 
         if (subLower.Contains("math"))
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: $"If the discriminant of a quadratic equation ax² + bx + c = 0 is greater than zero (D > 0), then the roots of the equation are:",
-                QuestionTextHi: isBilingual || isHindi ? "यदि द्विघात समीकरण ax² + bx + c = 0 का विविक्तकर शून्य से बड़ा है (D > 0), तो समीकरण के मूल होंगे:" : null,
-                Marks: 1,
-                QuestionType: "MCQ",
-                OptionsEn: new List<string> { "Real and Distinct", "Real and Equal", "No Real Roots", "Imaginary" },
-                OptionsHi: isBilingual || isHindi ? new List<string> { "वास्तविक और असमान", "वास्तविक और समान", "कोई वास्तविक मूल नहीं", "काल्पनिक" } : null,
-                CorrectAnswerOrKey: "Option (A): Real and Distinct",
-                StepWiseExplanation: "Since D = b² - 4ac > 0, the quadratic formula yields two distinct real values."
-            );
+            if (idx % 3 == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"If the discriminant of quadratic equation ax² + bx + c = 0 is greater than zero (D > 0), then the nature of its roots is:",
+                    QuestionTextHi: isBilingual || isHindi ? "यदि द्विघात समीकरण ax² + bx + c = 0 का विविक्तकर शून्य से बड़ा है (D > 0), तो इसके मूलों की प्रकृति होगी:" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Real and Distinct", "Real and Equal", "No Real Roots", "Imaginary" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "वास्तविक और असमान", "वास्तविक और समान", "कोई वास्तविक मूल नहीं", "काल्पनिक" } : null,
+                    CorrectAnswerOrKey: "Option (A): Real and Distinct",
+                    StepWiseExplanation: "Since D = b² - 4ac > 0, the quadratic formula yields two distinct real values."
+                );
+            }
+            else if (idx % 3 == 2)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"The common difference of the arithmetic progression (A.P.): 3, 7, 11, 15, ... is:",
+                    QuestionTextHi: isBilingual || isHindi ? "समानांतर श्रेणी (A.P.): 3, 7, 11, 15, ... का सार्व अंतर (d) क्या होगा?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "4", "3", "7", "-4" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "4", "3", "7", "-4" } : null,
+                    CorrectAnswerOrKey: "Option (A): 4",
+                    StepWiseExplanation: "Common difference d = a₂ - a₁ = 7 - 3 = 4."
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"The distance of the point P(3, 4) from the origin (0, 0) is:",
+                    QuestionTextHi: isBilingual || isHindi ? "मूल बिंदु (0, 0) से बिंदु P(3, 4) की दूरी क्या होगी?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "5 units", "7 units", "1 unit", "25 units" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "5 मात्रक", "7 मात्रक", "1 मात्रक", "25 मात्रक" } : null,
+                    CorrectAnswerOrKey: "Option (A): 5 units",
+                    StepWiseExplanation: "Distance = √(x² + y²) = √(3² + 4²) = √(9 + 16) = √25 = 5."
+                );
+            }
         }
         else if (subLower.Contains("sci") || subLower.Contains("phys") || subLower.Contains("chem") || subLower.Contains("bio"))
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: $"Which of the following cellular organelles is known as the 'Powerhouse of the Cell'?",
-                QuestionTextHi: isBilingual || isHindi ? "निम्नलिखित में से किस कोशिकांग को 'कोशिका का पावरहाउस' कहा जाता है?" : null,
-                Marks: 1,
-                QuestionType: "MCQ",
-                OptionsEn: new List<string> { "Ribosome", "Mitochondria", "Golgi Apparatus", "Endoplasmic Reticulum" },
-                OptionsHi: isBilingual || isHindi ? new List<string> { "राइबोसोम", "माइटोकॉन्ड्रिया", "गॉल्जी काय", "एंडोप्लाज्मिक रेटिकुलम" } : null,
-                CorrectAnswerOrKey: "Option (B): Mitochondria",
-                StepWiseExplanation: "Mitochondria generates most of the chemical energy needed to power the cell's biochemical reactions via ATP."
-            );
+            if (idx % 3 == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Which cellular organelle is universally referred to as the 'Powerhouse of the Cell'?",
+                    QuestionTextHi: isBilingual || isHindi ? "किस कोशिकांग को सर्वमान्य रूप से 'कोशिका का पावरहाउस' कहा जाता है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Ribosome", "Mitochondria", "Golgi Body", "Chloroplast" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "राइबोसोम", "माइटोकॉन्ड्रिया", "गॉल्जी काय", "हरित लवक" } : null,
+                    CorrectAnswerOrKey: "Option (B): Mitochondria",
+                    StepWiseExplanation: "Mitochondria synthesizes ATP through cellular respiration, powering cellular activities."
+                );
+            }
+            else if (idx % 3 == 2)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"What is the SI unit of Electric Potential Difference (Voltage)?",
+                    QuestionTextHi: isBilingual || isHindi ? "विद्युत विभवान्तर (Voltage) का SI मात्रक क्या है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Volt (V)", "Ampere (A)", "Ohm (Ω)", "Joule (J)" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "वोल्ट (V)", "एम्पीयर (A)", "ओम (Ω)", "जूल (J)" } : null,
+                    CorrectAnswerOrKey: "Option (A): Volt (V)",
+                    StepWiseExplanation: "Electric potential difference is measured in Volts (V), defined as Joules per Coulomb."
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"The pH of pure distilled water at 25°C is exactly:",
+                    QuestionTextHi: isBilingual || isHindi ? "25°C तापमान पर शुद्ध आसुत जल का pH मान कितना होता है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "7 (Neutral)", "0 (Acidic)", "14 (Basic)", "5.6 (Slightly Acidic)" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "7 (उदासीन)", "0 (अम्लीय)", "14 (क्षारीय)", "5.6 (हल्का अम्लीय)" } : null,
+                    CorrectAnswerOrKey: "Option (A): 7 (Neutral)",
+                    StepWiseExplanation: "Pure neutral water has equal concentrations of H⁺ and OH⁻ ions resulting in pH 7."
+                );
+            }
         }
-        else if (subLower.Contains("hind"))
+        else if (subLower.Contains("hind") || subLower.Contains("sanskrit"))
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: "Which of the following is an example of 'Tatpurush Samas'?",
-                QuestionTextHi: "'राजपुत्र' (राजा का पुत्र) में कौन सा समास प्रयुक्त हुआ है?",
-                Marks: 1,
-                QuestionType: "MCQ",
-                OptionsEn: new List<string> { "Avyayibhav", "Tatpurush", "Dvandva", "Bahuvrihi" },
-                OptionsHi: new List<string> { "अव्ययीभाव समास", "तत्पुरुष समास", "द्वंद्व समास", "बहुव्रीहि समास" },
-                CorrectAnswerOrKey: "विकल्प (B): तत्पुरुष समास",
-                StepWiseExplanation: "जिस समास में उत्तर पद प्रधान हो तथा कारक चिन्ह (का, की, के) का लोप हो, उसे तत्पुरुष समास कहते हैं।"
-            );
+            if (idx % 2 == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"In grammar, which type of compound (Samas) is represented by 'Rajputra' (Son of King)?",
+                    QuestionTextHi: "'राजपुत्र' (राजा का पुत्र) सामासिक पद में कौन सा समास प्रयुक्त हुआ है?",
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Avyayibhav", "Tatpurush", "Dvandva", "Bahuvrihi" },
+                    OptionsHi: new List<string> { "अव्ययीभाव समास", "तत्पुरुष समास", "द्वंद्व समास", "बहुव्रीहि समास" },
+                    CorrectAnswerOrKey: "विकल्प (B): तत्पुरुष समास",
+                    StepWiseExplanation: "जिस समास में उत्तर पद प्रधान हो तथा कारक चिन्ह (का, की, के) का लोप हो, उसे तत्पुरुष समास कहते हैं।"
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: "Identify the correct Sandhi Viched of 'Suryoday':",
+                    QuestionTextHi: "'सूर्योदय' शब्द का सही संधि-विच्छेद क्या होगा?",
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Surya + Uday", "Sur + Uday", "Suryo + Day", "Surya + Oday" },
+                    OptionsHi: new List<string> { "सूर्य + उदय", "सुर + उदय", "सूर्यो + दय", "सूर्य + ओदय" },
+                    CorrectAnswerOrKey: "विकल्प (A): सूर्य + उदय",
+                    StepWiseExplanation: "अ/आ + उ = ओ (गुण स्वर संधि का नियम)।"
+                );
+            }
         }
         else
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: $"Regarding {subject} ({chapters}), which fundamental concept or principle holds true under standard conditions?",
-                QuestionTextHi: isBilingual || isHindi ? $"{subject} के अध्ययन में, निम्नलिखित में से कौन सा मूलभूत सिद्धांत सर्वमान्य है?" : null,
-                Marks: 1,
-                QuestionType: "MCQ",
-                OptionsEn: new List<string> { "Conservation Principle", "Random Variance", "Inverse Correlation", "None of the above" },
-                OptionsHi: isBilingual || isHindi ? new List<string> { "संरक्षण का नियम", "यादृच्छिक विचरण", "व्युत्क्रमानुपाती संबंध", "उपर्युक्त में से कोई नहीं" } : null,
-                CorrectAnswerOrKey: "Option (A): Conservation Principle",
-                StepWiseExplanation: "Standard curricular core foundational principle verified across prescribed text."
-            );
+            // Dynamic Subject Generation tailored to actual subject name and syllabus topic
+            int variant = (idx % 3);
+            if (variant == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"In {subject}, which of the following is considered a primary foundational rule/principle in '{currentTopic}'?",
+                    QuestionTextHi: isBilingual || isHindi ? $"{subject} के अंतर्गत '{currentTopic}' में निम्नलिखित में से कौन सा प्रमुख मूलभूत सिद्धांत है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Primary Foundational Axiom", "Secondary Hypothesis", "Variable Correlation", "Arbitrary Assumption" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "प्राथमिक आधारभूत सिद्धांत", "द्वितीयक परिकल्पना", "परिवर्तनीय सहसंबंध", "ऐच्छिक अनुमान" } : null,
+                    CorrectAnswerOrKey: "Option (A): Primary Foundational Axiom",
+                    StepWiseExplanation: $"Core concept of {currentTopic} under {subject} curriculum."
+                );
+            }
+            else if (variant == 2)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Regarding the application of '{currentTopic}' in {subject}, what is the main objective or outcome?",
+                    QuestionTextHi: isBilingual || isHindi ? $"{subject} में '{currentTopic}' के व्यावहारिक अनुप्रयोग का मुख्य उद्देश्य क्या है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Systematic Analysis & Precision", "Qualitative Generalization", "Random Sampling", "Unverified Estimation" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "व्यवस्थित विश्लेषण एवं शुद्धता", "गुणात्मक सामान्यीकरण", "यादृच्छिक प्रतिचयन", "अपरीक्षित अनुमान" } : null,
+                    CorrectAnswerOrKey: "Option (A): Systematic Analysis & Precision",
+                    StepWiseExplanation: $"Essential practical competency for '{currentTopic}' in {className} curriculum."
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Which tool, methodology, or notation is standardly used when studying '{currentTopic}' in {subject}?",
+                    QuestionTextHi: isBilingual || isHindi ? $"{subject} में '{currentTopic}' के अध्ययन हेतु कौन सी प्रामाणिक विधि अथवा उपकरण उपयोगी है?" : null,
+                    Marks: 1,
+                    QuestionType: "MCQ",
+                    OptionsEn: new List<string> { "Standardized Analytical Method", "Subjective Opinion", "Casual Observation", "None of the above" },
+                    OptionsHi: isBilingual || isHindi ? new List<string> { "मानकीकृत विश्लेषणात्मक पद्धति", "व्यक्तिगत दृष्टिकोण", "अनौपचारिक अवलोकन", "इनमें से कोई नहीं" } : null,
+                    CorrectAnswerOrKey: "Option (A): Standardized Analytical Method",
+                    StepWiseExplanation: $"Standard academic evaluation methodology for {subject}."
+                );
+            }
         }
     }
 
     private QuestionItemDto BuildAcademicShortQuestion(string subject, string className, string chapters, int qNum, int marks, int idx, bool isHindi, bool isBilingual)
     {
         string subLower = subject.ToLowerInvariant();
+        var chList = (chapters ?? string.Empty)
+            .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        string currentTopic = chList.Count > 0 ? chList[(idx - 1) % chList.Count] : subject;
 
         if (subLower.Contains("math"))
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: $"Find the roots of the quadratic equation: 2x² - 7x + 3 = 0 using the method of factorization.",
-                QuestionTextHi: isBilingual || isHindi ? "गुणनखंड विधि द्वारा द्विघात समीकरण 2x² - 7x + 3 = 0 के मूल ज्ञात कीजिए।" : null,
-                Marks: marks,
-                QuestionType: marks == 2 ? "VeryShort" : "Short",
-                OptionsEn: null,
-                OptionsHi: null,
-                CorrectAnswerOrKey: "Roots: x = 3, x = 1/2",
-                StepWiseExplanation: "2x² - 6x - x + 3 = 0 => 2x(x - 3) - 1(x - 3) = 0 => (2x - 1)(x - 3) = 0. Therefore x = 1/2 or x = 3. [1 mark for splitting middle term, 1 mark for final roots]."
-            );
+            if (idx % 2 == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Find the roots of the quadratic equation 2x² - 7x + 3 = 0 using the method of factorization.",
+                    QuestionTextHi: isBilingual || isHindi ? "गुणनखंड विधि द्वारा द्विघात समीकरण 2x² - 7x + 3 = 0 के मूल ज्ञात कीजिए।" : null,
+                    Marks: marks,
+                    QuestionType: marks == 2 ? "VeryShort" : "Short",
+                    OptionsEn: null,
+                    OptionsHi: null,
+                    CorrectAnswerOrKey: "Roots: x = 3, x = 1/2",
+                    StepWiseExplanation: "2x² - 6x - x + 3 = 0 => 2x(x - 3) - 1(x - 3) = 0 => (2x - 1)(x - 3) = 0. Therefore x = 1/2 or x = 3."
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Evaluate the value of: sin² 30° + cos² 30° + tan 45°.",
+                    QuestionTextHi: isBilingual || isHindi ? "मान ज्ञात कीजिए: sin² 30° + cos² 30° + tan 45°" : null,
+                    Marks: marks,
+                    QuestionType: marks == 2 ? "VeryShort" : "Short",
+                    OptionsEn: null,
+                    OptionsHi: null,
+                    CorrectAnswerOrKey: "Result = 2",
+                    StepWiseExplanation: "Since sin² θ + cos² θ = 1, we have 1 + tan 45° = 1 + 1 = 2."
+                );
+            }
         }
         else if (subLower.Contains("sci"))
         {
-            return new QuestionItemDto(
-                QuestionNumber: qNum,
-                QuestionTextEn: $"State Ohm's Law. Draw a labeled circuit diagram to verify Ohm's Law experimentally.",
-                QuestionTextHi: isBilingual || isHindi ? "ओम का नियम बताइए। ओम के नियम के प्रायोगिक सत्यापन हेतु एक नामांकित विद्युत परिपथ का आरेख बनाइए।" : null,
-                Marks: marks,
-                QuestionType: marks == 2 ? "VeryShort" : "Short",
-                OptionsEn: null,
-                OptionsHi: null,
-                CorrectAnswerOrKey: "V = I * R at constant temperature.",
-                StepWiseExplanation: "Statement of law (1 mark). Circuit diagram with Ammeter, Voltmeter, Rheostat, and Key (1-2 marks depending on section weight)."
-            );
+            if (idx % 2 == 1)
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"State Ohm's Law. Write the mathematical formula relating Voltage (V), Current (I), and Resistance (R).",
+                    QuestionTextHi: isBilingual || isHindi ? "ओम का नियम लिखिए। वोल्टेज (V), विद्युत धारा (I) तथा प्रतिरोध (R) के मध्य गणितीय सूत्र लिखिए।" : null,
+                    Marks: marks,
+                    QuestionType: marks == 2 ? "VeryShort" : "Short",
+                    OptionsEn: null,
+                    OptionsHi: null,
+                    CorrectAnswerOrKey: "V = I * R at constant physical conditions.",
+                    StepWiseExplanation: "Statement of law (1 mark). Mathematical formula V = IR and unit definition (1 mark)."
+                );
+            }
+            else
+            {
+                return new QuestionItemDto(
+                    QuestionNumber: qNum,
+                    QuestionTextEn: $"Differentiate between Aerobic and Anaerobic respiration with one balanced example.",
+                    QuestionTextHi: isBilingual || isHindi ? "वायवीय (ऑक्सी) तथा अवायवीय (अनॉक्सी) श्वसन में सोदाहरण अंतर स्पष्ट कीजिए।" : null,
+                    Marks: marks,
+                    QuestionType: marks == 2 ? "VeryShort" : "Short",
+                    OptionsEn: null,
+                    OptionsHi: null,
+                    CorrectAnswerOrKey: "Aerobic uses oxygen (produces CO2, H2O, 38 ATP); Anaerobic occurs without oxygen.",
+                    StepWiseExplanation: "1 point for oxygen dependency, 1 point for end products and energy yield comparison."
+                );
+            }
         }
         else
         {
             return new QuestionItemDto(
                 QuestionNumber: qNum,
-                QuestionTextEn: $"Explain the key features and real-world significance of the primary topic covered in '{chapters}'. Give two examples.",
-                QuestionTextHi: isBilingual || isHindi ? $"'{chapters}' के अंतर्गत प्रमुख सिद्धांत की मुख्य विशेषताओं को स्पष्ट कीजिए तथा दो उपयुक्त उदाहरण दीजिए।" : null,
+                QuestionTextEn: $"Explain the significance and main characteristics of '{currentTopic}' in {subject}. Provide two illustrative examples.",
+                QuestionTextHi: isBilingual || isHindi ? $"{subject} के अंतर्गत '{currentTopic}' के महत्व एवं मुख्य विशेषताओं को स्पष्ट कीजिए तथा दो उपयुक्त उदाहरण दीजिए।" : null,
                 Marks: marks,
                 QuestionType: marks == 2 ? "VeryShort" : "Short",
                 OptionsEn: null,
                 OptionsHi: null,
-                CorrectAnswerOrKey: "Conceptual definition with 2 verified examples.",
-                StepWiseExplanation: "Definition/Concept statement (1 mark), Two illustrative examples (1 mark each)."
+                CorrectAnswerOrKey: "Core definition with two verified practical examples.",
+                StepWiseExplanation: $"Accurate definition/context of {currentTopic} (1 mark), Two illustrative examples (1 mark each)."
             );
         }
     }
@@ -604,18 +764,25 @@ public class TeacherCopilotController : ControllerBase
     private QuestionItemDto BuildAcademicLongQuestion(string subject, string className, string chapters, int qNum, int marks, int idx, bool isHindi, bool isBilingual)
     {
         string subLower = subject.ToLowerInvariant();
+        var chList = (chapters ?? string.Empty)
+            .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        string currentTopic = chList.Count > 0 ? chList[(idx - 1) % chList.Count] : subject;
 
         if (subLower.Contains("math"))
         {
             return new QuestionItemDto(
                 QuestionNumber: qNum,
-                QuestionTextEn: $"State and prove Basic Proportionality Theorem (Thales Theorem). Hence, in a triangle ABC, if DE || BC intersects AB at D and AC at E, and AD = 2.4 cm, DB = 3.6 cm, AE = 2 cm, calculate EC.",
-                QuestionTextHi: isBilingual || isHindi ? "आधारभूत आनुपातिकता प्रमेय (थेल्स प्रमेय) का कथन लिखकर सिद्ध कीजिए। यदि त्रिभुज ABC में भुजा BC के समानांतर खींची गई रेखा DE, AB को D पर तथा AC को E पर प्रतिच्छेद करे तथा AD = 2.4 सेमी, DB = 3.6 सेमी, AE = 2 सेमी हो, तो EC का मान ज्ञात कीजिए।" : null,
+                QuestionTextEn: $"State and prove the Basic Proportionality Theorem (Thales' Theorem). Using this theorem, in triangle ABC if DE || BC, AD = 2.4 cm, DB = 3.6 cm, AE = 2 cm, find the value of EC.",
+                QuestionTextHi: isBilingual || isHindi ? "आधारभूत आनुपातिकता प्रमेय (थेल्स प्रमेय) का कथन लिखकर सिद्ध कीजिए। इसकी सहायता से, त्रिभुज ABC में यदि DE || BC, AD = 2.4 सेमी, DB = 3.6 सेमी, AE = 2 सेमी हो, तो EC का मान ज्ञात कीजिए।" : null,
                 Marks: 5,
                 QuestionType: "Long",
                 OptionsEn: null,
                 OptionsHi: null,
-                CorrectAnswerOrKey: "Statement (1m) + Proof with construction (3m) + Calculation EC = 3.0 cm (1m).",
+                CorrectAnswerOrKey: "Theorem Statement (1m) + Geometric Construction & Proof (3m) + Numerical Solution EC = 3.0 cm (1m).",
                 StepWiseExplanation: "By BPT: AD/DB = AE/EC => 2.4/3.6 = 2/EC => 2/3 = 2/EC => EC = 3.0 cm."
             );
         }
@@ -623,14 +790,14 @@ public class TeacherCopilotController : ControllerBase
         {
             return new QuestionItemDto(
                 QuestionNumber: qNum,
-                QuestionTextEn: $"Provide a comprehensive analytical explanation of '{chapters}'. Discuss its historical background or scientific mechanism, contemporary applications, and critical challenges with diagrams where applicable.",
-                QuestionTextHi: isBilingual || isHindi ? $"'{chapters}' का एक विस्तृत विश्लेषणात्मक विवरण प्रस्तुत कीजिए। इसके सैद्धांतिक आधार, व्यावहारिक अनुप्रयोगों तथा चुनौतियों की सोदाहरण समीक्षा कीजिए।" : null,
+                QuestionTextEn: $"Provide a comprehensive analytical explanation of '{currentTopic}' in {subject}. Detail its core mechanism, practical applications in modern society, and critical challenges with diagrams where applicable.",
+                QuestionTextHi: isBilingual || isHindi ? $"{subject} के पाठ्यक्रम में '{currentTopic}' की एक विस्तृत विश्लेषणात्मक समीक्षा प्रस्तुत कीजिए। इसके सैद्धांतिक आधार, व्यावहारिक अनुप्रयोगों तथा चुनौतियों की सोदाहरण व्याख्या कीजिए।" : null,
                 Marks: 5,
                 QuestionType: "Long",
                 OptionsEn: null,
                 OptionsHi: null,
-                CorrectAnswerOrKey: "Structured 5-point comprehensive response with labeled diagram/derivation.",
-                StepWiseExplanation: "1. Core Introduction (1m), 2. Detailed Mechanism / Working (2m), 3. Practical Applications (1m), 4. Conclusion / Diagram (1m)."
+                CorrectAnswerOrKey: "Structured 5-point comprehensive response with labeled diagram or detailed derivation.",
+                StepWiseExplanation: $"1. Conceptual Introduction (1m), 2. Working Mechanism/Analysis of {currentTopic} (2m), 3. Real-world Applications (1m), 4. Conclusion & Critical Insights (1m)."
             );
         }
     }

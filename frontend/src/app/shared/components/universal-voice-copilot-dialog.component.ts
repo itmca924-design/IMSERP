@@ -104,7 +104,7 @@ export interface CopilotQueryResponse {
             type="text"
             [(ngModel)]="queryText"
             (keyup.enter)="submitQuery()"
-            placeholder="e.g. 'Aaj ka collection kitna hua?' or 'Aarav Sharma ki fees'..."
+            placeholder="e.g. 'Aaj ka fee collection kitna hua?' or 'Student ki fees check karo'..."
             class="copilot-input"
           />
           <button
