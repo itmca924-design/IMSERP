@@ -4608,6 +4608,30 @@ mat-hint {
         border-radius: 8px;
         font-weight: 600;
       }
+
+      @media (max-width: 640px) {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+
+        button {
+          width: 100%;
+          padding: 0 4px !important;
+          font-size: 0.76rem !important;
+
+          mat-icon {
+            font-size: 16px !important;
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 2px !important;
+          }
+        }
+      }
+
+      @media (max-width: 380px) {
+        grid-template-columns: 1fr;
+      }
     }
   }
 }
@@ -4640,6 +4664,21 @@ mat-hint {
       margin-left: auto;
       font-weight: 700;
       color: #1e40af;
+    }
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+
+    .bus-meta-item {
+      font-size: 0.78rem;
+
+      &.date-item {
+        margin-left: 0;
+      }
     }
   }
 }
@@ -4764,6 +4803,20 @@ mat-hint {
       }
     }
   }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+
+    .chips-title {
+      width: 100%;
+    }
+
+    .chips-list {
+      width: 100%;
+    }
+  }
 }
 
 .empty-console-state,
@@ -4800,6 +4853,11 @@ mat-hint {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 .commuter-tap-card {
@@ -5955,6 +6013,12 @@ mat-hint {
       }
     }
   }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 12px;
+  }
 }
 
 .stop-riders-table {
@@ -6146,14 +6210,16 @@ mat-hint {
 
   &.is-broadcasting {
     background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    border-color: #4ade80;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+    border-color: #86efac;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.14);
   }
 
   .gps-status-col {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
 
     .gps-indicator {
       display: inline-flex;
@@ -6165,6 +6231,7 @@ mat-hint {
         height: 10px;
         border-radius: 50%;
         background: #94a3b8;
+        flex-shrink: 0;
 
         &.pulse {
           background: #16a34a;
@@ -6174,7 +6241,7 @@ mat-hint {
       }
 
       .gps-label {
-        font-size: 0.76rem;
+        font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0.5px;
         color: #334155;
@@ -6184,17 +6251,87 @@ mat-hint {
     .gps-meta-text {
       font-size: 0.8rem;
       color: #64748b;
+      line-height: 1.4;
 
-      strong {
-        color: #166534;
+      .gps-metrics-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-top: 2px;
+      }
+
+      .gps-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: #475569;
+        white-space: nowrap;
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          color: #64748b;
+        }
+
+        strong {
+          color: #0f172a;
+          font-weight: 700;
+        }
+
+        &.speed-chip {
+          background: #eff6ff;
+          border-color: #bfdbfe;
+          color: #1e40af;
+
+          mat-icon {
+            color: #2563eb;
+          }
+
+          strong {
+            color: #1d4ed8;
+            font-weight: 800;
+          }
+        }
+
+        &.acc-chip {
+          background: #f8fafc;
+        }
+
+        &.sync-chip {
+          background: #f0fdf4;
+          border-color: #bbf7d0;
+          color: #166534;
+
+          mat-icon {
+            color: #16a34a;
+          }
+        }
+      }
+
+      .gps-desc-text {
+        font-size: 0.78rem;
+        color: #64748b;
       }
 
       .gps-err-msg {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         color: #dc2626;
         font-weight: 600;
+        font-size: 0.78rem;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        padding: 2px 8px;
+        border-radius: 6px;
 
         mat-icon {
           font-size: 15px;
@@ -6208,9 +6345,10 @@ mat-hint {
   .btn-gps-toggle {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     height: 40px;
-    padding: 0 16px;
+    padding: 0 18px;
     border-radius: 8px;
     border: 1.5px solid #2563eb;
     background: #2563eb;
@@ -6221,6 +6359,7 @@ mat-hint {
     transition: all 0.2s ease;
     white-space: nowrap;
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    flex-shrink: 0;
 
     mat-icon {
       font-size: 18px;
@@ -6242,6 +6381,36 @@ mat-hint {
       &:hover {
         background: #b91c1c;
       }
+    }
+  }
+
+  /* Responsive Stacking for Mobile and Tablet (<= 768px) */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+
+    .gps-status-col {
+      width: 100%;
+
+      .gps-meta-text {
+        .gps-metrics-wrap {
+          gap: 6px;
+        }
+
+        .gps-chip {
+          font-size: 0.72rem;
+        }
+      }
+    }
+
+    .btn-gps-toggle {
+      width: 100%;
+      height: 44px;
+      font-size: 0.88rem;
+      border-radius: 10px;
+      justify-content: center;
     }
   }
 }
@@ -6397,6 +6566,27 @@ mat-hint {
       width: 100%;
       height: 100%;
       z-index: 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .map-card-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+
+      .map-header-left {
+        width: 100%;
+      }
+
+      .map-header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
+    .map-container-wrapper {
+      height: 320px;
     }
   }
 }

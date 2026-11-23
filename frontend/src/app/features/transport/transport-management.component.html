@@ -1148,12 +1148,23 @@
                   </div>
                   <div class="gps-meta-text">
                     @if (isGpsBroadcasting && currentGpsCoords) {
-                      <span>Speed: <strong>{{ currentGpsCoords.speed != null ? currentGpsCoords.speed + ' km/h' : '0 km/h' }}</strong></span>
-                      <span>&bull; Accuracy: &plusmn;{{ currentGpsCoords.accuracy || 5 }}m</span>
-                      <span>&bull; Last Sync: {{ gpsLastHeartbeat }}</span>
+                      <div class="gps-metrics-wrap">
+                        <span class="gps-chip speed-chip">
+                          <mat-icon>speed</mat-icon>
+                          Speed: <strong>{{ currentGpsCoords.speed != null ? currentGpsCoords.speed + ' km/h' : '0 km/h' }}</strong>
+                        </span>
+                        <span class="gps-chip acc-chip">
+                          <mat-icon>gps_fixed</mat-icon>
+                          Acc: <strong>&plusmn;{{ currentGpsCoords.accuracy || 5 }}m</strong>
+                        </span>
+                        <span class="gps-chip sync-chip">
+                          <mat-icon>schedule</mat-icon>
+                          Sync: <strong>{{ gpsLastHeartbeat }}</strong>
+                        </span>
+                      </div>
                     }
                     @if (!isGpsBroadcasting) {
-                      <span>Turn ON to stream this bus location in real-time to school fleet radar &amp; parent live tracking desk.</span>
+                      <span class="gps-desc-text">Turn ON to stream this bus live location &amp; transit speed in real-time to school fleet radar and parent desk.</span>
                     }
                     @if (gpsErrorMsg) {
                       <span class="gps-err-msg"><mat-icon>warning</mat-icon> {{ gpsErrorMsg }}</span>
@@ -1165,7 +1176,7 @@
                   class="btn-gps-toggle"
                   [class.active]="isGpsBroadcasting"
                   (click)="toggleGpsBroadcast()">
-                  <mat-icon>{{ isGpsBroadcasting ? 'satellite_alt' : 'location_searching' }}</mat-icon>
+                  <mat-icon>{{ isGpsBroadcasting ? 'portable_wifi_off' : 'satellite_alt' }}</mat-icon>
                   <span>{{ isGpsBroadcasting ? 'Stop GPS Broadcast' : 'Start Live GPS Broadcast' }}</span>
                 </button>
               </div>
