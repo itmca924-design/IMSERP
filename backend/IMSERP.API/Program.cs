@@ -1917,6 +1917,28 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_FeePromisesToPay_Student ON FeePromisesToPay (TenantId, StudentId);
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'StudentRetentionInterventions')
+                    BEGIN
+                        CREATE TABLE StudentRetentionInterventions (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            StudentId UNIQUEIDENTIFIER NOT NULL,
+                            InterventionDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            InterventionType NVARCHAR(100) NOT NULL DEFAULT 'ParentCounseling',
+                            CounselorName NVARCHAR(200) NOT NULL DEFAULT '',
+                            ParentFeedback NVARCHAR(MAX) NULL,
+                            ReasonForRisk NVARCHAR(100) NOT NULL DEFAULT 'Other',
+                            OutcomeStatus NVARCHAR(100) NOT NULL DEFAULT 'UnderMonitoring',
+                            NextFollowUpDate DATETIME2 NULL,
+                            ActionNotes NVARCHAR(MAX) NULL,
+                            CreatedBy NVARCHAR(200) NOT NULL DEFAULT '',
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_Retention_Tenant_Student ON StudentRetentionInterventions (TenantId, StudentId);
+                        CREATE INDEX IX_Retention_Branch ON StudentRetentionInterventions (TenantId, BranchId);
+                    END
+
                     -- Seed 'Campus Chat' Menu Item & Role Permissions
                     IF NOT EXISTS (SELECT 1 FROM MenuItems WHERE RouteUrl = '/chat')
                     BEGIN

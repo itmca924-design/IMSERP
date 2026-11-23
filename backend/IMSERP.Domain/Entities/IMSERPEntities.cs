@@ -54,6 +54,29 @@ public class Tenant
     public ICollection<Branch> Branches { get; set; } = new List<Branch>();
 }
 
+public class StudentRetentionIntervention
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime InterventionDate { get; set; } = DateTime.UtcNow;
+    public string InterventionType { get; set; } = "ParentCounseling"; // ParentCounseling, WhatsAppOutreach, PhoneCall, FeeConcession, HomeVisit
+    public string CounselorName { get; set; } = string.Empty;
+    public string? ParentFeedback { get; set; }
+    public string ReasonForRisk { get; set; } = "Other"; // Financial, AcademicStruggle, LongAbsence, Relocation, Health, Other
+    public string OutcomeStatus { get; set; } = "UnderMonitoring"; // Retained, UnderMonitoring, FinancialReliefGiven, TcRequested, LeftSchool
+    public DateTime? NextFollowUpDate { get; set; }
+    public string? ActionNotes { get; set; }
+    public string CreatedBy { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
 public class Branch
 {
     public Guid Id { get; set; } = Guid.NewGuid();

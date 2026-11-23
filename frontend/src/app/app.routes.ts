@@ -144,6 +144,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/students.component').then(m => m.StudentsComponent)
       },
       {
+        path: 'students/retention',
+        loadComponent: () => import('./features/students/student-retention.component').then(m => m.StudentRetentionComponent)
+      },
+      {
         path: 'students/my-profile',
         loadComponent: () => import('./features/students/my-student-profile.component').then(m => m.MyStudentProfileComponent)
       },

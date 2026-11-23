@@ -96,6 +96,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           }
         </div>
         <div class="header-btns">
+          <a matButton="filled" routerLink="/students/retention" class="retention-link-btn" matTooltip="AI Early Warning &amp; Dropout Prevention Desk" style="background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); color: #fff; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 0 14px; height: 38px;">
+            <mat-icon style="font-size: 20px; width: 20px; height: 20px;">psychology</mat-icon>
+            <span>Dropout AI Agent</span>
+          </a>
+
           @if (authService.hasSchoolModule() && !authService.isTeacher()) {
             <a matButton="filled" routerLink="/students/promotion" class="promotion-link-btn">
               <mat-icon>trending_up</mat-icon>
@@ -110,6 +115,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             <mat-icon style="font-size:18px; width:18px; height:18px; margin-left:2px;">arrow_drop_down</mat-icon>
           </button>
           <mat-menu #quickActionsMenu="matMenu" class="student-quick-menu">
+            <a mat-menu-item routerLink="/students/retention">
+              <mat-icon style="color:#4f46e5;">psychology</mat-icon>
+              <span>AI Dropout &amp; Retention Agent</span>
+            </a>
             <a mat-menu-item routerLink="/students/leaves">
               <mat-icon style="color:#d97706;">event_busy</mat-icon>
               <span>Student Leaves</span>

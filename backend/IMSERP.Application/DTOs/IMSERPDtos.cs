@@ -1214,6 +1214,84 @@ public record FeeDueSlipDto(
     bool IsCoachingStudent = false
 );
 
+// ─── Student Dropout & Retention Early Warning DTOs ───
+public record StudentDropoutRiskItemDto(
+    Guid StudentId,
+    string StudentName,
+    string? RollNumber,
+    string? AdmissionNumber,
+    string? PhotoUrl,
+    Guid? ClassId,
+    string? ClassName,
+    Guid? SectionId,
+    string? SectionName,
+    Guid? BatchId,
+    string? BatchName,
+    Guid? BranchId,
+    string? BranchName,
+    string? ParentName,
+    string? ParentPhone,
+    bool IsSchoolStudent,
+    bool IsCoachingStudent,
+    int RiskScore, // 0 - 100
+    string RiskLevel, // Critical, Moderate, Safe
+    decimal AttendancePercentage,
+    int ConsecutiveAbsentDays,
+    decimal OverdueFeeAmount,
+    int OverdueFeeDays,
+    decimal? LatestTestPercentage,
+    string PrimaryRiskFactor,
+    string RecommendedAction,
+    string GeneratedOutreachMessageHindi,
+    string GeneratedOutreachMessageEnglish,
+    int PreviousInterventionsCount,
+    DateTime? LastInterventionDate,
+    string? LastInterventionOutcome
+);
+
+public record StudentDropoutRiskSummaryKpiDto(
+    int TotalStudentsMonitored,
+    int CriticalRiskCount,
+    int ModerateRiskCount,
+    int SafeCount,
+    decimal PotentialFeeAtRisk,
+    int InterventionsCompletedCount,
+    int StudentsRetainedCount
+);
+
+public record StudentRetentionInterventionDto(
+    Guid Id,
+    Guid StudentId,
+    string StudentName,
+    DateTime InterventionDate,
+    string InterventionType,
+    string CounselorName,
+    string? ParentFeedback,
+    string ReasonForRisk,
+    string OutcomeStatus,
+    DateTime? NextFollowUpDate,
+    string? ActionNotes,
+    string CreatedBy,
+    DateTime CreatedAt
+);
+
+public record RecordRetentionInterventionRequestDto(
+    Guid StudentId,
+    string InterventionType = "ParentCounseling",
+    string CounselorName = "",
+    string? ParentFeedback = null,
+    string ReasonForRisk = "Other",
+    string OutcomeStatus = "UnderMonitoring",
+    DateTime? NextFollowUpDate = null,
+    string? ActionNotes = null
+);
+
+public record RetentionWhatsAppOutreachRequestDto(
+    Guid StudentId,
+    string RecipientPhone,
+    string MessageText
+);
+
 public record TestDto(
     Guid Id,
     Guid? BatchId,
