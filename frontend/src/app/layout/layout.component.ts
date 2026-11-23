@@ -1,9 +1,11 @@
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { MatDialog } from '@angular/material/dialog';
+import { UniversalVoiceCopilotDialogComponent } from '../shared/components/universal-voice-copilot-dialog.component';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
@@ -526,6 +528,12 @@ export interface BreadcrumbItem {
                 <button mat-menu-item routerLink="/school/notices"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
               }
             </mat-menu>
+
+            <button type="button" class="header-copilot-pill" (click)="openUniversalVoiceCopilot()" matTooltip="Ask Universal AI Voice Copilot (Alt+V)" aria-label="Ask AI Copilot">
+              <span class="pulsing-mic-dot"></span>
+              <mat-icon>mic</mat-icon>
+              <span class="copilot-pill-label">AI Copilot</span>
+            </button>
 
             @if (isRoutePermitted('/fees') || isRoutePermitted('/finance/fee-recovery-agent')) {
               <button type="button" class="header-tool-button" (click)="openDuesAssistant()" matTooltip="Ask about student dues" aria-label="Ask about student dues" mat-icon-button>
@@ -1988,6 +1996,54 @@ export interface BreadcrumbItem {
         color: #0f172a;
       }
     }
+    .header-copilot-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+      color: #ffffff;
+      border: 1px solid #60a5fa;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+      }
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      @media (max-width: 640px) {
+        padding: 6px 10px;
+        .copilot-pill-label {
+          display: none;
+        }
+      }
+    }
+    .pulsing-mic-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 6px #4ade80;
+      animation: pulseMicDot 1.5s infinite;
+    }
+    @keyframes pulseMicDot {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
     .notification-dot {
       position: absolute;
       top: 9px;
@@ -3443,6 +3499,24 @@ export class LayoutComponent implements OnInit {
   );
   isRailMode = signal<boolean>(typeof window !== 'undefined' ? localStorage.getItem('imserp_sidebar_rail') === 'true' : false);
   activeExpandedPanelId = signal<string | null>(null);
+
+  private dialog = inject(MatDialog);
+
+  openUniversalVoiceCopilot(): void {
+    this.dialog.open(UniversalVoiceCopilotDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      disableClose: false
+    });
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalVoiceShortcuts(event: KeyboardEvent): void {
+    if ((event.altKey && event.key.toLowerCase() === 'v') || (event.ctrlKey && event.code === 'Space')) {
+      event.preventDefault();
+      this.openUniversalVoiceCopilot();
+    }
+  }
 
   openDuesAssistant(): void {
     this.assistantDrawer.open();
