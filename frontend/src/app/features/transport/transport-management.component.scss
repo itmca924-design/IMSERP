@@ -5910,6 +5910,13 @@ mat-hint {
   width: 95vw;
 }
 
+.riders-table-wrap {
+  max-height: 440px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
 .stop-riders-body {
   padding: 16px 20px;
   display: flex;
