@@ -83,6 +83,10 @@ export const routes: Routes = [
         path: 'dashboard',
         loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
       },
+      {
+        path: 'dashboard/briefing',
+        loadComponent: () => import('./features/dashboard/principal-briefing.component').then(m => m.PrincipalBriefingComponent)
+      },
 
       // Master Management
       {

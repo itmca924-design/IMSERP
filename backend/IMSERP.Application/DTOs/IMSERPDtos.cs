@@ -7235,5 +7235,77 @@ public record TeacherAiLessonPlanDto(
     DateTime CreatedAt
 );
 
+// --- Principal AI Morning Briefing Desk DTOs ---
+
+public record BriefingFinancialsDto(
+    decimal TodayCollection,
+    decimal TodayCash,
+    decimal TodayOnlineOrUpi,
+    decimal TodayChequeOrOther,
+    decimal MonthToDateCollection,
+    decimal TodayExpense,
+    int ReceiptsIssuedTodayCount
+);
+
+public record BriefingAttendanceDto(
+    int TotalStudents,
+    int PresentStudents,
+    int AbsentStudents,
+    int LateStudents,
+    decimal AttendancePercentage,
+    int UnmarkedStudentsCount,
+    List<string> LowAttendanceAlerts
+);
+
+public record AbsentTeacherSummaryDto(
+    Guid TeacherId,
+    string TeacherName,
+    string Designation,
+    string LeaveTypeOrStatus,
+    string? Reason,
+    int AffectedPeriodsCount
+);
+
+public record BriefingStaffStatusDto(
+    int TotalStaff,
+    int PresentStaff,
+    int AbsentStaff,
+    int StaffOnLeave,
+    List<AbsentTeacherSummaryDto> AbsentTeachers
+);
+
+public record BriefingBirthdayItemDto(
+    Guid Id,
+    string Name,
+    string Role, // "Student" | "Staff"
+    string? ClassOrDesignation,
+    string? Phone,
+    string? PhotoUrl
+);
+
+public record BriefingActionItemDto(
+    string Category, // "Academic" | "Finance" | "Staff" | "Admission"
+    string Title,
+    string Description,
+    string Severity, // "Critical" | "Warning" | "Info"
+    string ActionUrl
+);
+
+public record PrincipalMorningBriefingDto(
+    DateTime BriefingDateUtc,
+    string BriefingDateIstFormatted,
+    string InstituteName,
+    string? BranchName,
+    string GreetingMessageHindi,
+    string GreetingMessageEnglish,
+    string AiSpokenScriptHindi,
+    string AiSpokenScriptEnglish,
+    BriefingFinancialsDto Financials,
+    BriefingAttendanceDto Attendance,
+    BriefingStaffStatusDto Staff,
+    List<BriefingBirthdayItemDto> BirthdaysToday,
+    List<BriefingActionItemDto> ActionItems
+);
+
 
 

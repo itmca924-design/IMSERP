@@ -38,6 +38,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ["Notices"] = "/school/notices",
             ["Ptm"] = "/front-desk/ptm",
             ["Presence"] = "/dashboard",
+            ["PrincipalBriefing"] = "/dashboard/briefing",
             ["Roles"] = "/roles",
             ["Rooms"] = "/rooms",
             ["School"] = "/school/classes",
