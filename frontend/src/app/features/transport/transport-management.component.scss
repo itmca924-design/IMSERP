@@ -4688,6 +4688,16 @@ mat-hint {
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
 
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
   .c-metric {
     display: flex;
     flex-direction: column;
@@ -5303,10 +5313,17 @@ mat-hint {
 
   @media (max-width: 1024px) {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   @media (max-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  @media (max-width: 380px) {
     grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .radar-card {
@@ -5318,6 +5335,37 @@ mat-hint {
     align-items: center;
     gap: 14px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+    @media (max-width: 640px) {
+      padding: 10px 12px;
+      gap: 10px;
+
+      .kpi-icon-wrap {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .kpi-details {
+        .kpi-val {
+          font-size: 1.15rem;
+        }
+
+        .kpi-lbl {
+          font-size: 0.72rem;
+        }
+
+        .kpi-sub {
+          font-size: 0.65rem;
+        }
+      }
+    }
 
     .kpi-icon-wrap {
       width: 48px;
@@ -5420,6 +5468,11 @@ mat-hint {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
     gap: 14px;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
   }
 
   .route-progress-card {
@@ -5430,6 +5483,31 @@ mat-hint {
     display: flex;
     flex-direction: column;
     gap: 10px;
+
+    @media (max-width: 480px) {
+      padding: 12px;
+
+      .rpc-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+
+        .bus-num-badge {
+          align-self: flex-start;
+        }
+      }
+
+      .rpc-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+
+        .btn-open-console {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
 
     .rpc-head {
       display: flex;
