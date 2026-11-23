@@ -36,6 +36,10 @@ export interface FeeDueReceiptDialogData {
   branchName?: string;
   logoUrl?: string;
   autoShareWhatsApp?: boolean;
+  className?: string;
+  sectionName?: string;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 @Component({
@@ -200,10 +204,23 @@ export interface FeeDueReceiptDialogData {
                       }
                     </span>
                   </div>
-                  <div class="prof-row">
-                    <span class="k">Batch / Class:</span>
-                    <span class="v">{{ dueSlip.batchName || 'General Coaching Batch' }}</span>
-                  </div>
+                  @if (showClassRow) {
+                    <div class="prof-row">
+                      <span class="k">Class:</span>
+                      <span class="v">
+                        <strong>{{ effectiveClassName || 'N/A' }}</strong>
+                        @if (effectiveSectionName) {
+                          <span> - Section {{ effectiveSectionName }}</span>
+                        }
+                      </span>
+                    </div>
+                  }
+                  @if (showBatchRow) {
+                    <div class="prof-row">
+                      <span class="k">Batch:</span>
+                      <span class="v"><strong>{{ effectiveBatchName }}</strong></span>
+                    </div>
+                  }
                 </div>
                 <div class="prof-col">
                   <div class="prof-row">
@@ -1305,6 +1322,27 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     return 'Main Branch';
   }
 
+  get effectiveClassName(): string {
+    return this.dueSlip?.className || this.data?.invoice?.className || this.data?.invoice?.currentClassName || this.data?.className || '';
+  }
+
+  get effectiveSectionName(): string {
+    return this.dueSlip?.sectionName || this.data?.invoice?.sectionName || this.data?.invoice?.currentSectionName || this.data?.sectionName || '';
+  }
+
+  get showClassRow(): boolean {
+    return !!this.effectiveClassName || this.authService.hasSchoolModule() || !this.authService.hasCoachingModule();
+  }
+
+  get showBatchRow(): boolean {
+    if (!this.authService.hasCoachingModule()) return false;
+    return !!(this.dueSlip?.batchName || this.data?.batchName);
+  }
+
+  get effectiveBatchName(): string {
+    return this.dueSlip?.batchName || this.data?.batchName || '';
+  }
+
   get officialSealUrl(): string | null {
     return this.authService.getOfficialSealUrl();
   }
@@ -1479,6 +1517,10 @@ export class FeeDueReceiptDialogComponent implements OnInit {
             studentName: this.data.invoice.studentName,
             rollNumber: this.data.invoice.rollNumber,
             batchName: this.data.invoice.batchName,
+            className: this.data.invoice.className || this.data.invoice.currentClassName,
+            sectionName: this.data.invoice.sectionName || this.data.invoice.currentSectionName,
+            isSchoolStudent: this.data.invoice.isSchoolStudent,
+            isCoachingStudent: this.data.invoice.isCoachingStudent,
             parentName: this.data.studentName || 'Parent / Guardian',
             parentPhone: this.data.invoice.parentWhatsAppPhone,
             totalOutstandingDue: this.data.invoice.dueAmount,
@@ -1681,8 +1723,8 @@ export class FeeDueReceiptDialogComponent implements OnInit {
 
   openMessageReminder(): void {
     const inv = this.data.invoice;
-    const isSchool = inv?.isSchoolStudent ?? (!this.dueSlip?.batchName);
-    const isCoaching = inv?.isCoachingStudent ?? (!!this.dueSlip?.batchName);
+    const isSchool = inv?.isSchoolStudent ?? this.dueSlip?.isSchoolStudent ?? (!this.dueSlip?.batchName);
+    const isCoaching = inv?.isCoachingStudent ?? this.dueSlip?.isCoachingStudent ?? (!!this.dueSlip?.batchName);
     const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
 
     let resolvedDueDate: string | Date = new Date();
@@ -1700,7 +1742,7 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       studentId: this.data.studentId || inv?.studentId,
       studentName: this.dueSlip?.studentName || this.data.studentName || inv?.studentName || 'Student',
       rollNumber: this.dueSlip?.rollNumber || this.data.rollNumber || inv?.rollNumber,
-      className: this.dueSlip?.batchName || this.data.batchName || inv?.className || 'General',
+      className: this.effectiveClassName || this.dueSlip?.batchName || this.data.batchName || inv?.className || 'General',
       invoiceNumber: this.invoiceNumbersDisplay || inv?.invoiceNumber || this.noticeNumber,
       totalAmount: totalFee,
       paidAmount: totalPaid,

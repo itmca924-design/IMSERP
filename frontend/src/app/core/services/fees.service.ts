@@ -348,6 +348,10 @@ export interface FeeDueSlip {
   studentAdvanceBalance?: number;
   admissionDate?: string | Date;
   admissionNumber?: string;
+  className?: string | null;
+  sectionName?: string | null;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 @Injectable({
@@ -1022,6 +1026,10 @@ export interface PublicInvoiceDueSlip {
   totalUnpaidInvoices?: number;
   footerNoteEnglish?: string | null;
   footerNoteHindi?: string | null;
+  admissionDate?: string | Date;
+  admissionNumber?: string;
+  isSchoolStudent?: boolean;
+  isCoachingStudent?: boolean;
 }
 
 

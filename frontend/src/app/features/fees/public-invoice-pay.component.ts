@@ -273,12 +273,42 @@ import { AuthService } from '../../core/services/auth.service';
                   </div>
                   <div class="prof-row">
                     <span class="k">Roll / Admission No:</span>
-                    <span class="v"><strong>{{ dueSlip.rollNumber || 'N/A' }}</strong></span>
+                    <span class="v">
+                      <strong>{{ dueSlip.rollNumber || 'N/A' }}</strong>
+                      @if (dueSlip.admissionNumber && dueSlip.admissionNumber !== dueSlip.rollNumber) {
+                        <span> (Adm: {{ dueSlip.admissionNumber }})</span>
+                      }
+                    </span>
                   </div>
-                  <div class="prof-row">
-                    <span class="k">Batch / Class:</span>
-                    <span class="v">{{ dueSlip.batchName || dueSlip.className || 'General Batch' }}</span>
-                  </div>
+                  @if (dueSlip.admissionDate) {
+                    <div class="prof-row">
+                      <span class="k">Admission Date:</span>
+                      <span class="v"><strong>{{ dueSlip.admissionDate | date:'dd-MMM-yyyy' }}</strong></span>
+                    </div>
+                  }
+                  @if (dueSlip.className) {
+                    <div class="prof-row">
+                      <span class="k">Class:</span>
+                      <span class="v">
+                        <strong>{{ dueSlip.className }}</strong>
+                        @if (dueSlip.sectionName) {
+                          <span> - Section {{ dueSlip.sectionName }}</span>
+                        }
+                      </span>
+                    </div>
+                  }
+                  @if (dueSlip.batchName && !dueSlip.className) {
+                    <div class="prof-row">
+                      <span class="k">Batch:</span>
+                      <span class="v"><strong>{{ dueSlip.batchName }}</strong></span>
+                    </div>
+                  }
+                  @if (!dueSlip.className && !dueSlip.batchName) {
+                    <div class="prof-row">
+                      <span class="k">Class:</span>
+                      <span class="v">N/A</span>
+                    </div>
+                  }
                 </div>
                 <div class="prof-col">
                   <div class="prof-row">

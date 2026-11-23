@@ -232,6 +232,8 @@ public class FeesController : ControllerBase
         var student = await _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Branch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
             .Include(s => s.Batch)
                 .ThenInclude(b => b!.Branch)
             .FirstOrDefaultAsync(s => s.Id == studentId);
@@ -1986,6 +1988,8 @@ public class FeesController : ControllerBase
         var student = await _dbContext.Students
             .AsNoTracking()
             .Include(s => s.Branch)
+            .Include(s => s.Class)
+            .Include(s => s.Section)
             .Include(s => s.Batch)
                 .ThenInclude(b => b!.Branch)
             .FirstOrDefaultAsync(s => s.Id == studentId);
@@ -2083,7 +2087,11 @@ public class FeesController : ControllerBase
             noteEn,
             noteHi,
             effectiveAdmissionDate,
-            student.AdmissionNumber
+            student.AdmissionNumber,
+            student.Class?.Name,
+            student.Section?.Name,
+            student.IsSchoolStudent,
+            student.IsCoachingStudent
         ));
     }
 

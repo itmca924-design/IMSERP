@@ -1207,7 +1207,11 @@ public record FeeDueSlipDto(
     string? FooterNoteEnglish = null,
     string? FooterNoteHindi = null,
     DateTime? AdmissionDate = null,
-    string? AdmissionNumber = null
+    string? AdmissionNumber = null,
+    string? ClassName = null,
+    string? SectionName = null,
+    bool IsSchoolStudent = false,
+    bool IsCoachingStudent = false
 );
 
 public record TestDto(
