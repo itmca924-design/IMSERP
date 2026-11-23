@@ -1821,24 +1821,45 @@ import ApexCharts from 'apexcharts';
 
     /* ─── Top KPI Stat Cards (Responsive Grid across all devices) ─── */
     .card-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 10px;
+      width: 100%;
       margin-bottom: 8px;
 
-      @media (max-width: 1366px) {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 10px;
+      & > mat-card,
+      & > .stat-card {
+        flex: 1 1 0px;
+        min-width: 0;
       }
+
       @media (max-width: 1024px) {
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 12px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+
+        & > mat-card,
+        & > .stat-card {
+          flex: initial;
+          min-width: 0;
+        }
       }
-      @media (max-width: 768px) {
+
+      @media (max-width: 640px) {
+        display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
+
+        & > mat-card,
+        & > .stat-card {
+          flex: initial;
+          min-width: 0;
+        }
       }
-      @media (max-width: 320px) {
+
+      @media (max-width: 360px) {
+        display: grid;
         grid-template-columns: 1fr;
         gap: 8px;
       }
@@ -1850,6 +1871,7 @@ import ApexCharts from 'apexcharts';
       color: #ffffff;
       overflow: hidden;
       position: relative;
+      min-width: 0;
       transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 
       &::before {
@@ -2020,6 +2042,7 @@ import ApexCharts from 'apexcharts';
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          min-width: 0;
 
           @media (max-width: 768px) {
             font-size: 0.56rem;
