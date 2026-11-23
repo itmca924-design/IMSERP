@@ -1279,6 +1279,274 @@ public class TransportController : ControllerBase
             (int)diff.TotalSeconds
         ));
     }
+
+    // =========================================================================
+    // 11. Phase 2 Hardware GPS Device Webhook & Push Receiver
+    // =========================================================================
+
+    /// <summary>
+    /// Phase 2: Hardware GPS Tracker Webhook & Push Receiver.
+    /// Receives live telemetry from physical GPS tracker units (Concox, Teltonika, Coban, Sinotrack, OBD units, or GPS gateways like Traccar/Flespi)
+    /// without requiring a user JWT token.
+    /// Supports HTTP POST with JSON body, POST with Form data, or HTTP GET with query parameters.
+    /// Matches the device via DeviceId / IMEI (e.g., 868204040123456) or Vehicle Registration Number.
+    /// </summary>
+    [HttpPost("gps/webhook")]
+    [HttpPost("gps/push")]
+    [HttpPost("gps/telemetry")]
+    [HttpGet("gps/webhook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ReceiveHardwareGpsTelemetry(
+        [FromQuery] Guid? tenantId,
+        [FromQuery] string? key,
+        [FromBody] HardwareGpsTelemetryDto? bodyDto)
+    {
+        // 1. Resolve parameters from either JSON body or Query String parameters
+        var dto = bodyDto ?? new HardwareGpsTelemetryDto();
+
+        // Fallback to query strings if body was omitted or partial (common with lightweight trackers)
+        string? deviceId = dto.ResolveDeviceId();
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            deviceId = Request.Query["imei"].ToString();
+            if (string.IsNullOrWhiteSpace(deviceId)) deviceId = Request.Query["deviceId"].ToString();
+            if (string.IsNullOrWhiteSpace(deviceId)) deviceId = Request.Query["trackerId"].ToString();
+        }
+
+        string? vehicleNumber = dto.VehicleNumber;
+        if (string.IsNullOrWhiteSpace(vehicleNumber))
+        {
+            vehicleNumber = Request.Query["vehicleNumber"].ToString();
+            if (string.IsNullOrWhiteSpace(vehicleNumber)) vehicleNumber = Request.Query["vehicle"].ToString();
+        }
+
+        double? lat = dto.ResolveLatitude();
+        if (!lat.HasValue && double.TryParse(Request.Query["lat"].ToString(), out var qLat)) lat = qLat;
+        if (!lat.HasValue && double.TryParse(Request.Query["latitude"].ToString(), out var qLatitude)) lat = qLatitude;
+
+        double? lng = dto.ResolveLongitude();
+        if (!lng.HasValue && double.TryParse(Request.Query["lon"].ToString(), out var qLon)) lng = qLon;
+        if (!lng.HasValue && double.TryParse(Request.Query["lng"].ToString(), out var qLng)) lng = qLng;
+        if (!lng.HasValue && double.TryParse(Request.Query["longitude"].ToString(), out var qLongitude)) lng = qLongitude;
+
+        double? speed = dto.Speed;
+        if (!speed.HasValue && double.TryParse(Request.Query["speed"].ToString(), out var qSpeed)) speed = qSpeed;
+
+        double? heading = dto.ResolveHeading();
+        if (!heading.HasValue && double.TryParse(Request.Query["heading"].ToString(), out var qHeading)) heading = qHeading;
+        if (!heading.HasValue && double.TryParse(Request.Query["course"].ToString(), out var qCourse)) heading = qCourse;
+
+        double? accuracy = dto.Accuracy;
+        if (!accuracy.HasValue && double.TryParse(Request.Query["accuracy"].ToString(), out var qAccuracy)) accuracy = qAccuracy;
+
+        string deviceModel = dto.DeviceModel ?? dto.Protocol ?? Request.Query["model"].ToString();
+        if (string.IsNullOrWhiteSpace(deviceModel)) deviceModel = "HardwareGPS";
+
+        // Validate coordinates
+        if (!lat.HasValue || !lng.HasValue || (lat == 0 && lng == 0))
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = "Valid Latitude and Longitude coordinates are required.",
+                help = "Send JSON body or query params: ?imei=...&lat=...&lon=...&speed=..."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(deviceId) && string.IsNullOrWhiteSpace(vehicleNumber))
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = "Device identifier (imei / deviceId) or vehicleNumber is required to match the bus in IMSERP fleet.",
+                help = "Provide 'imei' or 'deviceId' matching the GPS Unit assigned to the vehicle in IMSERP."
+            });
+        }
+
+        // 2. Lookup vehicle across tenant/branches (IgnoreQueryFilters enables unauthenticated hardware tracker webhooks)
+        var vQuery = _db.TransportVehicles.IgnoreQueryFilters().AsNoTracking()
+            .Include(v => v.Driver)
+            .AsQueryable();
+
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            vQuery = vQuery.Where(v => v.TenantId == tenantId.Value);
+        }
+
+        string cleanDeviceId = deviceId?.Trim() ?? string.Empty;
+        string cleanVehicleNum = vehicleNumber?.Trim() ?? string.Empty;
+        string normalizedVehicleNum = cleanVehicleNum.Replace("-", "").Replace(" ", "");
+
+        var allVehicles = await vQuery.ToListAsync();
+        var vehicle = allVehicles.FirstOrDefault(v =>
+            (!string.IsNullOrWhiteSpace(cleanDeviceId) && string.Equals(v.GpsDeviceId, cleanDeviceId, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(cleanVehicleNum) && (
+                string.Equals(v.VehicleNumber, cleanVehicleNum, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(v.VehicleNumber?.Replace("-", "").Replace(" ", ""), normalizedVehicleNum, StringComparison.OrdinalIgnoreCase)
+            )) ||
+            (!string.IsNullOrWhiteSpace(cleanDeviceId) && (
+                string.Equals(v.VehicleNumber, cleanDeviceId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(v.VehicleNumber?.Replace("-", "").Replace(" ", ""), cleanDeviceId.Replace("-", "").Replace(" ", ""), StringComparison.OrdinalIgnoreCase)
+            ))
+        );
+
+        if (vehicle == null)
+        {
+            return NotFound(new
+            {
+                success = false,
+                message = $"No registered vehicle found in IMSERP matching Device ID / IMEI '{cleanDeviceId}' or Vehicle '{cleanVehicleNum}'.",
+                resolution = "Open Transport Management -> Fleet / Vehicles -> Edit Vehicle -> Enter this GPS Tracker Device ID / IMEI.",
+                receivedAt = DateTime.UtcNow
+            });
+        }
+
+        // 3. Find active routes assigned to this vehicle
+        var activeRoutes = await _db.TransportRoutes.IgnoreQueryFilters().AsNoTracking()
+            .Where(r => r.TenantId == vehicle.TenantId && r.VehicleId == vehicle.Id && r.IsActive)
+            .ToListAsync();
+
+        var nowUtc = DateTime.UtcNow;
+        var istTimeZone = IstTimeZoneHelper.Zone;
+        var nowIstFormatted = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, istTimeZone).ToString("hh:mm:ss tt");
+
+        int routesUpdatedCount = 0;
+        var updatedRoutesList = new List<object>();
+
+        if (activeRoutes.Count > 0)
+        {
+            foreach (var r in activeRoutes)
+            {
+                var routeKey = $"{vehicle.TenantId}:{r.Id}";
+                var record = new RouteLiveLocationRecord(
+                    r.Id,
+                    r.RouteCode,
+                    r.RouteName,
+                    vehicle.VehicleNumber,
+                    vehicle.Driver?.FullName,
+                    lat.Value,
+                    lng.Value,
+                    speed,
+                    heading,
+                    accuracy ?? 4.0, // Standard hardware GPS accuracy
+                    deviceModel,
+                    nowUtc
+                );
+                _liveLocations[routeKey] = record;
+                routesUpdatedCount++;
+                updatedRoutesList.Add(new { routeId = r.Id, routeCode = r.RouteCode, routeName = r.RouteName });
+            }
+        }
+        else
+        {
+            // If vehicle is not yet mapped to an active route, store with vehicle.Id so free fleet tracking works
+            var vehicleKey = $"{vehicle.TenantId}:{vehicle.Id}";
+            var record = new RouteLiveLocationRecord(
+                vehicle.Id,
+                "FLEET",
+                $"{vehicle.VehicleNumber} (Fleet Radar)",
+                vehicle.VehicleNumber,
+                vehicle.Driver?.FullName,
+                lat.Value,
+                lng.Value,
+                speed,
+                heading,
+                accuracy ?? 4.0,
+                deviceModel,
+                nowUtc
+            );
+            _liveLocations[vehicleKey] = record;
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = "Hardware GPS telemetry received and live radar map updated successfully.",
+            vehicle = new
+            {
+                id = vehicle.Id,
+                vehicleNumber = vehicle.VehicleNumber,
+                gpsDeviceId = vehicle.GpsDeviceId,
+                driverName = vehicle.Driver?.FullName
+            },
+            telemetry = new
+            {
+                latitude = lat.Value,
+                longitude = lng.Value,
+                speedKmH = speed ?? 0,
+                heading = heading,
+                accuracyMeters = accuracy ?? 4.0,
+                source = deviceModel,
+                updatedAtIst = nowIstFormatted,
+                updatedAtUtc = nowUtc
+            },
+            routesUpdated = updatedRoutesList
+        });
+    }
+
+    /// <summary>
+    /// Phase 2: Documentation & Integration Guide for Hardware GPS Trackers.
+    /// Returns webhook endpoint URLs, protocol documentation, and current registered vehicles with GPS Device IDs.
+    /// </summary>
+    [HttpGet("gps/webhook/guide")]
+    [HttpGet("gps/guide")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetHardwareGpsGuide([FromQuery] Guid? tenantId)
+    {
+        var vQuery = _db.TransportVehicles.IgnoreQueryFilters().AsNoTracking().AsQueryable();
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            vQuery = vQuery.Where(v => v.TenantId == tenantId.Value);
+        }
+
+        var registeredVehicles = await vQuery
+            .Select(v => new
+            {
+                v.Id,
+                v.VehicleNumber,
+                v.VehicleType,
+                v.GpsDeviceId,
+                HasGpsConfigured = !string.IsNullOrWhiteSpace(v.GpsDeviceId)
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            title = "IMSERP Transport Phase 2 - Hardware GPS Webhook Integration Guide",
+            webhookUrl = $"{Request.Scheme}://{Request.Host}/api/transport/gps/webhook",
+            supportedProtocols = new[]
+            {
+                "HTTP POST (application/json) - Recommended for 4G IoT / AIS-140 / Traccar gateways",
+                "HTTP POST (application/x-www-form-urlencoded) - For basic cellular tracker gateways",
+                "HTTP GET (query string) - For ultra-lightweight micro-trackers (e.g., ?imei=...&lat=...&lon=...)"
+            },
+            sampleJsonPayload = new
+            {
+                imei = "868204040123456",
+                latitude = 25.9686,
+                longitude = 85.1278,
+                speed = 32.5,
+                heading = 120.0,
+                altitude = 55.0,
+                accuracy = 3.5,
+                ignition = 1,
+                deviceModel = "AIS-140 / Teltonika FMB920"
+            },
+            sampleCurl = $"curl -X POST \"{Request.Scheme}://{Request.Host}/api/transport/gps/webhook\" -H \"Content-Type: application/json\" -d \"{{\\\"imei\\\": \\\"868204040123456\\\", \\\"lat\\\": 25.9686, \\\"lng\\\": 85.1278, \\\"speed\\\": 35}}\"",
+            sampleGetUrl = $"{Request.Scheme}://{Request.Host}/api/transport/gps/webhook?imei=868204040123456&lat=25.9686&lon=85.1278&speed=35",
+            registeredVehicles = registeredVehicles
+        });
+    }
+
+    /// <summary>
+    /// Phase 2: Hardware GPS Simulation / Testing Endpoint for Admin Console.
+    /// Lets institute admins test the live radar map using the vehicle's configured GPS Device ID.
+    /// </summary>
+    [HttpPost("gps/simulate-ping")]
+    public async Task<IActionResult> SimulateHardwareGpsPing([FromBody] HardwareGpsTelemetryDto dto)
+    {
+        return await ReceiveHardwareGpsTelemetry(_currentUser.TenantId, null, dto);
+    }
 }
 
 public record RouteLiveLocationRecord(

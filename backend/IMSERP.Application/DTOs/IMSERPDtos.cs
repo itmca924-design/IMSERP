@@ -1,4 +1,5 @@
 using IMSERP.Domain.Enums;
+using System.Text.Json.Serialization;
 
 namespace IMSERP.Application.DTOs;
 
@@ -4128,6 +4129,82 @@ public record UpdateRouteLiveLocationDto(
     double? Accuracy,
     string? DeviceType = "DriverMobile"
 );
+
+public class HardwareGpsTelemetryDto
+{
+    // Identification
+    [JsonPropertyName("deviceId")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("imei")]
+    public string? Imei { get; set; }
+
+    [JsonPropertyName("trackerId")]
+    public string? TrackerId { get; set; }
+
+    [JsonPropertyName("vehicleNumber")]
+    public string? VehicleNumber { get; set; }
+
+    // Coordinates
+    [JsonPropertyName("latitude")]
+    public double? Latitude { get; set; }
+
+    [JsonPropertyName("lat")]
+    public double? Lat { get; set; }
+
+    [JsonPropertyName("longitude")]
+    public double? Longitude { get; set; }
+
+    [JsonPropertyName("lng")]
+    public double? Lng { get; set; }
+
+    [JsonPropertyName("lon")]
+    public double? Lon { get; set; }
+
+    // Telemetry
+    [JsonPropertyName("speed")]
+    public double? Speed { get; set; }
+
+    [JsonPropertyName("heading")]
+    public double? Heading { get; set; }
+
+    [JsonPropertyName("course")]
+    public double? Course { get; set; }
+
+    [JsonPropertyName("bearing")]
+    public double? Bearing { get; set; }
+
+    [JsonPropertyName("altitude")]
+    public double? Altitude { get; set; }
+
+    [JsonPropertyName("accuracy")]
+    public double? Accuracy { get; set; }
+
+    // Hardware Status
+    [JsonPropertyName("ignition")]
+    public object? Ignition { get; set; }
+
+    [JsonPropertyName("battery")]
+    public double? Battery { get; set; }
+
+    [JsonPropertyName("timestamp")]
+    public object? Timestamp { get; set; }
+
+    [JsonPropertyName("deviceModel")]
+    public string? DeviceModel { get; set; }
+
+    [JsonPropertyName("protocol")]
+    public string? Protocol { get; set; }
+
+    public string? ResolveDeviceId() =>
+        !string.IsNullOrWhiteSpace(DeviceId) ? DeviceId.Trim() :
+        !string.IsNullOrWhiteSpace(Imei) ? Imei.Trim() :
+        !string.IsNullOrWhiteSpace(TrackerId) ? TrackerId.Trim() : null;
+
+    public double? ResolveLatitude() => Latitude ?? Lat;
+    public double? ResolveLongitude() => Longitude ?? Lng ?? Lon;
+    public double? ResolveHeading() => Heading ?? Course ?? Bearing;
+}
 
 public record RouteLiveLocationDto(
     Guid RouteId,
