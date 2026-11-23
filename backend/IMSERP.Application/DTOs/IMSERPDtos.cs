@@ -7307,5 +7307,67 @@ public record PrincipalMorningBriefingDto(
     List<BriefingActionItemDto> ActionItems
 );
 
+// ─── AI Camera / Face Attendance Scanner DTOs ──────────────────────────────
+public class AiAttendanceRosterItemDto
+{
+    public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string RollNumber { get; set; } = string.Empty;
+    public string? SchoolRollNumber { get; set; }
+    public string? CoachingRollNumber { get; set; }
+    public string? AdmissionNumber { get; set; }
+    public string? ProfilePhoto { get; set; }
+    public string? ParentName { get; set; }
+    public string? ParentWhatsAppPhone { get; set; }
+    public string? ClassName { get; set; }
+    public string? SectionName { get; set; }
+    public string? BatchName { get; set; }
+    public bool IsSchoolStudent { get; set; }
+    public bool IsCoachingStudent { get; set; }
+    public string AttendanceStatus { get; set; } = "Unmarked"; // Present, Late, Absent, HalfDay, Unmarked
+    public string? CheckInTime { get; set; }
+    public string? CheckOutTime { get; set; }
+    public string? Remarks { get; set; }
+    public string? CaptureSource { get; set; }
+    public DateTime? PunchDate { get; set; }
+}
+
+public class AiAttendancePunchRequestDto
+{
+    public Guid StudentId { get; set; }
+    public DateTime? AttendanceDate { get; set; }
+    public string Status { get; set; } = "Present";
+    public string? CheckInTime { get; set; }
+    public string? Remarks { get; set; }
+    public bool SendWhatsAppAlert { get; set; } = false;
+}
+
+public class AiAttendanceBulkPunchRequestDto
+{
+    public List<Guid> StudentIds { get; set; } = new();
+    public DateTime? AttendanceDate { get; set; }
+    public string Status { get; set; } = "Present";
+    public string? Remarks { get; set; }
+    public bool SendWhatsAppAlert { get; set; } = false;
+}
+
+public class AiAttendancePhotoUploadRequestDto
+{
+    public Guid StudentId { get; set; }
+    public string PhotoBase64 { get; set; } = string.Empty;
+}
+
+public class AiAttendanceSummaryDto
+{
+    public int TotalStudents { get; set; }
+    public int PresentCount { get; set; }
+    public int AbsentCount { get; set; }
+    public int LateCount { get; set; }
+    public int UnmarkedCount { get; set; }
+    public decimal AttendancePercentage { get; set; }
+    public List<AiAttendanceRosterItemDto> RecentPunches { get; set; } = new();
+}
+
+
 
 

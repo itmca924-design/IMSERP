@@ -223,6 +223,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/attendance/attendance-reports.component').then(m => m.AttendanceReportsComponent)
       },
       {
+        path: 'attendance/ai-scanner',
+        loadComponent: () => import('./features/attendance/ai-attendance-scanner.component').then(m => m.AiAttendanceScannerComponent)
+      },
+      {
+        path: 'students/ai-attendance-scanner',
+        loadComponent: () => import('./features/attendance/ai-attendance-scanner.component').then(m => m.AiAttendanceScannerComponent)
+      },
+      {
         path: 'attendance/devices',
         loadComponent: () => import('./features/attendance/biometric-devices.component').then(m => m.BiometricDevicesComponent)
       },

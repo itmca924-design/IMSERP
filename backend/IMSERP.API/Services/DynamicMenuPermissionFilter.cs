@@ -16,6 +16,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["AdmissionEnquiries"] = "/students/enquiries",
+            ["AiAttendanceScanner"] = "/attendance/ai-scanner",
             ["AutomationSettings"] = "/admin/academic-workflow",
             ["BiometricDevices"] = "/attendance/devices",
             ["Branches"] = "/branches",

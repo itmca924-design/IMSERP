@@ -519,6 +519,9 @@ export interface BreadcrumbItem {
               @if (isRoutePermitted('/attendance/reports')) {
                 <button mat-menu-item routerLink="/attendance/reports"><mat-icon color="accent">summarize</mat-icon><span>Open Attendance Reports</span></button>
               }
+              @if (isRoutePermitted('/attendance/ai-scanner')) {
+                <button mat-menu-item routerLink="/attendance/ai-scanner"><mat-icon color="primary">camera_indoor</mat-icon><span>AI Face Attendance Scanner</span></button>
+              }
               @if (isRoutePermitted('/school/notices')) {
                 <button mat-menu-item routerLink="/school/notices"><mat-icon color="primary">campaign</mat-icon><span>School Notices</span></button>
               }
@@ -3605,6 +3608,7 @@ export class LayoutComponent implements OnInit {
     { title: 'Teacher Profiles', route: '/teachers', icon: 'badge' },
     { title: 'Teacher Reports', route: '/teachers/reports', icon: 'assessment' },
     { title: 'Staff & Faculty Attendance', route: '/teachers/attendance', icon: 'event_available' },
+    { title: 'AI Face Attendance Scanner', route: '/attendance/ai-scanner', icon: 'camera_indoor' },
     { title: 'Attendance Reports', route: '/attendance/reports', icon: 'summarize' },
     { title: 'Biometric Devices', route: '/attendance/devices', icon: 'fingerprint' },
     { title: 'Shift & Policy Settings', route: '/attendance/settings', icon: 'settings_suggest' },
