@@ -1151,11 +1151,11 @@
                       <div class="gps-metrics-wrap">
                         <span class="gps-chip speed-chip">
                           <mat-icon>speed</mat-icon>
-                          Speed: <strong>{{ currentGpsCoords.speed != null ? currentGpsCoords.speed + ' km/h' : '0 km/h' }}</strong>
+                          Speed: <strong>{{ (currentGpsCoords.speed != null && currentGpsCoords.speed > 0) ? currentGpsCoords.speed + ' km/h' : '0 km/h (Stationary)' }}</strong>
                         </span>
                         <span class="gps-chip acc-chip">
                           <mat-icon>gps_fixed</mat-icon>
-                          Acc: <strong>&plusmn;{{ currentGpsCoords.accuracy || 5 }}m</strong>
+                          Acc: <strong>{{ getFormattedGpsAccuracy() }}</strong>
                         </span>
                         <span class="gps-chip sync-chip">
                           <mat-icon>schedule</mat-icon>

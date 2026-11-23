@@ -2159,6 +2159,16 @@ export class TransportManagementComponent implements OnInit, OnDestroy {
     );
   }
 
+  getFormattedGpsAccuracy(): string {
+    const acc = this.currentGpsCoords?.accuracy;
+    if (acc == null) return '±5m (Satellite)';
+    if (acc >= 1000) {
+      const km = Math.round(acc / 1000);
+      return `±${km}km (Wi-Fi/IP)`;
+    }
+    return `±${acc}m (GPS Sat)`;
+  }
+
   stopGpsBroadcast(): void {
     if (this.gpsWatchId != null) {
       navigator.geolocation.clearWatch(this.gpsWatchId);
