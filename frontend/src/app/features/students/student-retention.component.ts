@@ -85,15 +85,15 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         <mat-progress-bar mode="indeterminate" class="page-loader"></mat-progress-bar>
       }
 
-      <!-- KPI Summary Deck -->
+      <!-- KPI Summary Deck (Standard Height & Fully Responsive Grid) -->
       <div class="kpi-grid">
         <!-- 1. Total Monitored -->
-        <mat-card class="kpi-card total-monitored mat-elevation-z1">
+        <mat-card class="kpi-card total-monitored mat-elevation-z1" matTooltip="Total active students under retention monitoring">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Monitored Students</span>
+              <span class="kpi-label" title="Monitored Students">Monitored Students</span>
               <span class="kpi-value">{{ summary.totalStudentsMonitored | number }}</span>
-              <span class="kpi-hint">Universal School &amp; Coaching</span>
+              <span class="kpi-hint">School &amp; Coaching</span>
             </div>
             <div class="kpi-icon-box total">
               <mat-icon>groups</mat-icon>
@@ -102,12 +102,12 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         </mat-card>
 
         <!-- 2. Critical Risk (Red) -->
-        <mat-card class="kpi-card critical-risk mat-elevation-z1" (click)="setRiskFilter('critical')">
+        <mat-card class="kpi-card critical-risk mat-elevation-z1" (click)="setRiskFilter('critical')" matTooltip="Click to filter Critical Risk students (Score >= 70%)">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Critical Dropout Risk</span>
+              <span class="kpi-label" title="Critical Dropout Risk">Critical Risk</span>
               <span class="kpi-value critical">{{ summary.criticalRiskCount | number }}</span>
-              <span class="kpi-hint">Score &ge; 70% • Immediate Action</span>
+              <span class="kpi-hint">&ge; 70% • Immediate</span>
             </div>
             <div class="kpi-icon-box critical">
               <mat-icon>warning</mat-icon>
@@ -116,12 +116,12 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         </mat-card>
 
         <!-- 3. Moderate Attention (Amber) -->
-        <mat-card class="kpi-card moderate-risk mat-elevation-z1" (click)="setRiskFilter('moderate')">
+        <mat-card class="kpi-card moderate-risk mat-elevation-z1" (click)="setRiskFilter('moderate')" matTooltip="Click to filter Moderate Attention students (Score 40-69%)">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Moderate Attention</span>
+              <span class="kpi-label" title="Moderate Attention">Moderate Attention</span>
               <span class="kpi-value moderate">{{ summary.moderateRiskCount | number }}</span>
-              <span class="kpi-hint">Score 40-69% • Nudge &amp; Call</span>
+              <span class="kpi-hint">40-69% • Nudge &amp; Call</span>
             </div>
             <div class="kpi-icon-box moderate">
               <mat-icon>notification_important</mat-icon>
@@ -130,12 +130,12 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         </mat-card>
 
         <!-- 4. Safe / Regular (Green) -->
-        <mat-card class="kpi-card safe-profile mat-elevation-z1" (click)="setRiskFilter('safe')">
+        <mat-card class="kpi-card safe-profile mat-elevation-z1" (click)="setRiskFilter('safe')" matTooltip="Click to filter Safe & Regular students (Score < 40%)">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Safe &amp; Regular</span>
+              <span class="kpi-label" title="Safe & Regular">Safe &amp; Regular</span>
               <span class="kpi-value safe">{{ summary.safeCount | number }}</span>
-              <span class="kpi-hint">Score &lt; 40% • Healthy Progress</span>
+              <span class="kpi-hint">&lt; 40% • Healthy</span>
             </div>
             <div class="kpi-icon-box safe">
               <mat-icon>verified</mat-icon>
@@ -144,12 +144,12 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         </mat-card>
 
         <!-- 5. Potential Fee at Risk -->
-        <mat-card class="kpi-card fee-risk mat-elevation-z1">
+        <mat-card class="kpi-card fee-risk mat-elevation-z1" matTooltip="Total overdue fee tied to at-risk students">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Overdue Fee at Risk</span>
+              <span class="kpi-label" title="Overdue Fee at Risk">Fee at Risk</span>
               <span class="kpi-value fee">₹{{ summary.potentialFeeAtRisk | number:'1.0-0' }}</span>
-              <span class="kpi-hint">Tied to At-Risk Students</span>
+              <span class="kpi-hint">At-Risk Overdue</span>
             </div>
             <div class="kpi-icon-box fee">
               <mat-icon>currency_rupee</mat-icon>
@@ -158,12 +158,12 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
         </mat-card>
 
         <!-- 6. Retained Students -->
-        <mat-card class="kpi-card retained mat-elevation-z1">
+        <mat-card class="kpi-card retained mat-elevation-z1" matTooltip="Students successfully retained through counseling">
           <div class="kpi-content">
             <div class="kpi-meta">
-              <span class="kpi-label">Students Retained</span>
+              <span class="kpi-label" title="Students Retained">Retained</span>
               <span class="kpi-value retained">{{ summary.studentsRetainedCount | number }}</span>
-              <span class="kpi-hint">{{ summary.interventionsCompletedCount }} Interventions Logged</span>
+              <span class="kpi-hint">{{ summary.interventionsCompletedCount }} Interventions</span>
             </div>
             <div class="kpi-icon-box retained">
               <mat-icon>sentiment_very_satisfied</mat-icon>
@@ -580,62 +580,74 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
       border-radius: 4px;
     }
 
-    /* KPI Deck */
+    /* KPI Deck (Standard Compact Height & Responsive Grid) */
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: 14px;
+      gap: 12px;
 
-      @media (max-width: 1400px) {
+      @media (max-width: 1366px) {
         grid-template-columns: repeat(3, 1fr);
       }
 
-      @media (max-width: 768px) {
+      @media (max-width: 840px) {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      @media (max-width: 480px) {
+      @media (max-width: 520px) {
         grid-template-columns: 1fr;
       }
 
       .kpi-card {
-        border-radius: 12px;
-        padding: 16px;
+        border-radius: 10px;
+        padding: 10px 14px;
         background: #ffffff;
         border: 1px solid #e2e8f0;
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 74px;
 
         &:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 16px -4px rgba(0,0,0,0.08);
+          box-shadow: 0 6px 14px -3px rgba(0,0,0,0.08);
         }
 
         .kpi-content {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
+          gap: 10px;
+          width: 100%;
         }
 
         .kpi-meta {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
+          min-width: 0;
+          flex: 1 1 auto;
 
           .kpi-label {
-            font-size: 0.74rem;
-            font-weight: 600;
+            font-size: 0.70rem;
+            font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           .kpi-value {
-            font-size: 1.45rem;
+            font-size: 1.28rem;
             font-weight: 800;
             color: #0f172a;
-            line-height: 1.2;
+            line-height: 1.15;
+            margin: 2px 0 1px;
 
             &.critical { color: #dc2626; }
             &.moderate { color: #d97706; }
@@ -645,21 +657,24 @@ import { CounselingHistoryDialogComponent } from './dialogs/counseling-history-d
           }
 
           .kpi-hint {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
         }
 
         .kpi-icon-box {
-          width: 44px;
-          height: 44px;
-          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
 
-          mat-icon { font-size: 22px; width: 22px; height: 22px; }
+          mat-icon { font-size: 19px; width: 19px; height: 19px; }
 
           &.total { background: #e0e7ff; color: #4338ca; }
           &.critical { background: #fee2e2; color: #dc2626; }
