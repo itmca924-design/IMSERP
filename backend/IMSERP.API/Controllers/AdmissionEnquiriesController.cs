@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using IMSERP.Application.DTOs;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 
 namespace IMSERP.API.Controllers;
 
@@ -426,4 +427,117 @@ public class AdmissionEnquiriesController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok(new { message = "Enquiry record deleted successfully." });
     }
+
+    [HttpGet("{id}/ai-nurture-pitch")]
+    public async Task<ActionResult<object>> GetAiNurturePitch(Guid id)
+    {
+        var tenantId = _currentUser.TenantId;
+        var enquiry = await _db.AdmissionEnquiries.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId);
+        if (enquiry == null) return NotFound(new { message = "Enquiry not found." });
+
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tenantId);
+        var instituteName = tenant?.Name ?? "Our Institute";
+
+        // Calculate AI Lead Score (0 - 100)
+        int score = 40;
+        if (enquiry.Priority?.Equals("High", StringComparison.OrdinalIgnoreCase) == true) score += 25;
+        else if (enquiry.Priority?.Equals("Medium", StringComparison.OrdinalIgnoreCase) == true) score += 15;
+
+        if (enquiry.Status?.Equals("Demo / Visit", StringComparison.OrdinalIgnoreCase) == true || enquiry.Status?.Equals("Contacted", StringComparison.OrdinalIgnoreCase) == true) score += 20;
+        else if (enquiry.Status?.Equals("Admitted", StringComparison.OrdinalIgnoreCase) == true) score = 100;
+        else if (enquiry.Status?.Equals("Lost", StringComparison.OrdinalIgnoreCase) == true) score = 10;
+
+        if (enquiry.RequiresHostel || enquiry.RequiresTransport) score += 10;
+        if (enquiry.FollowUpDate.HasValue && enquiry.FollowUpDate.Value.Date < DateTime.UtcNow.Date) score -= 15;
+        score = Math.Clamp(score, 5, 98);
+
+        string intentCategory = score >= 75 ? "Hot Lead 🔥" : score >= 50 ? "Warm Lead ⚡" : "Cold Lead ❄️";
+
+        var parentName = !string.IsNullOrWhiteSpace(enquiry.ParentName) ? enquiry.ParentName : "Respected Parent";
+        var studentName = enquiry.StudentName;
+        var className = !string.IsNullOrWhiteSpace(enquiry.InterestedClassName) ? enquiry.InterestedClassName : "the upcoming session";
+        var followUpStr = enquiry.FollowUpDate?.ToString("dd MMM yyyy") ?? "this week";
+
+        var pitches = new[]
+        {
+            new
+            {
+                Type = "Welcome & Digital Prospectus",
+                Title = "1. Welcome & Highlights Brochure",
+                Description = "Warm introductory greeting with curriculum strengths and academic track record.",
+                Message = $"Namaste {parentName}! Thank you for your interest in {instituteName} for {studentName}'s admission in {className}.\n\nAt {instituteName}, we provide smart digital classrooms, dedicated subject faculty, and personalized academic attention to help every student excel.\n\nWe would love to share our session prospectus and fee structure with you. Please feel free to reply or visit our admission office.\n\nWarm regards,\nAdmission Desk, {instituteName}"
+            },
+            new
+            {
+                Type = "Campus Tour & Demo Class",
+                Title = "2. Free Demo Class & Campus Tour Invite",
+                Description = "Invites parent and child for personal interaction and classroom demo.",
+                Message = $"Dear {parentName}, we cordially invite you and {studentName} for a personalized Campus Visit and interactive Demo Class for {className} at {instituteName}.\n\nYou can meet our faculty heads, inspect our labs and library, and experience our learning environment firsthand.\n\nSuggested visit: {followUpStr}.\n\nPlease let us know what time works best for you!\n\nBest wishes,\n{instituteName}"
+            },
+            new
+            {
+                Type = "Urgent Seat Reservation",
+                Title = "3. Limited Seats & Early Admission Alert",
+                Description = "High-conversion urgency pitch regarding limited batch seats and early benefits.",
+                Message = $"Namaste {parentName}! This is a gentle update from {instituteName}. Admissions for {className} (Session 2026-27) are progressing swiftly with limited seats per section to maintain optimal teacher-student ratio.\n\nTo reserve {studentName}'s seat and avail early-bird admission benefits, please complete the enrollment formalities by {followUpStr}.\n\nHelpline: {enquiry.Phone}\nAdmission Office, {instituteName}"
+            }
+        };
+
+        var nextAction = score >= 75
+            ? "Urgent Call: Invite parent for spot campus registration and fee concession discussion."
+            : score >= 50
+            ? "Send WhatsApp Demo invitation and schedule follow-up call in 48 hours."
+            : "Share digital brochure on WhatsApp and schedule gentle reminder next week.";
+
+        return Ok(new
+        {
+            EnquiryId = enquiry.Id,
+            StudentName = enquiry.StudentName,
+            ParentName = enquiry.ParentName,
+            Phone = enquiry.Phone,
+            ClassName = enquiry.InterestedClassName,
+            LeadScore = score,
+            IntentCategory = intentCategory,
+            RecommendedAction = nextAction,
+            Pitches = pitches
+        });
+    }
+
+    [HttpPost("{id}/log-outreach")]
+    public async Task<IActionResult> LogOutreach(Guid id, [FromBody] LogOutreachRequestDto dto)
+    {
+        var tenantId = _currentUser.TenantId;
+        var enquiry = await _db.AdmissionEnquiries.FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId);
+        if (enquiry == null) return NotFound(new { message = "Enquiry not found." });
+
+        var phone = !string.IsNullOrWhiteSpace(dto.RecipientPhone) ? dto.RecipientPhone : enquiry.Phone;
+        var cleanPhone = System.Text.RegularExpressions.Regex.Replace(phone, @"[^\d]", "");
+        if (cleanPhone.Length == 10) cleanPhone = "91" + cleanPhone;
+
+        var log = new WhatsAppLog
+        {
+            TenantId = tenantId,
+            RecipientPhone = cleanPhone,
+            StudentName = enquiry.StudentName,
+            MessageType = MessageType.Announcement,
+            Content = dto.Content,
+            Status = "Sent",
+            SentAt = DateTime.UtcNow
+        };
+        _db.WhatsAppLogs.Add(log);
+
+        var nowIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("India Standard Time")).ToString("dd MMM hh:mm tt");
+        enquiry.Remarks = (enquiry.Remarks ?? "") + $"\n[AI Outreach: {dto.OutreachType} sent on {nowIst}]";
+        enquiry.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Outreach logged successfully." });
+    }
+}
+
+public class LogOutreachRequestDto
+{
+    public string OutreachType { get; set; } = "WhatsApp Nurture";
+    public string Content { get; set; } = string.Empty;
+    public string? RecipientPhone { get; set; }
 }

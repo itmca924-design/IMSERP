@@ -15,6 +15,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AiErpCopilotService } from '../../core/services/ai-erp-copilot.service';
+import { AiAdmissionNurtureDialogComponent } from './ai-admission-nurture-dialog.component';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiUrl;
@@ -388,6 +389,9 @@ export interface EnquiryStatsDto {
             <button (click)="openEnquiryDialog(e)" matTooltip="Edit Enquiry" mat-icon-button>
               <mat-icon class="card-action-ic edit">edit</mat-icon>
             </button>
+            <button class="nurture-mini-btn" (click)="openAiNurtureDialog(e)" matTooltip="AI WhatsApp Counselor & Lead Nurturing" matButton="filled">
+              <mat-icon>psychology</mat-icon> AI Nurture
+            </button>
             @if (e.status !== 'Admitted') {
               <button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Student Admission" matButton="filled">
                 <mat-icon>how_to_reg</mat-icon> Admit
@@ -483,6 +487,9 @@ export interface EnquiryStatsDto {
                     <div class="tbl-actions">
                       <button (click)="openEnquiryDialog(e)" matTooltip="Edit" mat-icon-button>
                         <mat-icon class="card-action-ic edit">edit</mat-icon>
+                      </button>
+                      <button class="nurture-mini-btn" (click)="openAiNurtureDialog(e)" matTooltip="AI WhatsApp Counselor & Lead Nurturing" matButton="filled">
+                        <mat-icon>psychology</mat-icon> AI Nurture
                       </button>
                       @if (e.status !== 'Admitted') {
                         <button class="convert-mini-btn" (click)="openConvertDialog(e)" matTooltip="Convert to Admission" matButton="filled">
@@ -633,6 +640,34 @@ export interface EnquiryStatsDto {
     
     .btn-admit { background: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important; }
     .btn-admit:hover { background: #d1fae5 !important; border-color: #6ee7b7 !important; }
+
+    .nurture-mini-btn {
+      height: 28px !important;
+      line-height: 28px !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      border-radius: 6px !important;
+      padding: 0 8px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      background: #f0fdf4 !important;
+      color: #15803d !important;
+      border: 1px solid #bbf7d0 !important;
+      white-space: nowrap !important;
+      cursor: pointer;
+    }
+    .nurture-mini-btn:hover {
+      background: #dcfce7 !important;
+      border-color: #86efac !important;
+    }
+    .nurture-mini-btn mat-icon {
+      font-size: 15px !important;
+      width: 15px !important;
+      height: 15px !important;
+      line-height: 15px !important;
+      color: #16a34a !important;
+    }
 
     .stage-menu-btn { 
       width: 28px !important; 
@@ -904,6 +939,21 @@ export class AdmissionEnquiriesComponent implements OnInit {
           `Enquiry details for "${res.studentName}" updated successfully!`,
           'success'
         );
+      }
+    });
+  }
+
+  openAiNurtureDialog(item: AdmissionEnquiryDto): void {
+    const ref = this.dialog.open(AiAdmissionNurtureDialogComponent, {
+      width: '680px',
+      maxWidth: '95vw',
+      disableClose: false,
+      data: { enquiry: item }
+    });
+
+    ref.afterClosed().subscribe((res: any) => {
+      if (res?.logged) {
+        this.loadEnquiries();
       }
     });
   }
