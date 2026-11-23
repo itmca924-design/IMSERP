@@ -95,19 +95,11 @@ export class SmartBellService {
       this.timerRef = setInterval(() => this.tick(), 1000);
       setTimeout(() => this.tick(), 200);
 
-      // Global browser interaction listeners to unlock AudioContext and SpeechSynthesis
+      // Global browser interaction listeners to unlock AudioContext and SpeechSynthesis on valid user gestures (click/pointerup)
       const unlockAudio = () => {
         try {
           if (this.audioCtx && this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume();
-          } else if (!this.audioCtx) {
-            const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioCtxClass) {
-              this.audioCtx = new AudioCtxClass();
-              if (this.audioCtx.state === 'suspended') {
-                this.audioCtx.resume();
-              }
-            }
+            this.audioCtx.resume().catch(() => {});
           }
           if ('speechSynthesis' in window && window.speechSynthesis.paused) {
             window.speechSynthesis.resume();
@@ -115,9 +107,9 @@ export class SmartBellService {
         } catch {}
       };
 
-      window.addEventListener('click', unlockAudio, { passive: true });
-      window.addEventListener('touchstart', unlockAudio, { passive: true });
-      window.addEventListener('keydown', unlockAudio, { passive: true });
+      window.addEventListener('click', unlockAudio, { passive: true, once: true });
+      window.addEventListener('pointerup', unlockAudio, { passive: true, once: true });
+      window.addEventListener('keydown', unlockAudio, { passive: true, once: true });
     }
   }
 
