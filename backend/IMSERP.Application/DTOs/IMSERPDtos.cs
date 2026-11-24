@@ -1096,6 +1096,21 @@ public record FeeReceiptArrearDto(
     decimal DueAmount
 );
 
+public record SiblingReceiptSummaryDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? Relationship,
+    decimal DiscountPercent,
+    decimal AmountPaid,
+    decimal RemainingDue,
+    List<FeeReceiptLineItemDto> Items
+);
+
 public record FeePaymentReceiptDto(
     Guid PaymentId,
     string ReceiptNumber,
@@ -1139,7 +1154,9 @@ public record FeePaymentReceiptDto(
     string? FooterNoteEnglish = null,
     string? FooterNoteHindi = null,
     DateTime? AdmissionDate = null,
-    string? AdmissionNumber = null
+    string? AdmissionNumber = null,
+    bool IsFamilyReceipt = false,
+    List<SiblingReceiptSummaryDto>? SiblingBreakdowns = null
 );
 
 public record StudentPendingFineItemDto(
@@ -1797,6 +1814,26 @@ public record FeeItemPaymentDto(
     decimal Amount
 );
 
+public record SiblingFeeCollectionItemDto(
+    Guid StudentId,
+    decimal AmountPaid,
+    List<FeeItemPaymentDto>? ItemPayments = null
+);
+
+public record SiblingPendingDueDto(
+    Guid StudentId,
+    string StudentName,
+    string RollNumber,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? SectionName,
+    string? BatchName,
+    string? Relationship,
+    decimal DiscountPercent,
+    decimal TotalOutstandingDue,
+    List<FeeDueSlipItemDto> DueItems
+);
+
 public record CollectFifoFeeDto(
     Guid StudentId,
     decimal AmountPaid,
@@ -1806,7 +1843,8 @@ public record CollectFifoFeeDto(
     bool SendWhatsAppReceipt,
     bool IncludeLibraryFine = false,
     List<Guid>? LibraryCirculationIds = null,
-    List<FeeItemPaymentDto>? ItemPayments = null
+    List<FeeItemPaymentDto>? ItemPayments = null,
+    List<SiblingFeeCollectionItemDto>? SiblingPayments = null
 );
 
 public record UpiIntentResponseDto(

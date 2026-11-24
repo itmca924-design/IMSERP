@@ -185,6 +185,41 @@ export interface FeeItemPayment {
   amount: number;
 }
 
+export interface SiblingFeeCollectionItem {
+  studentId: string;
+  amountPaid: number;
+  itemPayments?: FeeItemPayment[];
+}
+
+export interface SiblingPendingDue {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  relationship?: string | null;
+  discountPercent: number;
+  totalOutstandingDue: number;
+  dueItems: FeeDueSlipItem[];
+}
+
+export interface SiblingReceiptSummary {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  admissionNumber?: string | null;
+  className?: string | null;
+  sectionName?: string | null;
+  batchName?: string | null;
+  relationship?: string | null;
+  discountPercent: number;
+  amountPaid: number;
+  remainingDue: number;
+  items: FeeReceiptLineItem[];
+}
+
 export interface CollectFifoFeePayload {
   studentId: string;
   amountPaid: number;
@@ -195,6 +230,7 @@ export interface CollectFifoFeePayload {
   includeLibraryFine?: boolean;
   libraryCirculationIds?: string[];
   itemPayments?: FeeItemPayment[];
+  siblingPayments?: SiblingFeeCollectionItem[];
 }
 
 export interface StudentCycleOverridePayload {
@@ -298,6 +334,8 @@ export interface FeePaymentReceipt {
   studentAdvanceBalance?: number;
   admissionDate?: string;
   admissionNumber?: string;
+  isFamilyReceipt?: boolean;
+  siblingBreakdowns?: SiblingReceiptSummary[];
 }
 
 export interface StudentPendingFineItem {
@@ -396,6 +434,10 @@ export class FeesService {
 
   getStudentLibraryDues(studentId: string): Observable<StudentLibraryDues> {
     return this.http.get<StudentLibraryDues>(`${this.apiUrl}/student/${studentId}/library-dues`);
+  }
+
+  getStudentSiblingDues(studentId: string): Observable<SiblingPendingDue[]> {
+    return this.http.get<SiblingPendingDue[]>(`${this.apiUrl}/student/${studentId}/sibling-dues`);
   }
 
   collectFeeFifo(payload: CollectFifoFeePayload): Observable<FeePaymentReceipt> {

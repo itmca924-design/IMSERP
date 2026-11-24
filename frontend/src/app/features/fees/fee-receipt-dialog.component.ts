@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { FeePaymentReceipt, FeesService, UpiPaymentSettings } from '../../core/services/fees.service';
+import { FeePaymentReceipt, FeesService, UpiPaymentSettings, SiblingReceiptSummary, FeeReceiptLineItem } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -41,7 +41,10 @@ export interface FeeReceiptDialogData {
           </div>
           <div class="title-text-group">
             <div class="main-title-row">
-              <span class="main-title">Official Fee Payment Receipt</span>
+              <span class="main-title">{{ isCombinedFamilyView ? 'Combined Family Fee Receipt' : 'Official Fee Payment Receipt' }}</span>
+              @if (hasFamilyBreakdowns) {
+                <span class="header-hybrid-badge">👨‍👩‍👧‍👦 Family ({{ familySiblingsList.length }} Siblings)</span>
+              }
               @if (isHybrid) {
                 <span class="header-hybrid-badge">Hybrid</span>
               } @else if (isCoachingOnly) {
@@ -50,7 +53,7 @@ export interface FeeReceiptDialogData {
                 <span class="header-school-badge">School</span>
               }
             </div>
-            <span class="sub-title">शुल्क भुगतान रसीद</span>
+            <span class="sub-title">{{ isCombinedFamilyView ? 'संयुक्त पारिवारिक शुल्क भुगतान रसीद (एक ही रसीद पर सभी भाई-बहन)' : 'शुल्क भुगतान रसीद' }}</span>
           </div>
         </div>
         <div class="btn-group">
@@ -86,6 +89,36 @@ export interface FeeReceiptDialogData {
           </button>
         </div>
       </div>
+
+      <!-- Dual-Mode Family / Individual Sibling Receipt Switcher Bar (hidden in print) -->
+      @if (hasFamilyBreakdowns) {
+        <div class="family-mode-switcher-bar no-print">
+          <div class="switcher-label">
+            <mat-icon>family_restroom</mat-icon>
+            <span>Receipt Print Mode (रसीद मोड चुनें):</span>
+          </div>
+          <div class="switcher-pills">
+            <button
+              type="button"
+              class="mode-switch-pill"
+              [class.active]="selectedSiblingId === 'combined'"
+              (click)="selectReceiptViewMode('combined')">
+              <mat-icon>groups</mat-icon>
+              <span>Combined Family Receipt ({{ familySiblingsList.length }} Siblings • ₹{{ data.receipt.amountPaid | number:'1.2-2' }})</span>
+            </button>
+            @for (sib of familySiblingsList; track sib.studentId) {
+              <button
+                type="button"
+                class="mode-switch-pill"
+                [class.active]="selectedSiblingId === sib.studentId"
+                (click)="selectReceiptViewMode(sib.studentId)">
+                <mat-icon>person</mat-icon>
+                <span>{{ sib.studentName }} Only (₹{{ sib.amountPaid | number:'1.2-2' }})</span>
+              </button>
+            }
+          </div>
+        </div>
+      }
     
       <!-- Printable Receipt Document -->
       <div class="receipt-paper" id="receipt-paper">
@@ -121,8 +154,8 @@ export interface FeeReceiptDialogData {
               </div>
               <div class="receipt-badge">
                 <div class="badge-title-wrap">
-                  <span class="badge-title">FEE RECEIPT</span>
-                  <span class="badge-sub">शुल्क भुगतान रसीद</span>
+                  <span class="badge-title">{{ isCombinedFamilyView ? 'FAMILY FEE RECEIPT' : 'FEE RECEIPT' }}</span>
+                  <span class="badge-sub">{{ isCombinedFamilyView ? 'संयुक्त पारिवारिक शुल्क रसीद' : 'शुल्क भुगतान रसीद' }}</span>
                   @if (isHybrid) {
                     <span class="paper-hybrid-tag">School + Coaching (Hybrid)</span>
                   }
@@ -171,82 +204,123 @@ export interface FeeReceiptDialogData {
               }
             </div>
 
-            <!-- Student Profile Box -->
-            <div class="student-profile-card">
-              <div class="prof-col">
-                <div class="prof-row">
-                  <span class="k">Student Name:</span>
-                  <span class="v student-highlight">{{ data.receipt.studentName }}</span>
+            <!-- Student / Family Profile Box -->
+            @if (isCombinedFamilyView) {
+              <div class="student-profile-card family-profile-card">
+                <div class="prof-col">
+                  <div class="prof-row">
+                    <span class="k">Father / Guardian:</span>
+                    <span class="v student-highlight">{{ data.receipt.parentName || 'N/A' }}</span>
+                  </div>
+                  <div class="prof-row">
+                    <span class="k">Contact / WhatsApp:</span>
+                    <span class="v"><strong>{{ data.receipt.parentPhone || 'N/A' }}</strong></span>
+                  </div>
+                  @if (feeMonthDisplay) {
+                    <div class="prof-row fee-month-row">
+                      <span class="k">Fee Month (शुल्क माह):</span>
+                      <span class="v fee-month-badge" [title]="feeMonthTooltip">
+                        <strong>{{ feeMonthDisplay }}</strong>
+                      </span>
+                    </div>
+                  }
                 </div>
-                <div class="prof-row">
-                  <span class="k">Roll / Admission No:</span>
-                  <span class="v">
-                    <strong>{{ data.receipt.rollNumber || 'N/A' }}</strong>
-                    @if (data.receipt.admissionNumber && data.receipt.admissionNumber !== data.receipt.rollNumber) {
-                      <span class="meta-sub"> (Adm: {{ data.receipt.admissionNumber }})</span>
-                    }
-                  </span>
-                </div>
-                @if (data.receipt.className) {
+                <div class="prof-col">
                   <div class="prof-row">
-                    <span class="k">Class:</span>
-                    <span class="v"><strong>{{ data.receipt.className }}@if (data.receipt.sectionName) {
-                      <span> (Section {{ data.receipt.sectionName }})</span>
-                    }</strong></span>
-                  </div>
-                }
-                @if (!data.receipt.className && data.receipt.batchName) {
-                  <div class="prof-row">
-                    <span class="k">Academic Stream:</span>
-                    <span class="v"><strong>Coaching Only</strong></span>
-                  </div>
-                }
-                @if (!data.receipt.className && !data.receipt.batchName) {
-                  <div class="prof-row">
-                    <span class="k">Academic Stream:</span>
-                    <span class="v">General Academic</span>
-                  </div>
-                }
-                @if (feeMonthDisplay) {
-                  <div class="prof-row fee-month-row">
-                    <span class="k">Fee Month (शुल्क माह):</span>
-                    <span class="v fee-month-badge" [title]="feeMonthTooltip">
-                      <strong>{{ feeMonthDisplay }}</strong>
+                    <span class="k">Siblings Included ({{ familySiblingsList.length }}):</span>
+                    <span class="v">
+                      <div class="family-siblings-inline-list">
+                        @for (sib of familySiblingsList; track sib.studentId; let idx = $index) {
+                          <div class="family-sib-line">
+                            <strong>{{ idx + 1 }}. {{ sib.studentName }}</strong>
+                            <span> ({{ sib.className ? sib.className + (sib.sectionName ? '-' + sib.sectionName : '') : (sib.batchName || 'General') }} • Roll: {{ sib.rollNumber }})</span>
+                            @if (sib.discountPercent > 0) {
+                              <span class="fam-sib-disc-tag">🎁 {{ sib.discountPercent }}% Sibling Concession</span>
+                            }
+                          </div>
+                        }
+                      </div>
                     </span>
                   </div>
-                }
+                </div>
               </div>
-              <div class="prof-col">
-                <div class="prof-row">
-                  <span class="k">Father / Guardian:</span>
-                  <span class="v">{{ data.receipt.parentName || 'N/A' }}</span>
-                </div>
-                <div class="prof-row">
-                  <span class="k">Contact / WhatsApp:</span>
-                  <span class="v">{{ data.receipt.parentPhone || 'N/A' }}</span>
-                </div>
-                <div class="prof-row">
-                  <span class="k">Admission Date:</span>
-                  <span class="v"><strong>{{ formatDateOnlyIST(data.receipt.admissionDate) }}</strong></span>
-                </div>
-                @if (data.receipt.batchName) {
+            } @else {
+              <div class="student-profile-card">
+                <div class="prof-col">
                   <div class="prof-row">
-                    <span class="k">Batch:</span>
-                    <span class="v"><strong>{{ data.receipt.batchName }}</strong></span>
+                    <span class="k">Student Name:</span>
+                    <span class="v student-highlight">{{ activeDisplayStudentName }}</span>
                   </div>
-                }
-                <div class="prof-row">
-                  <span class="k">Settlement Type:</span>
-                  <span class="v status-pill">FIFO Auto-Settlement</span>
-                </div>
-                @if (data.receipt.hostelInfo) {
                   <div class="prof-row">
-                    <span class="k">🏠 Hostel Facility:</span>
-                    <span class="v hostel-info-pill">{{ data.receipt.hostelInfo }}</span>
+                    <span class="k">Roll / Admission No:</span>
+                    <span class="v">
+                      <strong>{{ activeDisplayRollNumber || 'N/A' }}</strong>
+                      @if (activeDisplayAdmissionNumber && activeDisplayAdmissionNumber !== activeDisplayRollNumber) {
+                        <span class="meta-sub"> (Adm: {{ activeDisplayAdmissionNumber }})</span>
+                      }
+                    </span>
                   </div>
-                }
+                  @if (activeDisplayClassName) {
+                    <div class="prof-row">
+                      <span class="k">Class:</span>
+                      <span class="v"><strong>{{ activeDisplayClassName }}@if (activeDisplaySectionName) {
+                        <span> (Section {{ activeDisplaySectionName }})</span>
+                      }</strong></span>
+                    </div>
+                  }
+                  @if (!activeDisplayClassName && activeDisplayBatchName) {
+                    <div class="prof-row">
+                      <span class="k">Academic Stream:</span>
+                      <span class="v"><strong>Coaching Only</strong></span>
+                    </div>
+                  }
+                  @if (!activeDisplayClassName && !activeDisplayBatchName) {
+                    <div class="prof-row">
+                      <span class="k">Academic Stream:</span>
+                      <span class="v">General Academic</span>
+                    </div>
+                  }
+                  @if (feeMonthDisplay) {
+                    <div class="prof-row fee-month-row">
+                      <span class="k">Fee Month (शुल्क माह):</span>
+                      <span class="v fee-month-badge" [title]="feeMonthTooltip">
+                        <strong>{{ feeMonthDisplay }}</strong>
+                      </span>
+                    </div>
+                  }
+                </div>
+                <div class="prof-col">
+                  <div class="prof-row">
+                    <span class="k">Father / Guardian:</span>
+                    <span class="v">{{ data.receipt.parentName || 'N/A' }}</span>
+                  </div>
+                  <div class="prof-row">
+                    <span class="k">Contact / WhatsApp:</span>
+                    <span class="v">{{ data.receipt.parentPhone || 'N/A' }}</span>
+                  </div>
+                  <div class="prof-row">
+                    <span class="k">Admission Date:</span>
+                    <span class="v"><strong>{{ formatDateOnlyIST(data.receipt.admissionDate) }}</strong></span>
+                  </div>
+                  @if (activeDisplayBatchName) {
+                    <div class="prof-row">
+                      <span class="k">Batch:</span>
+                      <span class="v"><strong>{{ activeDisplayBatchName }}</strong></span>
+                    </div>
+                  }
+                  <div class="prof-row">
+                    <span class="k">Settlement Type:</span>
+                    <span class="v status-pill">FIFO Auto-Settlement</span>
+                  </div>
+                  @if (data.receipt.hostelInfo) {
+                    <div class="prof-row">
+                      <span class="k">🏠 Hostel Facility:</span>
+                      <span class="v hostel-info-pill">{{ data.receipt.hostelInfo }}</span>
+                    </div>
+                  }
+                </div>
               </div>
-            </div>
+            }
 
             <!-- Fees Breakdown Table -->
             <div class="table-section">
@@ -259,10 +333,41 @@ export interface FeeReceiptDialogData {
                   </tr>
                 </thead>
                 <tbody>
-                  @if (data.receipt.items && data.receipt.items.length > 0) {
-                    @for (item of data.receipt.items; track item) {
+                  @if (isCombinedFamilyView) {
+                    @for (sib of familySiblingsList; track sib.studentId; let sIdx = $index) {
+                      <tr class="sibling-group-header-row">
+                        <td colspan="2" class="sib-group-title-cell">
+                          <strong>👦 {{ sIdx + 1 }}. {{ sib.studentName }}</strong>
+                          <span class="sib-group-meta">
+                            ({{ sib.className ? 'Class ' + sib.className + (sib.sectionName ? ' - ' + sib.sectionName : '') : '' }}{{ sib.className && sib.batchName ? ' • ' : '' }}{{ sib.batchName ? 'Batch: ' + sib.batchName : '' }} • Roll: {{ sib.rollNumber }})
+                          </span>
+                          @if (sib.discountPercent > 0) {
+                            <span class="sib-group-concession">🎁 {{ sib.discountPercent }}% Sibling Concession Applied</span>
+                          }
+                        </td>
+                        <td class="text-right sib-group-subtotal-cell">
+                          Subtotal: <strong>₹{{ sib.amountPaid | number:'1.2-2' }}</strong>
+                        </td>
+                      </tr>
+                      @for (item of sib.items; track item; let iIdx = $index) {
+                        <tr>
+                          <td class="text-center">{{ sIdx + 1 }}.{{ iIdx + 1 }}</td>
+                          <td>
+                            <strong class="fee-head-title">{{ cleanHeadName(item.particulars) }}</strong>
+                            @if (formatSubTitle(item.subTitle)) {
+                              <div class="fee-head-sub">{{ formatSubTitle(item.subTitle) }}</div>
+                            }
+                          </td>
+                          <td class="text-right amount-col">
+                            <strong>₹{{ item.amount | number:'1.2-2' }}</strong>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  } @else if (activeDisplayItems && activeDisplayItems.length > 0) {
+                    @for (item of activeDisplayItems; track item; let idx = $index) {
                       <tr>
-                        <td class="text-center">{{ item.itemIndex }}</td>
+                        <td class="text-center">{{ idx + 1 }}</td>
                         <td>
                           <strong class="fee-head-title">{{ cleanHeadName(item.particulars) }}</strong>
                           @if (formatSubTitle(item.subTitle)) {
@@ -282,7 +387,7 @@ export interface FeeReceiptDialogData {
                         <div class="fee-head-sub">{{ data.receipt.remarks || 'Standard Monthly Tuition Fee installment' }}</div>
                       </td>
                       <td class="text-right amount-col">
-                        <strong>₹{{ (data.receipt.tuitionAmountPaid !== undefined && data.receipt.tuitionAmountPaid > 0 ? data.receipt.tuitionAmountPaid : data.receipt.amountPaid) | number:'1.2-2' }}</strong>
+                        <strong>₹{{ (data.receipt.tuitionAmountPaid !== undefined && data.receipt.tuitionAmountPaid > 0 ? data.receipt.tuitionAmountPaid : activeDisplayAmountPaid) | number:'1.2-2' }}</strong>
                       </td>
                     </tr>
                     @if (data.receipt.libraryFineAmountPaid && data.receipt.libraryFineAmountPaid > 0) {
@@ -299,7 +404,7 @@ export interface FeeReceiptDialogData {
                     }
                   }
 
-                  @if ((data.receipt.advanceAdjustedAmount || 0) > 0 && !data.receipt.receiptNumber.startsWith('ADV-')) {
+                  @if ((data.receipt.advanceAdjustedAmount || 0) > 0 && !data.receipt.receiptNumber.startsWith('ADV-') && selectedSiblingId === 'combined') {
                     <tr class="advance-adjusted-row">
                       <td class="text-center">★</td>
                       <td>
@@ -315,8 +420,8 @@ export interface FeeReceiptDialogData {
                   }
 
                   <tr class="summary-subtotal">
-                    <td colspan="2" class="text-right"><strong>Total Amount Received:</strong></td>
-                    <td class="text-right grand-paid">₹{{ data.receipt.amountPaid | number:'1.2-2' }}</td>
+                    <td colspan="2" class="text-right"><strong>{{ isCombinedFamilyView ? 'Total Family Fee Received (' + familySiblingsList.length + ' Siblings):' : 'Total Amount Received:' }}</strong></td>
+                    <td class="text-right grand-paid">₹{{ activeDisplayAmountPaid | number:'1.2-2' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -326,32 +431,32 @@ export interface FeeReceiptDialogData {
             <div class="amount-words-strip">
               <div class="words-left">
                 <span class="w-label">Amount in Words:</span>
-                <span class="w-text">{{ getAmountInWords(data.receipt.amountPaid) }}</span>
+                <span class="w-text">{{ getAmountInWords(activeDisplayAmountPaid) }}</span>
               </div>
               <div class="words-right">
                 <div class="paid-stamp">
                   <mat-icon>check_circle</mat-icon>
                   <span>PAID</span>
                 </div>
-                @if ((data.receipt.advanceAdjustedAmount || 0) > 0) {
+                @if ((data.receipt.advanceAdjustedAmount || 0) > 0 && selectedSiblingId === 'combined') {
                   <span class="cleared-tag">✓ Advance Paid: ₹{{ data.receipt.advanceAdjustedAmount | number:'1.2-2' }}</span>
                 }
-                @if ((data.receipt.studentAdvanceBalance || 0) > 0) {
+                @if ((data.receipt.studentAdvanceBalance || 0) > 0 && selectedSiblingId === 'combined') {
                   <span class="cleared-tag">Advance Credit: ₹{{ data.receipt.studentAdvanceBalance | number:'1.2-2' }}</span>
                 }
-                @if (data.receipt.remainingDue === 0) {
+                @if (activeDisplayRemainingDue === 0) {
                   <span class="cleared-tag">✓ All Dues Cleared</span>
                 }
-                @if (data.receipt.remainingDue > 0) {
-                  <span class="balance-due-tag">Bal Due: ₹{{ data.receipt.remainingDue | number:'1.2-2' }}</span>
+                @if (activeDisplayRemainingDue > 0) {
+                  <span class="balance-due-tag">Bal Due: ₹{{ activeDisplayRemainingDue | number:'1.2-2' }}</span>
                 }
               </div>
             </div>
 
             <!-- Compact Dues Notice if remaining dues exist -->
-            @if (data.receipt.remainingDue > 0) {
+            @if (activeDisplayRemainingDue > 0) {
               <div class="compact-due-notice">
-                <span>⚠️ Note: Outstanding balance of <strong>₹{{ data.receipt.remainingDue | number:'1.2-2' }}</strong> remains due for payment.</span>
+                <span>⚠️ Note: Outstanding balance of <strong>₹{{ activeDisplayRemainingDue | number:'1.2-2' }}</strong> remains due for payment.</span>
                 @if (payeeUpiId) {
                   <span class="upi-hint">UPI Payee: <strong>{{ payeeUpiId }}</strong></span>
                 }
@@ -653,6 +758,115 @@ export interface FeeReceiptDialogData {
       display: flex;
       flex-direction: column;
       gap: 0;
+    }
+
+    /* Family Mode Switcher Bar */
+    .family-mode-switcher-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 18px;
+      background: #f0f9ff;
+      border-bottom: 1px solid #bae6fd;
+
+      .switcher-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #0369a1;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .switcher-pills {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .mode-switch-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 11px;
+        border-radius: 16px;
+        border: 1px solid #93c5fd;
+        background: #ffffff;
+        color: #1e40af;
+        font-size: 0.74rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #2563eb;
+        }
+
+        &.active {
+          background: #2563eb;
+          color: #ffffff;
+          border-color: #1d4ed8;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+        }
+      }
+    }
+
+    .family-siblings-inline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      .family-sib-line {
+        font-size: 0.7rem;
+        line-height: 1.3;
+      }
+      .fam-sib-disc-tag {
+        display: inline-block;
+        margin-left: 4px;
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+        padding: 0 4px;
+        border-radius: 3px;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+    }
+
+    .sibling-group-header-row {
+      background: #f0f9ff !important;
+      td {
+        border-top: 1px solid #bae6fd !important;
+        border-bottom: 1px solid #bae6fd !important;
+        padding: 3px 6px !important;
+        color: #0c4a6e !important;
+      }
+      .sib-group-meta {
+        font-size: 0.68rem;
+        color: #0369a1;
+        margin-left: 4px;
+      }
+      .sib-group-concession {
+        display: inline-block;
+        margin-left: 6px;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        padding: 0 5px;
+        border-radius: 3px;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .sib-group-subtotal-cell {
+        font-size: 0.72rem;
+        color: #0369a1;
+        white-space: nowrap;
+      }
     }
 
     .receipt-slip {
@@ -1375,6 +1589,69 @@ export class FeeReceiptDialogComponent implements OnInit {
   payeeMerchantName = '';
   bankAccountDisplay = '';
   qrDataUrl: string | null = null;
+  selectedSiblingId: string = 'combined';
+
+  get hasFamilyBreakdowns(): boolean {
+    return !!(this.data?.receipt?.siblingBreakdowns && this.data.receipt.siblingBreakdowns.length > 1);
+  }
+
+  get familySiblingsList(): SiblingReceiptSummary[] {
+    return this.data?.receipt?.siblingBreakdowns || [];
+  }
+
+  get isCombinedFamilyView(): boolean {
+    return this.hasFamilyBreakdowns && this.selectedSiblingId === 'combined';
+  }
+
+  get activeSingleSibling(): SiblingReceiptSummary | null {
+    if (!this.hasFamilyBreakdowns || this.selectedSiblingId === 'combined') return null;
+    return this.familySiblingsList.find(s => s.studentId === this.selectedSiblingId) || null;
+  }
+
+  get activeDisplayStudentName(): string {
+    return this.activeSingleSibling?.studentName || this.data?.receipt?.studentName || '';
+  }
+
+  get activeDisplayRollNumber(): string {
+    return this.activeSingleSibling?.rollNumber || this.data?.receipt?.rollNumber || '';
+  }
+
+  get activeDisplayAdmissionNumber(): string | null | undefined {
+    return this.activeSingleSibling ? this.activeSingleSibling.admissionNumber : this.data?.receipt?.admissionNumber;
+  }
+
+  get activeDisplayClassName(): string | null | undefined {
+    return this.activeSingleSibling ? this.activeSingleSibling.className : this.data?.receipt?.className;
+  }
+
+  get activeDisplaySectionName(): string | null | undefined {
+    return this.activeSingleSibling ? this.activeSingleSibling.sectionName : this.data?.receipt?.sectionName;
+  }
+
+  get activeDisplayBatchName(): string | null | undefined {
+    return this.activeSingleSibling ? this.activeSingleSibling.batchName : this.data?.receipt?.batchName;
+  }
+
+  get activeDisplayItems(): FeeReceiptLineItem[] {
+    if (this.activeSingleSibling) return this.activeSingleSibling.items || [];
+    return this.data?.receipt?.items || [];
+  }
+
+  get activeDisplayAmountPaid(): number {
+    if (this.activeSingleSibling) return this.activeSingleSibling.amountPaid;
+    return this.data?.receipt?.amountPaid || 0;
+  }
+
+  get activeDisplayRemainingDue(): number {
+    if (this.activeSingleSibling) return this.activeSingleSibling.remainingDue;
+    return this.data?.receipt?.remainingDue || 0;
+  }
+
+  selectReceiptViewMode(modeOrStudentId: string): void {
+    this.selectedSiblingId = modeOrStudentId;
+    this.generateQrCode();
+    this.cdr.markForCheck();
+  }
 
   get effectiveSession(): string {
     if (this.data?.receipt?.academicSession) return this.data.receipt.academicSession;
@@ -1872,6 +2149,14 @@ export class FeeReceiptDialogComponent implements OnInit {
       '.receipt-table td { padding: 2px 4px; border-bottom: 1px solid #e2e8f0; font-size: 0.67rem; line-height: 1.15; }' +
       '.fee-head-title { font-size: 0.68rem; color: #0f172a; font-weight: 700; }' +
       '.fee-head-sub { font-size: 0.58rem; color: #64748b; }' +
+      '.family-siblings-inline-list { display: flex; flex-direction: column; gap: 1px; }' +
+      '.family-sib-line { font-size: 0.63rem; line-height: 1.25; }' +
+      '.fam-sib-disc-tag { display: inline-block; margin-left: 3px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 0 3px; border-radius: 2px; font-size: 0.56rem; font-weight: 700; }' +
+      '.sibling-group-header-row { background: #f0f9ff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.sibling-group-header-row td { border-top: 1px solid #bae6fd !important; border-bottom: 1px solid #bae6fd !important; padding: 2px 4px !important; color: #0c4a6e !important; font-size: 0.64rem !important; }' +
+      '.sib-group-meta { font-size: 0.58rem; color: #0369a1; margin-left: 3px; }' +
+      '.sib-group-concession { display: inline-block; margin-left: 4px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 0 4px; border-radius: 2px; font-size: 0.56rem; font-weight: 700; }' +
+      '.sib-group-subtotal-cell { font-size: 0.64rem; color: #0369a1; white-space: nowrap; }' +
       '.summary-subtotal { background: #f8fafc; border-top: 1.5px solid #cbd5e1; }' +
       '.grand-paid { font-size: 0.8rem; font-weight: 800; color: #16a34a; }' +
       '.amount-words-strip { display: flex; justify-content: space-between; align-items: center; padding: 2px 5px; background: #eff6ff; border: 1px dashed #93c5fd; border-radius: 3px; margin-bottom: 2px; }' +

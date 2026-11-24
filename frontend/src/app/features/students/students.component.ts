@@ -882,6 +882,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                                       <span>Address: {{ siblingInfo.address }}</span>
                                     </span>
                                   }
+                                  @if (siblingInfo.allSiblings && siblingInfo.allSiblings.length > 1) {
+                                    <span class="sibling-tag class">
+                                      <mat-icon>groups</mat-icon>
+                                      <span>All Family Siblings ({{ siblingInfo.allSiblings.length }}): {{ siblingInfo.allSiblingNames }}</span>
+                                    </span>
+                                  }
                                 </div>
                                 <!-- Sibling Link & Family Concession (saved with admission) -->
                                 @if (siblingInfo.studentId) {
@@ -4117,6 +4123,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
     branchName: string | null;
     existingFamilyDiscountPercent?: number;
     isAlreadyLinked?: boolean;
+    allSiblingNames?: string;
+    allSiblings?: Array<{
+      studentId: string;
+      studentName: string;
+      gender?: string | null;
+      className?: string | null;
+      sectionName?: string | null;
+      batchName?: string | null;
+      branchName?: string | null;
+    }>;
   } | null = null;
 
   /** Mirrors StudentSibling.Relationship domain values (backend) */
@@ -5059,12 +5075,13 @@ export class StudentsComponent implements OnInit, OnDestroy {
     }
     const g = (res.gender || '').toLowerCase();
     const derivedRel = g.startsWith('f') ? 'Sister' : g.startsWith('m') ? 'Brother' : this.siblingRelationshipOptions[0];
+    const shouldLink = this.isEditMode ? !!res.isAlreadyLinked : true;
     const discount = res.isAlreadyLinked
       ? (res.linkedDiscountPercent ?? 0)
-      : (res.existingFamilyDiscountPercent ?? 0);
+      : (this.isEditMode ? 0 : (res.existingFamilyDiscountPercent ?? 0));
 
     this.studentForm.patchValue({
-      linkSibling: true,
+      linkSibling: shouldLink,
       siblingRelationship: res.linkedRelationship || derivedRel,
       siblingDiscountPercent: discount,
       siblingDiscountNotes: res.linkedNotes || ''
@@ -5078,6 +5095,82 @@ export class StudentsComponent implements OnInit, OnDestroy {
       siblingDiscountPercent: 0,
       siblingDiscountNotes: ''
     }, { emitEvent: false });
+  }
+
+  private performPhoneSiblingCheck(rawDigits: string): void {
+    const control = this.studentForm?.get('parentWhatsAppPhone');
+    if (!control || rawDigits.length !== 10 || !/^[6-9]\d{9}$/.test(rawDigits)) return;
+
+    this.phoneCheckLoading = true;
+    const excludeId = this.isEditMode && this.selectedStudent ? this.selectedStudent.id : undefined;
+    const currentStudentName = (this.studentForm.get('studentName')?.value || '').trim();
+
+    this.coachingService.checkPhoneDuplicate(rawDigits, excludeId, currentStudentName).subscribe({
+      next: (res) => {
+        this.phoneCheckLoading = false;
+        if (res.isFound) {
+          if (res.isDuplicate) {
+            this.phoneDuplicateError = `Duplicate Entry: "${res.studentName}" is already registered in ${res.batchName || 'another batch'}.`;
+            this.siblingInfo = null;
+            this.resetSiblingLinkControls();
+            control.setErrors({ ...control.errors, duplicate: true });
+            control.markAsTouched();
+          } else {
+            this.phoneDuplicateError = '';
+            const allSiblings = res.allSiblings || [];
+            this.siblingInfo = {
+              studentId: res.studentId,
+              studentName: res.studentName,
+              parentName: res.parentName,
+              motherName: res.motherName,
+              address: res.address,
+              gender: res.gender,
+              className: res.className,
+              sectionName: res.sectionName,
+              batchName: res.batchName,
+              branchName: res.branchName,
+              existingFamilyDiscountPercent: res.existingFamilyDiscountPercent,
+              isAlreadyLinked: res.isAlreadyLinked,
+              allSiblings,
+              allSiblingNames: allSiblings.map(s => s.studentName).join(', ')
+            };
+            this.applySiblingLinkDefaults(res);
+            const parentCtrl = this.studentForm.get('parentName');
+            if (parentCtrl && !parentCtrl.value && res.parentName) {
+              parentCtrl.setValue(res.parentName);
+              parentCtrl.markAsDirty();
+            }
+            const motherCtrl = this.studentForm.get('motherName');
+            if (motherCtrl && !motherCtrl.value && res.motherName) {
+              motherCtrl.setValue(res.motherName);
+              motherCtrl.markAsDirty();
+            }
+            const addressCtrl = this.studentForm.get('address');
+            if (addressCtrl && (!addressCtrl.value || !addressCtrl.value.trim()) && res.address) {
+              addressCtrl.setValue(res.address);
+              addressCtrl.markAsDirty();
+            }
+            if (control.hasError('duplicate')) {
+              const errors = { ...control.errors };
+              delete errors['duplicate'];
+              control.setErrors(Object.keys(errors).length ? errors : null);
+            }
+          }
+        } else {
+          this.phoneDuplicateError = '';
+          this.siblingInfo = null;
+          this.resetSiblingLinkControls();
+          if (control.hasError('duplicate')) {
+            const errors = { ...control.errors };
+            delete errors['duplicate'];
+            control.setErrors(Object.keys(errors).length ? errors : null);
+          }
+        }
+      },
+      error: () => {
+        this.phoneCheckLoading = false;
+      }
+    });
   }
 
   // ── Photo helpers ────────────────────────────────────────
@@ -5271,73 +5364,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       }
 
       if (rawDigits.length === 10 && /^[6-9]\d{9}$/.test(rawDigits)) {
-        this.phoneCheckLoading = true;
-        const excludeId = this.isEditMode && this.selectedStudent ? this.selectedStudent.id : undefined;
-        const currentStudentName = (this.studentForm.get('studentName')?.value || '').trim();
-
-        this.coachingService.checkPhoneDuplicate(rawDigits, excludeId, currentStudentName).subscribe({
-          next: (res) => {
-            this.phoneCheckLoading = false;
-            if (res.isFound) {
-              if (res.isDuplicate) {
-                this.phoneDuplicateError = `Duplicate Entry: "${res.studentName}" is already registered in ${res.batchName || 'another batch'}.`;
-                this.siblingInfo = null;
-                this.resetSiblingLinkControls();
-                control.setErrors({ ...control.errors, duplicate: true });
-                control.markAsTouched();
-              } else {
-                this.phoneDuplicateError = '';
-                this.siblingInfo = {
-                  studentId: res.studentId,
-                  studentName: res.studentName,
-                  parentName: res.parentName,
-                  motherName: res.motherName,
-                  address: res.address,
-                  gender: res.gender,
-                  className: res.className,
-                  sectionName: res.sectionName,
-                  batchName: res.batchName,
-                  branchName: res.branchName,
-                  existingFamilyDiscountPercent: res.existingFamilyDiscountPercent,
-                  isAlreadyLinked: res.isAlreadyLinked
-                };
-                this.applySiblingLinkDefaults(res);
-                const parentCtrl = this.studentForm.get('parentName');
-                if (parentCtrl && !parentCtrl.value && res.parentName) {
-                  parentCtrl.setValue(res.parentName);
-                  parentCtrl.markAsDirty();
-                }
-                const motherCtrl = this.studentForm.get('motherName');
-                if (motherCtrl && !motherCtrl.value && res.motherName) {
-                  motherCtrl.setValue(res.motherName);
-                  motherCtrl.markAsDirty();
-                }
-                const addressCtrl = this.studentForm.get('address');
-                if (addressCtrl && (!addressCtrl.value || !addressCtrl.value.trim()) && res.address) {
-                  addressCtrl.setValue(res.address);
-                  addressCtrl.markAsDirty();
-                }
-                if (control.hasError('duplicate')) {
-                  const errors = { ...control.errors };
-                  delete errors['duplicate'];
-                  control.setErrors(Object.keys(errors).length ? errors : null);
-                }
-              }
-            } else {
-              this.phoneDuplicateError = '';
-              this.siblingInfo = null;
-              this.resetSiblingLinkControls();
-              if (control.hasError('duplicate')) {
-                const errors = { ...control.errors };
-                delete errors['duplicate'];
-                control.setErrors(Object.keys(errors).length ? errors : null);
-              }
-            }
-          },
-          error: () => {
-            this.phoneCheckLoading = false;
-          }
-        });
+        this.performPhoneSiblingCheck(rawDigits);
       }
     });
 
@@ -5860,6 +5887,11 @@ export class StudentsComponent implements OnInit, OnDestroy {
     });
 
     this.onStreamCheckChanged();
+
+    // Immediately check sibling / family linkage when opening Edit Student
+    if (cleanDigits.length === 10 && /^[6-9]\d{9}$/.test(cleanDigits)) {
+      this.performPhoneSiblingCheck(cleanDigits);
+    }
 
     if (student.isHostelStudent) {
       const bindHostelAndBeds = () => {

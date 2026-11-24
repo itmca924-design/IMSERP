@@ -673,17 +673,21 @@ public class FeesController : ControllerBase
             .FirstOrDefaultAsync();
 
         decimal grossMonthlyFeeRate = monthlyFeeRate;
+        decimal academicMonthlyRate = schoolMonthlyRate + coachingMonthlyRate;
+        decimal academicConcessionBase = academicMonthlyRate > 0 ? academicMonthlyRate : grossMonthlyFeeRate;
         decimal recurringMonthlyConcession = 0m;
 
         if (studentSib != null && studentSib.DiscountPercent > 0)
         {
-            recurringMonthlyConcession = Math.Round(grossMonthlyFeeRate * (studentSib.DiscountPercent / 100m), 2);
+            // Sibling discount applies strictly to Academic Base Fee (School + Coaching), matching GenerateMonthlyInvoices
+            recurringMonthlyConcession = Math.Round(academicConcessionBase * (studentSib.DiscountPercent / 100m), 2);
         }
         else if (activeConcession != null)
         {
             if (activeConcession.DiscountMode == "Percentage")
             {
-                recurringMonthlyConcession = Math.Round(grossMonthlyFeeRate * (activeConcession.DiscountValue / 100m), 2);
+                var targetBase = activeConcession.FeeHeadId == null ? academicConcessionBase : grossMonthlyFeeRate;
+                recurringMonthlyConcession = Math.Round(targetBase * (activeConcession.DiscountValue / 100m), 2);
             }
             else
             {
@@ -1182,6 +1186,107 @@ public class FeesController : ControllerBase
         ));
     }
 
+    [HttpGet("student/{studentId:guid}/sibling-dues")]
+    public async Task<ActionResult<List<SiblingPendingDueDto>>> GetStudentSiblingDues(Guid studentId)
+    {
+        var primaryStudent = await _dbContext.Students.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == studentId && s.TenantId == _currentUser.TenantId);
+        if (primaryStudent == null) return Ok(new List<SiblingPendingDueDto>());
+
+        // 1. Explicit StudentSiblings links
+        var siblingLinks = await _dbContext.StudentSiblings.AsNoTracking()
+            .Where(l => l.TenantId == _currentUser.TenantId && (l.StudentId == studentId || l.SiblingStudentId == studentId))
+            .ToListAsync();
+
+        var explicitSiblingIds = siblingLinks
+            .Select(l => l.StudentId == studentId ? l.SiblingStudentId : l.StudentId)
+            .Distinct()
+            .ToHashSet();
+
+        // 2. Also match active siblings sharing the same 10-digit ParentWhatsAppPhone
+        var cleanPhone = (primaryStudent.ParentWhatsAppPhone ?? "").Trim().Replace(" ", "").Replace("-", "");
+        var withPrefix = !string.IsNullOrEmpty(cleanPhone) ? (cleanPhone.StartsWith("+91") ? cleanPhone : "+91" + cleanPhone) : "";
+        var withoutPrefix = !string.IsNullOrEmpty(cleanPhone) ? (cleanPhone.StartsWith("+91") ? cleanPhone.Substring(3) : cleanPhone) : "";
+
+        var siblings = await _dbContext.Students.AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Where(s => s.TenantId == _currentUser.TenantId && s.Id != studentId && s.IsActive &&
+                        (explicitSiblingIds.Contains(s.Id) ||
+                         (withoutPrefix.Length == 10 &&
+                          (s.ParentWhatsAppPhone == cleanPhone ||
+                           s.ParentWhatsAppPhone == withPrefix ||
+                           s.ParentWhatsAppPhone == withoutPrefix))))
+            .OrderBy(s => s.JoiningDate)
+            .ToListAsync();
+
+        if (!siblings.Any()) return Ok(new List<SiblingPendingDueDto>());
+
+        var sibIds = siblings.Select(s => s.Id).ToList();
+
+        // Fetch all discount links owned by these siblings
+        var allSibDiscounts = await _dbContext.StudentSiblings.AsNoTracking()
+            .Where(l => l.TenantId == _currentUser.TenantId && (sibIds.Contains(l.StudentId) || sibIds.Contains(l.SiblingStudentId)))
+            .ToListAsync();
+
+        // Fetch unpaid/partial invoices for all siblings in a single query
+        var unpaidInvoices = await _dbContext.FeeInvoices.AsNoTracking()
+            .Include(i => i.Items)
+            .Where(i => sibIds.Contains(i.StudentId) && i.Status != InvoiceStatus.Cancelled && i.TotalAmount > i.PaidAmount)
+            .OrderBy(i => i.DueDate)
+            .ToListAsync();
+
+        var invoicesByStudent = unpaidInvoices
+            .GroupBy(i => i.StudentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<SiblingPendingDueDto>();
+        foreach (var sib in siblings)
+        {
+            if (!invoicesByStudent.TryGetValue(sib.Id, out var sibInvs) || !sibInvs.Any())
+                continue;
+
+            var ownDiscountLink = allSibDiscounts
+                .Where(l => l.StudentId == sib.Id)
+                .OrderByDescending(l => l.DiscountPercent)
+                .FirstOrDefault();
+            var anyLink = ownDiscountLink ?? allSibDiscounts.FirstOrDefault(l => l.SiblingStudentId == sib.Id);
+
+            var dueItems = sibInvs.Select(i => new FeeDueSlipItemDto(
+                i.Id,
+                i.InvoiceNumber,
+                i.Title,
+                i.DueDate,
+                i.TotalAmount,
+                i.PaidAmount,
+                i.TotalAmount - i.PaidAmount,
+                i.Items.Select(it => new FeeInvoiceItemDto(it.Id, it.InvoiceId, it.FeeHeadId, it.HeadName, it.Amount, it.PaidAmount, it.Description)).ToList(),
+                i.AdvanceAdjustedAmount,
+                i.AdvanceAdjustedFromReceipt
+            )).ToList();
+
+            var totalDue = dueItems.Sum(d => d.DueAmount);
+            if (totalDue <= 0) continue;
+
+            result.Add(new SiblingPendingDueDto(
+                sib.Id,
+                sib.StudentName,
+                sib.SchoolRollNumber ?? sib.RollNumber,
+                sib.AdmissionNumber,
+                sib.Class?.Name,
+                sib.Section?.Name,
+                sib.Batch?.Name,
+                anyLink?.Relationship ?? (sib.Gender?.StartsWith("F", StringComparison.OrdinalIgnoreCase) == true ? "Sister" : "Brother"),
+                ownDiscountLink?.DiscountPercent ?? 0m,
+                totalDue,
+                dueItems
+            ));
+        }
+
+        return Ok(result);
+    }
+
     [HttpPost("collect-fifo")]
     public async Task<ActionResult<FeePaymentReceiptDto>> CollectFeeFifo([FromBody] CollectFifoFeeDto dto)
     {
@@ -1433,6 +1538,118 @@ public class FeesController : ControllerBase
                 }
             }
 
+            // ── Combined Family / Sibling Fee Collection (Same Transaction & Shared Receipt Number) ──
+            var validSiblingPayments = dto.SiblingPayments?
+                .Where(sp => sp.StudentId != Guid.Empty && sp.StudentId != dto.StudentId && sp.AmountPaid > 0)
+                .ToList() ?? new List<SiblingFeeCollectionItemDto>();
+
+            var siblingAllocatedRecords = new List<(Student Sibling, decimal AmountPaid, List<(FeeInvoice Invoice, decimal AllocatedAmount)> AllocatedInvoices, Dictionary<Guid, decimal>? ItemPaymentDict, decimal AdvanceDeposited)>();
+
+            foreach (var sibReq in validSiblingPayments)
+            {
+                var sibStudent = await _dbContext.Students
+                    .Include(s => s.Branch)
+                    .Include(s => s.Class)
+                    .Include(s => s.Section)
+                    .Include(s => s.Batch)
+                        .ThenInclude(b => b!.Branch)
+                    .FirstOrDefaultAsync(s => s.Id == sibReq.StudentId && s.TenantId == _currentUser.TenantId);
+                if (sibStudent == null) continue;
+
+                var sibUnpaidInvoices = await _dbContext.FeeInvoices
+                    .Include(i => i.Items)
+                    .Where(i => i.StudentId == sibStudent.Id
+                             && i.Status != InvoiceStatus.Paid
+                             && i.Status != InvoiceStatus.Cancelled)
+                    .OrderBy(i => i.DueDate)
+                    .ToListAsync();
+
+                var sibItemDict = (sibReq.ItemPayments != null && sibReq.ItemPayments.Count > 0)
+                    ? sibReq.ItemPayments.GroupBy(p => p.ItemId).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount))
+                    : null;
+
+                if (sibItemDict != null && sibItemDict.Count > 0)
+                {
+                    sibUnpaidInvoices = sibUnpaidInvoices
+                        .OrderByDescending(i => i.Items != null && i.Items.Any(it => sibItemDict.ContainsKey(it.Id)))
+                        .ThenBy(i => i.DueDate)
+                        .ToList();
+                }
+
+                decimal sibRemaining = sibReq.AmountPaid;
+                decimal sibAllocatedTotal = 0m;
+                var sibAllocInvs = new List<(FeeInvoice Invoice, decimal AllocatedAmount)>();
+                FeePayment? sibLastPayment = null;
+
+                foreach (var sibInv in sibUnpaidInvoices)
+                {
+                    if (sibRemaining <= 0) break;
+                    decimal sibInvDue = sibInv.TotalAmount - sibInv.PaidAmount;
+                    decimal sibAlloc = Math.Min(sibRemaining, sibInvDue);
+                    if (sibAlloc <= 0) continue;
+
+                    sibInv.PaidAmount += sibAlloc;
+                    sibAllocatedTotal += sibAlloc;
+                    sibInv.Status = sibInv.PaidAmount >= sibInv.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.Partial;
+
+                    if (sibInv.Items != null && sibInv.Items.Count > 0)
+                    {
+                        if (sibItemDict != null && sibInv.Items.Any(it => sibItemDict.ContainsKey(it.Id)))
+                        {
+                            foreach (var it in sibInv.Items)
+                            {
+                                if (sibItemDict.TryGetValue(it.Id, out var itPaidAmt) && itPaidAmt > 0)
+                                {
+                                    it.PaidAmount += itPaidAmt;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            decimal itemRem = sibAlloc;
+                            foreach (var it in sibInv.Items)
+                            {
+                                if (itemRem <= 0) break;
+                                decimal itemDue = it.Amount - it.PaidAmount;
+                                if (itemDue <= 0) continue;
+                                decimal itemAlloc = Math.Min(itemRem, itemDue);
+                                it.PaidAmount += itemAlloc;
+                                itemRem -= itemAlloc;
+                            }
+                        }
+                    }
+
+                    sibRemaining -= sibAlloc;
+                    sibAllocInvs.Add((sibInv, sibAlloc));
+
+                    var sibPayment = new FeePayment
+                    {
+                        TenantId = _currentUser.TenantId,
+                        BranchId = sibInv.BranchId ?? sibStudent.BranchId ?? _currentUser.BranchId,
+                        InvoiceId = sibInv.Id,
+                        ReceiptNumber = receiptNo,
+                        AmountPaid = sibAlloc,
+                        Mode = dto.Mode,
+                        TransactionRef = dto.TransactionRef,
+                        Remarks = string.IsNullOrWhiteSpace(dto.Remarks) ? $"Combined Family Fee Payment ({sibStudent.StudentName})" : dto.Remarks,
+                        PaymentDate = DateTime.UtcNow
+                    };
+                    _dbContext.FeePayments.Add(sibPayment);
+                    sibLastPayment = sibPayment;
+                    lastPayment ??= sibPayment;
+                }
+
+                decimal sibAdvNow = Math.Max(0m, sibReq.AmountPaid - sibAllocatedTotal);
+                if (sibAdvNow > 0 && sibLastPayment != null)
+                {
+                    sibStudent.AdvanceBalance += sibAdvNow;
+                    sibLastPayment.AmountPaid += sibAdvNow;
+                    sibLastPayment.AdvanceDepositAmount = sibAdvNow;
+                }
+
+                siblingAllocatedRecords.Add((sibStudent, sibReq.AmountPaid, sibAllocInvs, sibItemDict, sibAdvNow));
+            }
+
             await _dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -1635,6 +1852,145 @@ public class FeesController : ControllerBase
                 .Where(r => !string.IsNullOrWhiteSpace(r))
                 .Distinct());
 
+            // ── Build Combined Family / Sibling Receipt Breakdowns if Siblings were included ──
+            bool isFamilyReceipt = siblingAllocatedRecords.Count > 0;
+            List<SiblingReceiptSummaryDto>? siblingBreakdowns = null;
+            decimal grandTotalFamilyAmountPaid = dto.AmountPaid;
+            decimal grandTotalFamilyRemainingDue = totalOutstandingDue;
+
+            if (isFamilyReceipt)
+            {
+                var primarySibLink = await _dbContext.StudentSiblings.AsNoTracking()
+                    .Where(l => l.TenantId == _currentUser.TenantId && l.StudentId == student.Id)
+                    .OrderByDescending(l => l.DiscountPercent)
+                    .FirstOrDefaultAsync();
+
+                var primaryItemsClone = lineItems.Select((li, idx) => new FeeReceiptLineItemDto(
+                    idx + 1,
+                    li.Particulars,
+                    li.SubTitle,
+                    li.Reference,
+                    li.Amount
+                )).ToList();
+
+                siblingBreakdowns = new List<SiblingReceiptSummaryDto>
+                {
+                    new SiblingReceiptSummaryDto(
+                        student.Id,
+                        student.StudentName,
+                        student.SchoolRollNumber ?? student.RollNumber,
+                        student.AdmissionNumber,
+                        student.Class?.Name,
+                        student.Section?.Name,
+                        student.Batch?.Name,
+                        "Primary Student",
+                        primarySibLink?.DiscountPercent ?? 0m,
+                        dto.AmountPaid,
+                        totalOutstandingDue,
+                        primaryItemsClone
+                    )
+                };
+
+                // Prefix primary student's items in the combined lineItems list so the combined table is 100% clear
+                for (int i = 0; i < lineItems.Count; i++)
+                {
+                    var li = lineItems[i];
+                    var stLabel = $"{student.StudentName} ({student.Class?.Name ?? student.Batch?.Name ?? student.RollNumber})";
+                    lineItems[i] = new FeeReceiptLineItemDto(
+                        li.ItemIndex,
+                        li.Particulars,
+                        string.IsNullOrWhiteSpace(li.SubTitle) ? stLabel : $"{stLabel} • {li.SubTitle}",
+                        li.Reference,
+                        li.Amount
+                    );
+                }
+
+                foreach (var (sibSt, sibPaidAmt, sibAllocInvs, sibItemDict, sibAdvDep) in siblingAllocatedRecords)
+                {
+                    grandTotalFamilyAmountPaid += sibPaidAmt;
+                    var sibRemDue = await _dbContext.FeeInvoices
+                        .Where(i => i.StudentId == sibSt.Id && i.Status != InvoiceStatus.Cancelled)
+                        .SumAsync(i => i.TotalAmount - i.PaidAmount);
+                    grandTotalFamilyRemainingDue += sibRemDue;
+                    totalDemandBeforePayment += (sibPaidAmt - sibAdvDep) + sibRemDue;
+
+                    var sibOwnLink = await _dbContext.StudentSiblings.AsNoTracking()
+                        .Where(l => l.TenantId == _currentUser.TenantId && (l.StudentId == sibSt.Id || l.SiblingStudentId == sibSt.Id))
+                        .OrderByDescending(l => l.StudentId == sibSt.Id)
+                        .FirstOrDefaultAsync();
+
+                    var sibItems = new List<FeeReceiptLineItemDto>();
+                    foreach (var (sibInv, sibAllocAmt) in sibAllocInvs)
+                    {
+                        if (sibInv.Items != null && sibInv.Items.Count > 0)
+                        {
+                            if (sibItemDict != null && sibInv.Items.Any(it => sibItemDict.ContainsKey(it.Id)))
+                            {
+                                foreach (var it in sibInv.Items)
+                                {
+                                    if (sibItemDict.TryGetValue(it.Id, out var itPaidAmt) && itPaidAmt > 0)
+                                    {
+                                        var sub = FormatReceiptItemSubtitle(it.HeadName, sibInv.Title, it.Description);
+                                        sibItems.Add(new FeeReceiptLineItemDto(sibItems.Count + 1, it.HeadName, sub, sibInv.InvoiceNumber, itPaidAmt));
+                                        var stLabel = $"{sibSt.StudentName} ({sibSt.Class?.Name ?? sibSt.Batch?.Name ?? sibSt.RollNumber})";
+                                        lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, it.HeadName, string.IsNullOrWhiteSpace(sub) ? stLabel : $"{stLabel} • {sub}", sibInv.InvoiceNumber, itPaidAmt));
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                decimal remAlloc = sibAllocAmt;
+                                var posItems = sibInv.Items.Where(it => it.Amount > 0).ToList();
+                                decimal totPos = posItems.Sum(it => it.Amount);
+                                for (int idx = 0; idx < posItems.Count; idx++)
+                                {
+                                    var it = posItems[idx];
+                                    decimal itShare = idx == posItems.Count - 1
+                                        ? remAlloc
+                                        : Math.Min(remAlloc, totPos > 0 ? Math.Round(sibAllocAmt * (it.Amount / totPos), 2) : it.Amount);
+                                    remAlloc -= itShare;
+                                    if (itShare > 0)
+                                    {
+                                        var sub = FormatReceiptItemSubtitle(it.HeadName, sibInv.Title, it.Description);
+                                        sibItems.Add(new FeeReceiptLineItemDto(sibItems.Count + 1, it.HeadName, sub, sibInv.InvoiceNumber, itShare));
+                                        var stLabel = $"{sibSt.StudentName} ({sibSt.Class?.Name ?? sibSt.Batch?.Name ?? sibSt.RollNumber})";
+                                        lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, it.HeadName, string.IsNullOrWhiteSpace(sub) ? stLabel : $"{stLabel} • {sub}", sibInv.InvoiceNumber, itShare));
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            sibItems.Add(new FeeReceiptLineItemDto(sibItems.Count + 1, sibInv.Title ?? "Tuition & Coaching Fee Settlement", "Standard Tuition Fee installment", sibInv.InvoiceNumber, sibAllocAmt));
+                            var stLabel = $"{sibSt.StudentName} ({sibSt.Class?.Name ?? sibSt.Batch?.Name ?? sibSt.RollNumber})";
+                            lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, sibInv.Title ?? "Tuition & Coaching Fee Settlement", stLabel, sibInv.InvoiceNumber, sibAllocAmt));
+                        }
+                    }
+
+                    if (sibAdvDep > 0)
+                    {
+                        sibItems.Add(new FeeReceiptLineItemDto(sibItems.Count + 1, "Advance Fee Paid (Carried Forward)", "Excess Advance Credit", receiptNo, sibAdvDep));
+                        var stLabel = $"{sibSt.StudentName} ({sibSt.Class?.Name ?? sibSt.Batch?.Name ?? sibSt.RollNumber})";
+                        lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, "Advance Fee Paid (Carried Forward)", $"{stLabel} • Excess Advance Credit", receiptNo, sibAdvDep));
+                    }
+
+                    siblingBreakdowns.Add(new SiblingReceiptSummaryDto(
+                        sibSt.Id,
+                        sibSt.StudentName,
+                        sibSt.SchoolRollNumber ?? sibSt.RollNumber,
+                        sibSt.AdmissionNumber,
+                        sibSt.Class?.Name,
+                        sibSt.Section?.Name,
+                        sibSt.Batch?.Name,
+                        sibOwnLink?.Relationship ?? (sibSt.Gender?.StartsWith("F", StringComparison.OrdinalIgnoreCase) == true ? "Sister" : "Brother"),
+                        sibOwnLink != null && sibOwnLink.StudentId == sibSt.Id ? sibOwnLink.DiscountPercent : 0m,
+                        sibPaidAmt,
+                        sibRemDue,
+                        sibItems
+                    ));
+                }
+            }
+
             return Ok(new FeePaymentReceiptDto(
                 lastPayment?.Id ?? (selectedCirculations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
                 receiptNo,
@@ -1643,9 +1999,9 @@ public class FeesController : ControllerBase
                 student.Batch?.Name ?? "",
                 student.ParentName,
                 student.ParentWhatsAppPhone,
-                unpaidInvoices.Count > 1 ? "FIFO Multi-Invoice Settlement" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? (advanceDepositNow > 0 ? "Advance Fee Deposit" : "Library Fine Settlement")),
-                dto.AmountPaid,
-                totalOutstandingDue,
+                isFamilyReceipt ? $"Combined Family Settlement ({siblingBreakdowns!.Count} Siblings)" : (unpaidInvoices.Count > 1 ? "FIFO Multi-Invoice Settlement" : (unpaidInvoices.FirstOrDefault()?.InvoiceNumber ?? (advanceDepositNow > 0 ? "Advance Fee Deposit" : "Library Fine Settlement"))),
+                grandTotalFamilyAmountPaid,
+                grandTotalFamilyRemainingDue,
                 DateTime.UtcNow,
                 dto.Mode,
                 dto.TransactionRef,
@@ -1678,7 +2034,9 @@ public class FeesController : ControllerBase
                 (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
                 (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null,
                 student.JoiningDate,
-                student.AdmissionNumber
+                student.AdmissionNumber,
+                isFamilyReceipt,
+                siblingBreakdowns
             ));
         });
     }
@@ -1901,6 +2259,103 @@ public class FeesController : ControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
+        // Check if this receipt spans multiple sibling students (Combined Family Receipt)
+        var distinctStudentsInReceipt = payments
+            .Where(p => p.Invoice?.Student != null)
+            .Select(p => p.Invoice!.Student!)
+            .DistinctBy(s => s.Id)
+            .ToList();
+
+        bool isFamilyReceiptRec = distinctStudentsInReceipt.Count > 1;
+        List<SiblingReceiptSummaryDto>? siblingBreakdownsRec = null;
+
+        if (isFamilyReceiptRec)
+        {
+            var distinctStIds = distinctStudentsInReceipt.Select(s => s.Id).ToList();
+            var sibLinksRec = await _dbContext.StudentSiblings.AsNoTracking()
+                .Where(l => l.TenantId == tenantId && (distinctStIds.Contains(l.StudentId) || distinctStIds.Contains(l.SiblingStudentId)))
+                .ToListAsync();
+
+            var duesByStRec = await _dbContext.FeeInvoices.AsNoTracking()
+                .Where(i => distinctStIds.Contains(i.StudentId) && i.Status != InvoiceStatus.Cancelled)
+                .GroupBy(i => i.StudentId)
+                .Select(g => new { StudentId = g.Key, RemainingDue = g.Sum(x => x.TotalAmount - x.PaidAmount) })
+                .ToDictionaryAsync(x => x.StudentId, x => x.RemainingDue);
+
+            remainingDue = duesByStRec.Values.Sum();
+            totalDemandBeforePayment = (grandTotalPaid - totalAdvanceDeposit) + remainingDue;
+            siblingBreakdownsRec = new List<SiblingReceiptSummaryDto>();
+            lineItems.Clear();
+
+            foreach (var sibSt in distinctStudentsInReceipt)
+            {
+                var stPayments = payments.Where(p => p.Invoice?.StudentId == sibSt.Id).ToList();
+                decimal stPaidTotal = stPayments.Sum(p => p.AmountPaid);
+                duesByStRec.TryGetValue(sibSt.Id, out var stRemDue);
+
+                var ownLink = sibLinksRec
+                    .Where(l => l.StudentId == sibSt.Id)
+                    .OrderByDescending(l => l.DiscountPercent)
+                    .FirstOrDefault();
+                var anyLink = ownLink ?? sibLinksRec.FirstOrDefault(l => l.SiblingStudentId == sibSt.Id);
+
+                var stItems = new List<FeeReceiptLineItemDto>();
+                var stLabel = $"{sibSt.StudentName} ({sibSt.Class?.Name ?? sibSt.Batch?.Name ?? sibSt.RollNumber})";
+
+                foreach (var p in stPayments)
+                {
+                    decimal invAlloc = Math.Max(0m, p.AmountPaid - p.AdvanceDepositAmount);
+                    if (invAlloc > 0 && p.Invoice?.Items != null && p.Invoice.Items.Count > 0)
+                    {
+                        decimal remAlloc = invAlloc;
+                        var posItems = p.Invoice.Items.Where(it => it.Amount > 0).ToList();
+                        decimal totPos = posItems.Sum(it => it.Amount);
+                        for (int idx = 0; idx < posItems.Count; idx++)
+                        {
+                            var it = posItems[idx];
+                            decimal itShare = idx == posItems.Count - 1
+                                ? remAlloc
+                                : Math.Min(remAlloc, totPos > 0 ? Math.Round(invAlloc * (it.Amount / totPos), 2) : it.Amount);
+                            remAlloc -= itShare;
+                            if (itShare > 0)
+                            {
+                                var sub = FormatReceiptItemSubtitle(it.HeadName, p.Invoice.Title, it.Description);
+                                stItems.Add(new FeeReceiptLineItemDto(stItems.Count + 1, it.HeadName, sub, p.Invoice.InvoiceNumber, itShare));
+                                lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, it.HeadName, string.IsNullOrWhiteSpace(sub) ? stLabel : $"{stLabel} • {sub}", p.Invoice.InvoiceNumber, itShare));
+                            }
+                        }
+                    }
+                    else if (invAlloc > 0)
+                    {
+                        var title = p.Invoice?.Title ?? "Tuition & Coaching Fee Settlement";
+                        stItems.Add(new FeeReceiptLineItemDto(stItems.Count + 1, title, p.Remarks ?? "Monthly Tuition Fee installment", p.Invoice?.InvoiceNumber ?? "Tuition Fee", invAlloc));
+                        lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, title, stLabel, p.Invoice?.InvoiceNumber ?? "Tuition Fee", invAlloc));
+                    }
+
+                    if (p.AdvanceDepositAmount > 0)
+                    {
+                        stItems.Add(new FeeReceiptLineItemDto(stItems.Count + 1, "Advance Fee Paid (Carried Forward)", "Excess Advance Credit", receiptNumber, p.AdvanceDepositAmount));
+                        lineItems.Add(new FeeReceiptLineItemDto(lineItems.Count + 1, "Advance Fee Paid (Carried Forward)", $"{stLabel} • Excess Advance Credit", receiptNumber, p.AdvanceDepositAmount));
+                    }
+                }
+
+                siblingBreakdownsRec.Add(new SiblingReceiptSummaryDto(
+                    sibSt.Id,
+                    sibSt.StudentName,
+                    sibSt.SchoolRollNumber ?? sibSt.RollNumber,
+                    sibSt.AdmissionNumber,
+                    sibSt.Class?.Name,
+                    sibSt.Section?.Name,
+                    sibSt.Batch?.Name,
+                    anyLink?.Relationship ?? (sibSt.Gender?.StartsWith("F", StringComparison.OrdinalIgnoreCase) == true ? "Sister" : "Brother"),
+                    ownLink?.DiscountPercent ?? 0m,
+                    stPaidTotal,
+                    stRemDue,
+                    stItems
+                ));
+            }
+        }
+
         return Ok(new FeePaymentReceiptDto(
             firstPayment?.Id ?? (circulations.FirstOrDefault()?.Id ?? Guid.NewGuid()),
             receiptNumber,
@@ -1909,7 +2364,7 @@ public class FeesController : ControllerBase
             student?.Batch?.Name ?? "",
             student?.ParentName ?? "",
             student?.ParentWhatsAppPhone ?? "",
-            payments.Count > 1 ? "FIFO Multi-Invoice Settlement" : (firstPayment?.Invoice?.InvoiceNumber ?? "Library Fine Settlement"),
+            isFamilyReceiptRec ? $"Combined Family Settlement ({siblingBreakdownsRec!.Count} Siblings)" : (payments.Count > 1 ? "FIFO Multi-Invoice Settlement" : (firstPayment?.Invoice?.InvoiceNumber ?? "Library Fine Settlement")),
             grandTotalPaid,
             remainingDue,
             firstPayment != null ? DateTime.SpecifyKind(firstPayment.PaymentDate, DateTimeKind.Utc) : (circulations.FirstOrDefault()?.FinePaidAt ?? DateTime.UtcNow),
@@ -1944,7 +2399,9 @@ public class FeesController : ControllerBase
             (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteEnglish : null,
             (autoSettings?.ShowFooterNoteOnReceipt ?? true) ? autoSettings?.ReceiptFooterNoteHindi : null,
             student?.JoiningDate,
-            student?.AdmissionNumber
+            student?.AdmissionNumber,
+            isFamilyReceiptRec,
+            siblingBreakdownsRec
         ));
     }
 

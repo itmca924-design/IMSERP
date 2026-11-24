@@ -12,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
-import { FeesService, StudentLibraryDues, FeeInvoiceItem, FeeItemPayment } from '../../core/services/fees.service';
+import { FeesService, StudentLibraryDues, FeeInvoiceItem, FeeItemPayment, SiblingPendingDue, SiblingFeeCollectionItem } from '../../core/services/fees.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -59,6 +59,14 @@ export interface AdvanceMonthOption {
   periodSummary: string;
   monthsList: { year: number; month: number; monthName: string; dueDate: string }[];
   totalAmount: number;
+}
+
+export interface SiblingCollectionEntry {
+  sibling: SiblingPendingDue;
+  selected: boolean;
+  expanded: boolean;
+  payingAmount: number;
+  itemRows: FeeCollectionItemRow[];
 }
 
 @Component({
@@ -358,6 +366,142 @@ export interface AdvanceMonthOption {
                 <small class="chk-subtext">Will be added as a separate line item on the official fee receipt</small>
               </span>
             </mat-checkbox>
+          </div>
+        </div>
+      }
+
+      <!-- Sibling / Family Combined Fee Collection Card (if siblings have pending dues) -->
+      @if (siblingEntries.length > 0) {
+        <div class="sibling-family-collect-card" [class.has-selected-siblings]="selectedSiblingsTotal > 0">
+          <div class="sib-card-header">
+            <div class="sib-header-left">
+              <div class="sib-icon-box">
+                <mat-icon>family_restroom</mat-icon>
+              </div>
+              <div class="sib-header-text">
+                <div class="sib-title-row">
+                  <span class="sib-card-title">Sibling / Family Pending Dues Detected (भाई-बहन की बकाया फीस)</span>
+                  <span class="sib-count-pill">{{ siblingEntries.length }} {{ siblingEntries.length === 1 ? 'Sibling' : 'Siblings' }}</span>
+                </div>
+                <span class="sib-card-sub">Check any sibling below to collect their fee together &amp; print a Combined Family Receipt (एक ही रसीद पर सभी भाई-बहन)</span>
+              </div>
+            </div>
+            <div class="sib-header-right">
+              @if (selectedSiblingsTotal > 0) {
+                <span class="sib-added-pill">
+                  +₹{{ selectedSiblingsTotal | number:'1.2-2' }} Family Added
+                </span>
+              }
+              <button type="button" class="sib-toggle-all-btn" (click)="toggleAllSiblingsSelection()">
+                <mat-icon>{{ areAllSiblingsSelected ? 'check_box' : 'add_circle_outline' }}</mat-icon>
+                <span>{{ areAllSiblingsSelected ? 'Unselect Siblings' : 'Include All Siblings' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="sib-entries-list">
+            @for (entry of siblingEntries; track entry.sibling.studentId) {
+              <div class="sib-entry-box" [class.sib-selected]="entry.selected">
+                <div class="sib-entry-main">
+                  <div class="sib-chk-info">
+                    <mat-checkbox
+                      color="primary"
+                      [checked]="entry.selected"
+                      (change)="onSiblingToggle(entry, $event.checked)">
+                    </mat-checkbox>
+                    <div class="sib-meta">
+                      <div class="sib-name-line">
+                        <strong class="sib-name">{{ entry.sibling.studentName }}</strong>
+                        <span class="sib-roll">({{ entry.sibling.rollNumber }})</span>
+                        @if (entry.sibling.relationship) {
+                          <span class="sib-rel-badge">{{ entry.sibling.relationship }}</span>
+                        }
+                        @if (entry.sibling.className) {
+                          <span class="sib-cls-badge">🏫 {{ entry.sibling.className }}{{ entry.sibling.sectionName ? ' (' + entry.sibling.sectionName + ')' : '' }}</span>
+                        }
+                        @if (entry.sibling.batchName) {
+                          <span class="sib-batch-badge">🎯 {{ entry.sibling.batchName }}</span>
+                        }
+                        @if (entry.sibling.discountPercent > 0) {
+                          <span class="sib-disc-badge">🎁 {{ entry.sibling.discountPercent }}% Sibling Concession</span>
+                        }
+                      </div>
+                      <span class="sib-inv-summary">
+                        {{ entry.sibling.dueItems.length }} Pending {{ entry.sibling.dueItems.length === 1 ? 'Invoice' : 'Invoices' }} • Total Due: <strong>₹{{ entry.sibling.totalOutstandingDue | number:'1.2-2' }}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="sib-pay-controls">
+                    @if (entry.selected && entry.itemRows.length > 0) {
+                      <button type="button" class="sib-expand-btn" (click)="entry.expanded = !entry.expanded">
+                        <mat-icon>{{ entry.expanded ? 'expand_less' : 'tune' }}</mat-icon>
+                        <span>{{ entry.expanded ? 'Hide Heads' : 'Fee Heads (' + entry.itemRows.length + ')' }}</span>
+                      </button>
+                    }
+                    <div class="sib-amount-box" [class.disabled]="!entry.selected">
+                      <span class="curr">₹</span>
+                      <input
+                        #sibPayInput
+                        type="number"
+                        class="sib-pay-input"
+                        [disabled]="!entry.selected"
+                        [value]="entry.payingAmount"
+                        (input)="onSiblingAmountInput(entry, sibPayInput)"
+                        [max]="entry.sibling.totalOutstandingDue"
+                        min="0"
+                        step="0.01" />
+                    </div>
+                  </div>
+                </div>
+
+                @if (entry.selected && entry.expanded && entry.itemRows.length > 0) {
+                  <div class="sib-heads-subtable">
+                    <table class="heads-table compact-sib-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 38px; text-align: center;">Pay</th>
+                          <th>Sibling Fee Head Particulars</th>
+                          <th class="text-right" style="width: 100px;">Due (₹)</th>
+                          <th class="text-right" style="width: 120px;">Paying (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (sRow of entry.itemRows; track (sRow.id || $index)) {
+                          <tr>
+                            <td class="text-center">
+                              <mat-checkbox
+                                color="primary"
+                                [checked]="sRow.selected"
+                                (change)="onSiblingItemToggle(entry, sRow, $event.checked)">
+                              </mat-checkbox>
+                            </td>
+                            <td>
+                              <span class="head-name">{{ cleanHeadName(sRow.headName) }}</span>
+                              @if (sRow.invoiceTitle) {
+                                <small class="sib-head-period"> ({{ sRow.invoiceTitle }})</small>
+                              }
+                            </td>
+                            <td class="text-right">₹{{ sRow.dueAmount | number:'1.2-2' }}</td>
+                            <td class="text-right">
+                              <input
+                                #sHeadInput
+                                type="number"
+                                class="sib-head-pay-input"
+                                [disabled]="!sRow.selected"
+                                [value]="sRow.payingAmount"
+                                (input)="onSiblingItemAmountInput(entry, sRow, sHeadInput)"
+                                [max]="sRow.dueAmount"
+                                min="0"
+                                step="0.01" />
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            }
           </div>
         </div>
       }
@@ -2370,12 +2514,294 @@ export interface AdvanceMonthOption {
         margin-right: 8px;
       }
     }
+
+    /* Sibling / Family Combined Fee Collection Card */
+    .sibling-family-collect-card {
+      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      transition: all 0.2s ease;
+
+      &.has-selected-siblings {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+      }
+
+      .sib-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+
+        .sib-header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          min-width: 240px;
+
+          .sib-icon-box {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+            mat-icon { font-size: 20px; width: 20px; height: 20px; }
+          }
+
+          .sib-header-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+
+            .sib-title-row {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+            }
+            .sib-card-title {
+              font-size: 0.88rem;
+              font-weight: 700;
+              color: #1e3a8a;
+            }
+            .sib-count-pill {
+              background: #dbeafe;
+              color: #1d4ed8;
+              border: 1px solid #93c5fd;
+              font-size: 0.7rem;
+              font-weight: 700;
+              padding: 1px 7px;
+              border-radius: 10px;
+            }
+            .sib-card-sub {
+              font-size: 0.75rem;
+              color: #3b82f6;
+            }
+          }
+        }
+
+        .sib-header-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+
+          .sib-added-pill {
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 12px;
+          }
+
+          .sib-toggle-all-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #ffffff;
+            color: #1d4ed8;
+            border: 1px solid #93c5fd;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            cursor: pointer;
+            mat-icon { font-size: 16px; width: 16px; height: 16px; }
+            &:hover {
+              background: #eff6ff;
+              border-color: #2563eb;
+            }
+          }
+        }
+      }
+
+      .sib-entries-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .sib-entry-box {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 12px;
+        transition: all 0.15s ease;
+
+        &.sib-selected {
+          border-color: #2563eb;
+          background: #f8fafc;
+        }
+
+        .sib-entry-main {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .sib-chk-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
+          min-width: 220px;
+        }
+
+        .sib-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .sib-name-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+          .sib-name {
+            font-size: 0.86rem;
+            color: #0f172a;
+          }
+          .sib-roll {
+            font-size: 0.76rem;
+            color: #64748b;
+          }
+          .sib-rel-badge {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+          }
+          .sib-cls-badge {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 4px;
+          }
+          .sib-batch-badge {
+            background: #faf5ff;
+            color: #7e22ce;
+            border: 1px solid #e9d5ff;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 4px;
+          }
+          .sib-disc-badge {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+          }
+          .sib-inv-summary {
+            font-size: 0.74rem;
+            color: #475569;
+          }
+        }
+
+        .sib-pay-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .sib-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            mat-icon { font-size: 15px; width: 15px; height: 15px; }
+          }
+
+          .sib-amount-box {
+            display: inline-flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1.5px solid #2563eb;
+            border-radius: 6px;
+            padding: 3px 8px;
+            width: 120px;
+
+            &.disabled {
+              border-color: #cbd5e1;
+              background: #f1f5f9;
+              opacity: 0.65;
+            }
+            .curr {
+              font-weight: 700;
+              color: #1e40af;
+              margin-right: 4px;
+              font-size: 0.82rem;
+            }
+            .sib-pay-input {
+              width: 100%;
+              border: none;
+              outline: none;
+              background: transparent;
+              text-align: right;
+              font-weight: 700;
+              font-size: 0.86rem;
+              color: #0f172a;
+            }
+          }
+        }
+
+        .sib-heads-subtable {
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px dashed #cbd5e1;
+
+          .sib-head-period {
+            color: #64748b;
+            font-size: 0.72rem;
+          }
+          .sib-head-pay-input {
+            width: 90px;
+            text-align: right;
+            padding: 2px 6px;
+            border: 1px solid #93c5fd;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8rem;
+          }
+        }
+      }
+    }
   `]
 })
 export class FeeCollectionDialogComponent implements OnInit {
   feeForm!: FormGroup;
   saving = false;
   libraryDues?: StudentLibraryDues;
+  siblingEntries: SiblingCollectionEntry[] = [];
   baseTuitionAmount: number = 0;
   itemRows: FeeCollectionItemRow[] = [];
   studentTotalOutstanding: number = 0;
@@ -2602,6 +3028,9 @@ export class FeeCollectionDialogComponent implements OnInit {
     // Fetch student's pending library fines in background
     this.loadStudentLibraryDues();
 
+    // Fetch siblings' pending fee dues for Combined Family Fee Receipt
+    this.loadStudentSiblingDues();
+
     // Fetch unified pending invoices and item breakdown across all dues (Tuition, Kit, etc.)
     this.loadUnifiedStudentDues();
 
@@ -2638,9 +3067,83 @@ export class FeeCollectionDialogComponent implements OnInit {
   }
 
   get remainingDueAfterPay(): number {
-    const billDue = Math.max(0, this.studentTotalOutstanding || 0);
+    const billDue = Math.max(0, (this.studentTotalOutstanding || 0) + this.selectedSiblingsMaxDue);
     const entered = Number(this.feeForm?.get('amountPaid')?.value) || 0;
     return Math.max(0, Math.round((billDue - entered) * 100) / 100);
+  }
+
+  get selectedSiblingsTotal(): number {
+    return Math.round(this.siblingEntries.reduce((sum, e) => sum + (e.selected ? (Number(e.payingAmount) || 0) : 0), 0) * 100) / 100;
+  }
+
+  get selectedSiblingsMaxDue(): number {
+    return Math.round(this.siblingEntries.reduce((sum, e) => sum + (e.selected ? (Number(e.sibling.totalOutstandingDue) || 0) : 0), 0) * 100) / 100;
+  }
+
+  get areAllSiblingsSelected(): boolean {
+    return this.siblingEntries.length > 0 && this.siblingEntries.every(e => e.selected);
+  }
+
+  toggleAllSiblingsSelection(): void {
+    const target = !this.areAllSiblingsSelected;
+    for (const entry of this.siblingEntries) {
+      this.onSiblingToggle(entry, target);
+    }
+  }
+
+  onSiblingToggle(entry: SiblingCollectionEntry, checked: boolean): void {
+    entry.selected = checked;
+    entry.itemRows.forEach(r => {
+      r.selected = checked && r.dueAmount > 0;
+      r.payingAmount = r.selected ? r.dueAmount : 0;
+    });
+    entry.payingAmount = checked ? entry.sibling.totalOutstandingDue : 0;
+    this.recalculateTotal();
+  }
+
+  onSiblingAmountInput(entry: SiblingCollectionEntry, inputEl: HTMLInputElement): void {
+    let val = parseFloat(inputEl.value);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > entry.sibling.totalOutstandingDue) {
+      val = entry.sibling.totalOutstandingDue;
+      inputEl.value = String(val);
+    }
+    entry.payingAmount = Math.round(val * 100) / 100;
+    let rem = entry.payingAmount;
+    for (const r of entry.itemRows) {
+      if (rem <= 0) {
+        r.payingAmount = 0;
+        r.selected = false;
+      } else {
+        const alloc = Math.round(Math.min(rem, r.dueAmount) * 100) / 100;
+        r.payingAmount = alloc;
+        r.selected = alloc > 0;
+        rem = Math.round((rem - alloc) * 100) / 100;
+      }
+    }
+    this.recalculateTotal();
+  }
+
+  onSiblingItemToggle(entry: SiblingCollectionEntry, row: FeeCollectionItemRow, checked: boolean): void {
+    row.selected = checked;
+    row.payingAmount = checked ? row.dueAmount : 0;
+    entry.payingAmount = Math.round(entry.itemRows.reduce((s, r) => s + (r.selected ? r.payingAmount : 0), 0) * 100) / 100;
+    entry.selected = entry.payingAmount > 0;
+    this.recalculateTotal();
+  }
+
+  onSiblingItemAmountInput(entry: SiblingCollectionEntry, row: FeeCollectionItemRow, inputEl: HTMLInputElement): void {
+    let val = parseFloat(inputEl.value);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > row.dueAmount) {
+      val = row.dueAmount;
+      inputEl.value = String(val);
+    }
+    row.payingAmount = Math.round(val * 100) / 100;
+    row.selected = row.payingAmount > 0;
+    entry.payingAmount = Math.round(entry.itemRows.reduce((s, r) => s + (r.selected ? r.payingAmount : 0), 0) * 100) / 100;
+    entry.selected = entry.payingAmount > 0;
+    this.recalculateTotal();
   }
 
   get totalAdvanceInPayment(): number {
@@ -2737,8 +3240,12 @@ export class FeeCollectionDialogComponent implements OnInit {
     const advanceTotal = (this.selectedAdvanceOption && this.selectedAdvanceOption.monthCount > 0)
       ? this.selectedAdvanceOption.totalAmount
       : 0;
-    const newAmount = Math.round((tuitionTotal + libFine + advanceTotal + this.customAdvanceCreditAmount) * 100) / 100;
+    const siblingsTotal = this.selectedSiblingsTotal;
+    const newAmount = Math.round((tuitionTotal + libFine + advanceTotal + this.customAdvanceCreditAmount + siblingsTotal) * 100) / 100;
     this.feeForm.patchValue({ amountPaid: newAmount }, { emitEvent: false });
+    if (this.feeForm.get('mode')?.value === 1) {
+      setTimeout(() => this.generateCounterQr(), 80);
+    }
   }
 
   onTotalAmountFocus(event: FocusEvent): void {
@@ -3059,6 +3566,51 @@ export class FeeCollectionDialogComponent implements OnInit {
     });
   }
 
+  loadStudentSiblingDues(): void {
+    if (!this.data?.studentId) return;
+    this.feesService.getStudentSiblingDues(this.data.studentId).subscribe({
+      next: (siblings) => {
+        this.siblingEntries = (siblings || []).map(sib => {
+          const rows: FeeCollectionItemRow[] = [];
+          for (const inv of (sib.dueItems || [])) {
+            if (inv.breakdown && inv.breakdown.length > 0) {
+              const invRows = this.buildReconciledRows(inv.breakdown, inv.invoiceId, inv.title);
+              for (const r of invRows) {
+                if (r.dueAmount > 0) {
+                  r.selected = false;
+                  r.payingAmount = 0;
+                  rows.push(r);
+                }
+              }
+            } else if (inv.dueAmount > 0) {
+              rows.push({
+                id: inv.invoiceId,
+                invoiceId: inv.invoiceId,
+                invoiceTitle: inv.title,
+                headName: inv.title || 'Fee Bill',
+                amount: inv.totalAmount,
+                paidAmount: inv.paidAmount,
+                dueAmount: inv.dueAmount,
+                selected: false,
+                payingAmount: 0
+              });
+            }
+          }
+          return {
+            sibling: sib,
+            selected: false,
+            expanded: false,
+            payingAmount: 0,
+            itemRows: rows
+          };
+        });
+      },
+      error: (err) => {
+        console.warn('Could not load sibling pending dues:', err);
+      }
+    });
+  }
+
   loadUnifiedStudentDues(): void {
     if (!this.data?.studentId) return;
 
@@ -3158,10 +3710,14 @@ export class FeeCollectionDialogComponent implements OnInit {
     }
 
     const periodSuffix = detectedPeriods.length > 0 ? ` (${detectedPeriods.join(', ')})` : '';
+    const activeSiblings = this.siblingEntries.filter(e => e.selected && e.payingAmount > 0);
+    const siblingNamesNote = activeSiblings.length > 0
+      ? ` + Sibling(s): ${activeSiblings.map(s => `${s.sibling.studentName} (₹${s.payingAmount.toLocaleString('en-IN')})`).join(', ')}`
+      : '';
 
     const confirmed = await firstValueFrom(this.confirmDialog.confirm(
-      'Confirm Fee Collection?',
-      `Are you sure you want to collect ${formattedAmount} via ${modeName} for ${studentName}${periodSuffix} and issue the official receipt?`,
+      activeSiblings.length > 0 ? 'Confirm Combined Family Fee Collection?' : 'Confirm Fee Collection?',
+      `Are you sure you want to collect ${formattedAmount} via ${modeName} for ${studentName}${periodSuffix}${siblingNamesNote} and issue the official ${activeSiblings.length > 0 ? 'Combined Family Receipt' : 'receipt'}?`,
       'Yes, Collect & Issue Receipt',
       'Cancel',
       'info'
@@ -3203,9 +3759,21 @@ export class FeeCollectionDialogComponent implements OnInit {
           .map(r => ({ itemId: r.id, amount: Math.round(r.payingAmount * 100) / 100 }))
       : undefined;
 
+    const siblingPayments: SiblingFeeCollectionItem[] | undefined = activeSiblings.length > 0
+      ? activeSiblings.map(e => ({
+          studentId: e.sibling.studentId,
+          amountPaid: Math.round(e.payingAmount * 100) / 100,
+          itemPayments: e.itemRows
+            .filter(r => r.selected && r.payingAmount > 0)
+            .map(r => ({ itemId: r.id, amount: Math.round(r.payingAmount * 100) / 100 }))
+        }))
+      : undefined;
+
+    const primaryAmountPaid = Math.max(0, Math.round((Number(formVal.amountPaid) - this.selectedSiblingsTotal) * 100) / 100);
+
     const payload = {
       studentId: this.data.studentId,
-      amountPaid: Math.round(Number(formVal.amountPaid) * 100) / 100,
+      amountPaid: primaryAmountPaid,
       mode: Number(formVal.mode),
       transactionRef: formVal.transactionRef || undefined,
       remarks: (formVal.remarks && formVal.remarks !== 'Fee Payment')
@@ -3214,7 +3782,8 @@ export class FeeCollectionDialogComponent implements OnInit {
       sendWhatsAppReceipt: !!formVal.sendWhatsAppReceipt,
       includeLibraryFine: !!includeLibFine,
       libraryCirculationIds: includeLibFine && this.libraryDues ? this.libraryDues.pendingFines.map(f => f.circulationId) : [],
-      itemPayments: itemPayments
+      itemPayments: itemPayments,
+      siblingPayments: siblingPayments
     };
 
     this.feesService.collectFeeFifo(payload).subscribe({

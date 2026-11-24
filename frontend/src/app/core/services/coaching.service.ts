@@ -155,6 +155,15 @@ export class CoachingService {
     linkedDiscountPercent?: number | null;
     linkedRelationship?: string | null;
     linkedNotes?: string | null;
+    allSiblings?: Array<{
+      studentId: string;
+      studentName: string;
+      gender?: string | null;
+      className?: string | null;
+      sectionName?: string | null;
+      batchName?: string | null;
+      branchName?: string | null;
+    }>;
   }> {
     const params: any = { phone };
     if (excludeStudentId) params.excludeStudentId = excludeStudentId;

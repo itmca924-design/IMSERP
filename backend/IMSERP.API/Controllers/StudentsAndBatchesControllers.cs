@@ -2312,9 +2312,32 @@ public class StudentsController : ControllerBase
     /// Discount is stored on the link where StudentId = this student, so the invoice engine
     /// applies it to this student's School + Coaching academic fees.
     /// </summary>
-    private async Task UpsertSiblingLinkFromFormAsync(Student student, CreateStudentDto dto)
+    private async Task UpsertSiblingLinkFromFormAsync(Student student, CreateStudentDto dto, bool isUpdate = false)
     {
-        if (!dto.LinkedSiblingStudentId.HasValue || dto.LinkedSiblingStudentId.Value == Guid.Empty) return;
+        if (!dto.LinkedSiblingStudentId.HasValue || dto.LinkedSiblingStudentId.Value == Guid.Empty)
+        {
+            if (isUpdate)
+            {
+                // If admin unchecked sibling link in Edit Mode, remove this student's own sibling concession link
+                var ownLinks = await _dbContext.StudentSiblings
+                    .Where(l => l.StudentId == student.Id)
+                    .ToListAsync();
+                if (ownLinks.Any())
+                {
+                    _dbContext.StudentSiblings.RemoveRange(ownLinks);
+                }
+
+                // Also remove any 0% reverse link that had no discount attached to the other sibling
+                var zeroReverseLinks = await _dbContext.StudentSiblings
+                    .Where(l => l.SiblingStudentId == student.Id && l.DiscountPercent <= 0)
+                    .ToListAsync();
+                if (zeroReverseLinks.Any())
+                {
+                    _dbContext.StudentSiblings.RemoveRange(zeroReverseLinks);
+                }
+            }
+            return;
+        }
         if (dto.LinkedSiblingStudentId.Value == student.Id) return;
 
         var siblingExists = await _dbContext.Students.AsNoTracking()
@@ -2325,23 +2348,45 @@ public class StudentsController : ControllerBase
         var relationship = string.IsNullOrWhiteSpace(dto.SiblingRelationship) ? null : dto.SiblingRelationship.Trim();
         var notes = string.IsNullOrWhiteSpace(dto.SiblingDiscountNotes) ? null : dto.SiblingDiscountNotes.Trim();
 
-        var existingLink = await _dbContext.StudentSiblings.FirstOrDefaultAsync(l =>
-            (l.StudentId == student.Id && l.SiblingStudentId == dto.LinkedSiblingStudentId.Value) ||
-            (l.StudentId == dto.LinkedSiblingStudentId.Value && l.SiblingStudentId == student.Id));
+        // Check direct link owned by this student first
+        var ownExistingLink = await _dbContext.StudentSiblings.FirstOrDefaultAsync(l =>
+            l.StudentId == student.Id && l.SiblingStudentId == dto.LinkedSiblingStudentId.Value);
 
-        if (existingLink != null)
+        if (ownExistingLink != null)
         {
-            // Keep the discount on this student's side of the link
-            if (existingLink.StudentId != student.Id)
-            {
-                existingLink.SiblingStudentId = existingLink.StudentId;
-                existingLink.StudentId = student.Id;
-            }
-            existingLink.DiscountPercent = discount;
-            if (relationship != null) existingLink.Relationship = relationship;
-            if (notes != null) existingLink.Notes = notes;
-            existingLink.BranchId ??= student.BranchId;
+            ownExistingLink.DiscountPercent = discount;
+            if (relationship != null) ownExistingLink.Relationship = relationship;
+            if (notes != null) ownExistingLink.Notes = notes;
+            ownExistingLink.BranchId ??= student.BranchId;
             return;
+        }
+
+        // Check reverse link owned by the other sibling
+        var reverseExistingLink = await _dbContext.StudentSiblings.FirstOrDefaultAsync(l =>
+            l.StudentId == dto.LinkedSiblingStudentId.Value && l.SiblingStudentId == student.Id);
+
+        if (reverseExistingLink != null)
+        {
+            if (reverseExistingLink.DiscountPercent <= 0)
+            {
+                // Reverse link had no discount on the other sibling; safe to assign ownership to this student
+                reverseExistingLink.SiblingStudentId = reverseExistingLink.StudentId;
+                reverseExistingLink.StudentId = student.Id;
+                reverseExistingLink.DiscountPercent = discount;
+                if (relationship != null) reverseExistingLink.Relationship = relationship;
+                if (notes != null) reverseExistingLink.Notes = notes;
+                reverseExistingLink.BranchId ??= student.BranchId;
+                return;
+            }
+            else if (discount <= 0)
+            {
+                // Other sibling owns a discount > 0 on reverseExistingLink, and this student has 0% discount.
+                // Do NOT flip StudentId (which would steal the other sibling's discount)!
+                if (relationship != null) reverseExistingLink.Relationship = relationship;
+                if (notes != null) reverseExistingLink.Notes = notes;
+                return;
+            }
+            // If both siblings have discount > 0, fall through to create a directional link for this student as well
         }
 
         var link = new StudentSibling
@@ -2384,7 +2429,8 @@ public class StudentsController : ControllerBase
         if (excludeStudentId.HasValue && excludeStudentId != Guid.Empty)
             query = query.Where(s => s.Id != excludeStudentId.Value);
 
-        var existing = await query
+        var matches = await query
+            .OrderBy(s => s.JoiningDate)
             .Select(s => new
             {
                 s.Id,
@@ -2400,28 +2446,43 @@ public class StudentsController : ControllerBase
                 BatchName = s.Batch != null ? s.Batch.Name : "",
                 BranchName = s.Branch != null ? s.Branch.Name : (s.Batch != null && s.Batch.Branch != null ? s.Batch.Branch.Name : "")
             })
-            .FirstOrDefaultAsync();
+            .ToListAsync();
 
-        if (existing != null)
+        if (matches.Any())
         {
-            var isSameStudent = !string.IsNullOrWhiteSpace(currentStudentName)
-                && string.Equals(existing.StudentName.Trim(), currentStudentName.Trim(), StringComparison.OrdinalIgnoreCase);
+            var duplicateMatch = !string.IsNullOrWhiteSpace(currentStudentName)
+                ? matches.FirstOrDefault(m => string.Equals(m.StudentName.Trim(), currentStudentName.Trim(), StringComparison.OrdinalIgnoreCase))
+                : null;
+            var isSameStudent = duplicateMatch != null;
+            var matchedIds = matches.Select(m => m.Id).ToList();
 
-            // Family discount already configured for this sibling group (tenant data, not hardcoded)
+            // Family discount already configured across this sibling group (tenant data, not hardcoded)
             var familyDiscount = await _dbContext.StudentSiblings.AsNoTracking()
-                .Where(l => l.TenantId == tenantId && (l.StudentId == existing.Id || l.SiblingStudentId == existing.Id))
+                .Where(l => l.TenantId == tenantId && (matchedIds.Contains(l.StudentId) || matchedIds.Contains(l.SiblingStudentId)))
                 .Select(l => (decimal?)l.DiscountPercent)
                 .MaxAsync() ?? 0m;
 
-            // Already linked with the student being edited? Return that link's own saved values.
+            // Already linked with the student being edited? Prefer the link owned by excludeStudentId
             var existingLink = (excludeStudentId.HasValue && excludeStudentId != Guid.Empty)
                 ? await _dbContext.StudentSiblings.AsNoTracking()
-                    .Where(l => (l.StudentId == excludeStudentId.Value && l.SiblingStudentId == existing.Id) ||
-                                (l.StudentId == existing.Id && l.SiblingStudentId == excludeStudentId.Value))
-                    .Select(l => new { l.DiscountPercent, l.Relationship, l.Notes })
+                    .Where(l => (l.StudentId == excludeStudentId.Value && matchedIds.Contains(l.SiblingStudentId)) ||
+                                (matchedIds.Contains(l.StudentId) && l.SiblingStudentId == excludeStudentId.Value))
+                    .OrderByDescending(l => l.StudentId == excludeStudentId.Value)
+                    .Select(l => new { l.StudentId, l.SiblingStudentId, l.DiscountPercent, l.Relationship, l.Notes })
                     .FirstOrDefaultAsync()
                 : null;
             var alreadyLinked = existingLink != null;
+            var ownDiscountPercent = existingLink != null
+                ? (excludeStudentId.HasValue && existingLink.StudentId == excludeStudentId.Value ? existingLink.DiscountPercent : 0m)
+                : (decimal?)null;
+
+            var linkedPartnerId = existingLink != null
+                ? (excludeStudentId.HasValue && existingLink.StudentId == excludeStudentId.Value ? existingLink.SiblingStudentId : existingLink.StudentId)
+                : (Guid?)null;
+
+            var existing = duplicateMatch
+                ?? (linkedPartnerId.HasValue ? matches.FirstOrDefault(m => m.Id == linkedPartnerId.Value) : null)
+                ?? matches.First();
 
             return Ok(new
             {
@@ -2442,9 +2503,19 @@ public class StudentsController : ControllerBase
                 branchName = existing.BranchName,
                 existingFamilyDiscountPercent = familyDiscount,
                 isAlreadyLinked = alreadyLinked,
-                linkedDiscountPercent = existingLink?.DiscountPercent,
+                linkedDiscountPercent = ownDiscountPercent,
                 linkedRelationship = existingLink?.Relationship,
-                linkedNotes = existingLink?.Notes
+                linkedNotes = existingLink?.Notes,
+                allSiblings = matches.Select(m => new
+                {
+                    studentId = m.Id,
+                    studentName = m.StudentName,
+                    gender = m.Gender,
+                    className = m.ClassName,
+                    sectionName = m.SectionName,
+                    batchName = m.BatchName,
+                    branchName = m.BranchName
+                }).ToList()
             });
         }
 
@@ -3369,7 +3440,7 @@ public class StudentsController : ControllerBase
             }
 
             // ── Sibling & Family Linkage chosen on Edit ──
-            await UpsertSiblingLinkFromFormAsync(student, dto);
+            await UpsertSiblingLinkFromFormAsync(student, dto, isUpdate: true);
 
             await _dbContext.SaveChangesAsync();
 
