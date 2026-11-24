@@ -430,9 +430,8 @@ export interface BulkFeePrintDialogData {
                             }
                             @if (slip.siblingsInfo && slip.siblingsInfo.length > 0) {
                               <div class="bulk-sibling-family-badge" (click)="openCombinedFamilyDemandBill(slip); $event.stopPropagation()" matTooltip="Click to view / print Combined Family Demand Bill for all siblings">
-                                <span class="fam-ic">👨‍👩‍👧‍👦</span>
                                 <span class="fam-txt">
-                                  Sibling:
+                                  👨‍👩‍👧‍👦 <strong>Sibling:</strong>
                                   @for (sib of slip.siblingsInfo; track sib.studentId; let isLast = $last) {
                                     <strong>{{ sib.studentName }}</strong> ({{ sib.className || sib.batchName || 'Gen' }}: ₹{{ sib.balanceDue | number:'1.0-0' }}){{ !isLast ? ', ' : '' }}
                                   }
@@ -1378,19 +1377,18 @@ export interface BulkFeePrintDialogData {
     }
 
     .bulk-sibling-family-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+      display: inline-block;
       margin-top: 4px;
-      padding: 2.5px 7px;
+      padding: 3px 8px;
       border-radius: 5px;
       background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
       border: 1px solid #93c5fd;
       color: #1e3a8a;
       font-size: 10.5px;
-      line-height: 1.3;
-      max-width: 260px;
+      line-height: 1.35;
+      max-width: 300px;
       white-space: normal;
+      text-align: left;
       cursor: pointer;
       transition: all 0.15s ease;
 
@@ -1403,6 +1401,7 @@ export interface BulkFeePrintDialogData {
         color: #b91c1c;
         font-weight: 800;
         margin-left: 3px;
+        white-space: nowrap;
       }
     }
 
@@ -2331,9 +2330,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       .join(', ');
     const famTotal = Number(slip.familyTotalDue || (slip.totalBalanceDue + sibsWithDues.reduce((a, b) => a + b.balanceDue, 0))).toLocaleString('en-IN');
     if (compact) {
-      return `<div style="font-size:6.8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:3px;padding:1.5px 4px;margin-bottom:2px;display:flex;justify-content:space-between;gap:4px;white-space:nowrap;overflow:hidden;"><span>👨‍👩‍👧‍👦 Sibling: <strong>${sibText}</strong></span><strong style="color:#b91c1c;">Family Total: ₹${famTotal}</strong></div>`;
+      return `<div style="font-size:7.2px;line-height:1.3;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:3px;padding:2.5px 5px;margin-bottom:3px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 6px;"><span>👨‍👩‍👧‍👦 Sibling: <strong>${sibText}</strong></span><strong style="color:#b91c1c;white-space:nowrap;">Family Total: ₹${famTotal}</strong></div>`;
     }
-    return `<div style="font-size:8px;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:4px;padding:2.5px 6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>👨‍👩‍👧‍👦 <strong>Family Sibling Dues:</strong> ${sibText}</span><strong style="color:#b91c1c;white-space:nowrap;">Total Family Due: ₹${famTotal}</strong></div>`;
+    return `<div style="font-size:8px;line-height:1.35;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:4px;padding:3px 6px;margin-bottom:4px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:3px 8px;"><span>👨‍👩‍👧‍👦 <strong>Family Sibling Dues:</strong> ${sibText}</span><strong style="color:#b91c1c;white-space:nowrap;">Total Family Due: ₹${famTotal}</strong></div>`;
   }
 
   getSelectedDueSlipsTotal(): number {
@@ -4067,7 +4066,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             justify-content: flex-start;
             gap: 4mm;
             box-sizing: border-box;
-            height: 297mm;
+            height: auto;
             max-height: 297mm;
             padding: 4mm 6mm;
           }
@@ -4079,7 +4078,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             justify-content: flex-start;
             gap: 4mm;
             box-sizing: border-box;
-            height: 297mm;
+            height: auto;
             max-height: 297mm;
             padding: 4mm 6mm;
           }
@@ -4123,6 +4122,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .grid-row-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
+            align-items: start;
             gap: 5mm;
             box-sizing: border-box;
             width: 100%;
@@ -4227,15 +4227,16 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .card-grid-4 {
             border: 1.5px dashed #475569;
             border-radius: 6px;
-            padding: 5px 7px;
+            padding: 6px 8px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 4px;
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
             background: #ffffff;
-            height: 135mm;
+            height: auto;
             max-height: 135mm;
             overflow: hidden;
           }
@@ -4675,15 +4676,16 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .card-grid-3 {
             border: 1.5px dashed #475569;
             border-radius: 6px;
-            padding: 5px 8px;
+            padding: 6px 8px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 4px;
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
             background: #ffffff;
-            height: 88mm;
+            height: auto;
             max-height: 88mm;
             overflow: hidden;
             width: 100%;
