@@ -196,9 +196,14 @@ public class StudentBulkImportController : ControllerBase
             .Where(c => c.TenantId == tenantId && c.IsActive)
             .ToListAsync();
 
-        var classMap = existingClasses
-            .GroupBy(c => NormalizeName(c.Name))
-            .ToDictionary(g => g.Key, g => g.First());
+        var classMap = new Dictionary<string, SchoolClass>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in existingClasses)
+        {
+            var nNameKey = NormalizeName(c.Name);
+            if (!string.IsNullOrEmpty(nNameKey)) classMap.TryAdd(nNameKey, c);
+            var nCodeKey = NormalizeName(c.Code);
+            if (!string.IsNullOrEmpty(nCodeKey)) classMap.TryAdd(nCodeKey, c);
+        }
 
         // 3. Load existing Custom Field Definitions
         var existingCustomDefs = await _dbContext.CustomFieldDefinitions
