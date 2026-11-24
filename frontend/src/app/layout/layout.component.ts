@@ -4091,6 +4091,20 @@ export class LayoutComponent implements OnInit {
     });
   }
 
+  private onBeforeInstallPrompt = (e: any) => {
+    this.deferredPrompt = e;
+    this.canInstallPwa.set(true);
+  };
+
+  private onAppInstalled = () => {
+    this.canInstallPwa.set(false);
+    this.deferredPrompt = null;
+    this.isAppInstalled.set(true);
+  };
+
+  private onWindowOnline = () => this.isOnline.set(true);
+  private onWindowOffline = () => this.isOnline.set(false);
+
   ngOnInit(): void {
     this.breakpointObserver.observe(['(max-width: 960px)']).subscribe((result) => {
       if (this.isMobile() !== result.matches) {
@@ -4103,20 +4117,10 @@ export class LayoutComponent implements OnInit {
 
     // ── Progressive Web App (PWA) Event Handlers ──
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeinstallprompt', (e: any) => {
-        e.preventDefault();
-        this.deferredPrompt = e;
-        this.canInstallPwa.set(true);
-      });
-
-      window.addEventListener('appinstalled', () => {
-        this.canInstallPwa.set(false);
-        this.deferredPrompt = null;
-        this.isAppInstalled.set(true);
-      });
-
-      window.addEventListener('online', () => this.isOnline.set(true));
-      window.addEventListener('offline', () => this.isOnline.set(false));
+      window.addEventListener('beforeinstallprompt', this.onBeforeInstallPrompt);
+      window.addEventListener('appinstalled', this.onAppInstalled);
+      window.addEventListener('online', this.onWindowOnline);
+      window.addEventListener('offline', this.onWindowOffline);
 
       if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
         this.isAppInstalled.set(true);
@@ -4271,6 +4275,12 @@ export class LayoutComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeinstallprompt', this.onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', this.onAppInstalled);
+      window.removeEventListener('online', this.onWindowOnline);
+      window.removeEventListener('offline', this.onWindowOffline);
+    }
     this.routerSub?.unsubscribe();
     this.idleTimeout.stopMonitoring();
     this.presenceService.stopConnection();

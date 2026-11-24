@@ -58,23 +58,71 @@ public class ChatController : ControllerBase
         // Auto-provision class group conversation for student or teacher if not already added
         await AutoProvisionClassRoomsAsync(tenantId, userId, branchId);
 
-        // Fetch all conversations where current user is a participant
-        var participantEntries = await _dbContext.ChatParticipants
+        // 1. Fetch current user's participation entries (no cycle)
+        var myParticipations = await _dbContext.ChatParticipants
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(p => p.TenantId == tenantId && p.UserId == userId)
-            .Include(p => p.Conversation)
-                .ThenInclude(c => c!.Participants)
-                    .ThenInclude(cp => cp.User)
-            .OrderByDescending(p => p.Conversation!.LastMessageAt ?? p.Conversation!.CreatedAt)
+            .Select(p => new
+            {
+                p.ConversationId,
+                p.UnreadCount
+            })
             .ToListAsync();
+
+        if (myParticipations.Count == 0)
+        {
+            return Ok(new List<ChatConversationDto>());
+        }
+
+        var convIds = myParticipations.Select(p => p.ConversationId).Distinct().ToList();
+        var unreadByConv = myParticipations
+            .GroupBy(p => p.ConversationId)
+            .ToDictionary(g => g.Key, g => g.First().UnreadCount);
+
+        // 2. Fetch active conversations for those IDs
+        var conversations = await _dbContext.ChatConversations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => c.TenantId == tenantId && convIds.Contains(c.Id) && c.IsActive)
+            .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
+            .ToListAsync();
+
+        if (conversations.Count == 0)
+        {
+            return Ok(new List<ChatConversationDto>());
+        }
+
+        var activeConvIds = conversations.Select(c => c.Id).ToList();
+
+        // 3. Fetch all participants for these conversations via flat projection (avoids EF Core Include cycle & avoids pulling heavy User columns)
+        var allParticipants = await _dbContext.ChatParticipants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(p => p.TenantId == tenantId && activeConvIds.Contains(p.ConversationId))
+            .Select(p => new
+            {
+                p.Id,
+                p.ConversationId,
+                p.UserId,
+                p.RoleInChat,
+                FullName = p.User != null ? p.User.FullName : "Member",
+                Role = p.User != null ? p.User.Role.ToString() : "User",
+                ProfilePhoto = p.User != null ? p.User.ProfilePhoto : null
+            })
+            .ToListAsync();
+
+        var participantsByConv = allParticipants
+            .GroupBy(p => p.ConversationId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         var result = new List<ChatConversationDto>();
 
-        foreach (var entry in participantEntries)
+        foreach (var conv in conversations)
         {
-            var conv = entry.Conversation;
-            if (conv == null || !conv.IsActive) continue;
+            var convParticipants = participantsByConv.TryGetValue(conv.Id, out var pList)
+                ? pList
+                : new();
 
             var dto = new ChatConversationDto
             {
@@ -90,36 +138,36 @@ public class ChatController : ControllerBase
                 LastMessageAt = conv.LastMessageAt,
                 LastMessageSenderId = conv.LastMessageSenderId,
                 LastMessageSenderName = conv.LastMessageSenderName,
-                UnreadCount = entry.UnreadCount
+                UnreadCount = unreadByConv.TryGetValue(conv.Id, out var uCount) ? uCount : 0
             };
 
             // If 1-on-1 Direct Chat, personalize Title & Avatar to the OTHER participant
             if (conv.ConversationType == ChatConversationType.Direct1on1)
             {
-                var otherParticipant = conv.Participants.FirstOrDefault(p => p.UserId != userId);
-                if (otherParticipant?.User != null)
+                var otherParticipant = convParticipants.FirstOrDefault(p => p.UserId != userId);
+                if (otherParticipant != null)
                 {
-                    dto.Title = otherParticipant.User.FullName;
-                    dto.AvatarUrl = otherParticipant.User.ProfilePhoto;
+                    dto.Title = otherParticipant.FullName;
+                    dto.AvatarUrl = otherParticipant.ProfilePhoto;
                     dto.TargetUserId = otherParticipant.UserId;
-                    dto.TargetUserRole = otherParticipant.User.Role.ToString();
+                    dto.TargetUserRole = otherParticipant.Role;
                     dto.IsOnline = _presenceTracker.IsUserOnline(otherParticipant.UserId);
                 }
             }
             else
             {
                 // Group chat: check if any participant is online
-                dto.IsOnline = conv.Participants.Any(p => p.UserId != userId && _presenceTracker.IsUserOnline(p.UserId));
+                dto.IsOnline = convParticipants.Any(p => p.UserId != userId && _presenceTracker.IsUserOnline(p.UserId));
             }
 
-            dto.Participants = conv.Participants.Select(p => new ChatParticipantDto
+            dto.Participants = convParticipants.Select(p => new ChatParticipantDto
             {
                 Id = p.Id,
                 UserId = p.UserId,
-                FullName = p.User?.FullName ?? "Member",
-                Role = p.User?.Role.ToString() ?? "User",
+                FullName = p.FullName,
+                Role = p.Role,
                 RoleInChat = p.RoleInChat,
-                AvatarUrl = p.User?.ProfilePhoto,
+                AvatarUrl = p.ProfilePhoto,
                 IsOnline = _presenceTracker.IsUserOnline(p.UserId)
             }).ToList();
 
