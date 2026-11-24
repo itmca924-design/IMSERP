@@ -610,12 +610,19 @@ public class StudentsController : ControllerBase
         if (classId == Guid.Empty)
             return BadRequest(new { message = "classId is required." });
 
-        // Count all school students in this class (class-wide, not section-wise)
-        // Class 7 → 1,2,3,4... | Class 8 → 1,2,3,4... (each class resets independently)
-        var count = await _dbContext.Students.AsNoTracking()
-            .CountAsync(s => s.TenantId == _currentUser.TenantId && s.ClassId == classId && s.IsSchoolStudent && !s.IsDeleted);
+        // Class-wide DB MAX + 1 (not section-wise): e.g. LKG -> 1,2,3... | UKG -> 1,2,3...
+        var existingRolls = await _dbContext.Students.AsNoTracking()
+            .Where(s => s.TenantId == _currentUser.TenantId && s.ClassId == classId && s.IsSchoolStudent && !s.IsDeleted)
+            .Select(s => s.SchoolRollNumber ?? s.RollNumber)
+            .ToListAsync();
 
-        return Ok(new { schoolRollNumber = (count + 1).ToString() });
+        int maxRoll = 0;
+        foreach (var r in existingRolls)
+        {
+            if (int.TryParse(r, out var n) && n > maxRoll) maxRoll = n;
+        }
+
+        return Ok(new { schoolRollNumber = (maxRoll + 1).ToString() });
     }
 
     [HttpGet("{id}/attendance")]

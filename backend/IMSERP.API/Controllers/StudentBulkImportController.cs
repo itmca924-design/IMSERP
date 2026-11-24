@@ -281,17 +281,16 @@ public class StudentBulkImportController : ControllerBase
             }
         }
 
-        // Track roll numbers per class+section
-        var rollCounterByClassSec = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        // Track Class-Wise DB MAX roll numbers (1, 2, 3... per Class across all sections)
+        var rollCounterByClass = new Dictionary<Guid, int>();
         foreach (var es in existingStudents)
         {
             if (es.ClassId.HasValue)
             {
-                var rk = $"{es.ClassId}|{es.SectionId}";
                 var rNum = 0;
                 int.TryParse(es.SchoolRollNumber ?? es.RollNumber, out rNum);
-                if (!rollCounterByClassSec.TryGetValue(rk, out var cur) || rNum > cur)
-                    rollCounterByClassSec[rk] = rNum;
+                if (!rollCounterByClass.TryGetValue(es.ClassId.Value, out var cur) || rNum > cur)
+                    rollCounterByClass[es.ClassId.Value] = rNum;
             }
         }
 
@@ -544,9 +543,8 @@ public class StudentBulkImportController : ControllerBase
                 string finalRollNo = rollNo;
                 if (string.IsNullOrWhiteSpace(finalRollNo) && resolvedClassId.HasValue)
                 {
-                    var rk = $"{resolvedClassId}|{resolvedSectionId}";
-                    var nextRoll = (rollCounterByClassSec.TryGetValue(rk, out var cur) ? cur : 0) + 1;
-                    rollCounterByClassSec[rk] = nextRoll;
+                    var nextRoll = (rollCounterByClass.TryGetValue(resolvedClassId.Value, out var cur) ? cur : 0) + 1;
+                    rollCounterByClass[resolvedClassId.Value] = nextRoll;
                     finalRollNo = nextRoll.ToString();
                 }
                 if (string.IsNullOrWhiteSpace(finalRollNo)) finalRollNo = finalAdmNo;
