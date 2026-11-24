@@ -16,7 +16,6 @@ import {
 } from '../../core/services/principal-briefing.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
-import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
 
 @Component({
   selector: 'app-principal-briefing',
@@ -30,8 +29,7 @@ import { LocalDatetimePipe } from '../../shared/pipes/local-datetime.pipe';
     MatProgressBarModule,
     MatTooltipModule,
     MatChipsModule,
-    MatDividerModule,
-    LocalDatetimePipe
+    MatDividerModule
   ],
   template: `
     <div class="page-container">

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imserp-cache-v24';
+const CACHE_NAME = 'imserp-cache-v26';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -393,7 +393,7 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cached = await caches.match(req);
           if (cached) return cached;
-          return new Response('', { status: 404, statusText: 'Not Found' });
+          return Response.error();
         })
     );
     return;
