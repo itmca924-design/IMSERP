@@ -40,12 +40,19 @@ public class RoomsController : ControllerBase
             .ThenBy(r => r.RoomNumber)
             .ToListAsync();
 
-        var result = new List<RoomDto>();
+        var roomIds = rooms.Select(r => r.Id).ToList();
+        var batchCountsByRoom = await _dbContext.Batches
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(b => b.RoomId.HasValue && roomIds.Contains(b.RoomId.Value) && !b.IsDeleted)
+            .GroupBy(b => b.RoomId!.Value)
+            .Select(g => new { RoomId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoomId, x => x.Count);
+
+        var result = new List<RoomDto>(rooms.Count);
         foreach (var r in rooms)
         {
-            var activeBatchCount = await _dbContext.Batches
-                .IgnoreQueryFilters()
-                .CountAsync(b => b.RoomId == r.Id);
+            var activeBatchCount = batchCountsByRoom.TryGetValue(r.Id, out var cnt) ? cnt : 0;
 
             result.Add(new RoomDto(
                 r.Id,

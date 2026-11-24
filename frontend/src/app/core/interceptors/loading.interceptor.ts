@@ -6,12 +6,22 @@ import { finalize } from 'rxjs';
 export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   const loadingService = inject(LoadingService);
 
-  // Exclude silent background calls
+  // Exclude silent background calls and layout shell background hydration so they don't lock the screen or violate the Strict Single Loader Rule
   const isSilent = 
     req.url.includes('/api/auth/refresh-token') ||
     req.url.includes('/api/auth/revoke-token') ||
     req.url.includes('/subscription/pricing-config') ||
     req.url.includes('/api/chat') ||
+    req.url.includes('/api/presence') ||
+    req.url.includes('/api/menu/my-menu') ||
+    req.url.includes('/api/tenants/current') ||
+    req.url.includes('/api/users/me') ||
+    req.url.includes('/api/roles/my-permissions') ||
+    req.url.includes('/api/school/smart-bell-settings') ||
+    req.url.includes('/api/school/period-slots') ||
+    req.url.includes('/api/events/dashboard-summary') ||
+    req.url.includes('/api/dashboard/urgent-fee-reminders') ||
+    (req.method === 'GET' && req.url.includes('/api/holidays') && req.url.includes('activeOnly=true')) ||
     req.headers.has('X-Skip-Loader');
 
   if (isSilent) {

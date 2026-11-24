@@ -49,12 +49,35 @@ public class BranchesController : ControllerBase
                 .ToListAsync();
         }
 
-        var result = new List<BranchDto>();
+        var branchIds = branches.Select(b => b.Id).ToList();
+
+        var studentCounts = await _dbContext.Students.IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.BranchId.HasValue && branchIds.Contains(s.BranchId.Value) && !s.IsDeleted)
+            .GroupBy(s => s.BranchId!.Value)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
+
+        var batchCounts = await _dbContext.Batches.IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(bat => bat.BranchId.HasValue && branchIds.Contains(bat.BranchId.Value) && !bat.IsDeleted)
+            .GroupBy(bat => bat.BranchId!.Value)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
+
+        var roomCounts = await _dbContext.Rooms.IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(r => branchIds.Contains(r.BranchId))
+            .GroupBy(r => r.BranchId)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BranchId, x => x.Count);
+
+        var result = new List<BranchDto>(branches.Count);
         foreach (var b in branches)
         {
-            var studentCount = await _dbContext.Students.IgnoreQueryFilters().CountAsync(s => s.TenantId == b.TenantId && s.BranchId == b.Id);
-            var batchCount = await _dbContext.Batches.IgnoreQueryFilters().CountAsync(bat => bat.TenantId == b.TenantId && bat.BranchId == b.Id);
-            var roomCount = await _dbContext.Rooms.IgnoreQueryFilters().CountAsync(r => r.TenantId == b.TenantId && r.BranchId == b.Id);
+            var studentCount = studentCounts.TryGetValue(b.Id, out var sc) ? sc : 0;
+            var batchCount = batchCounts.TryGetValue(b.Id, out var bc) ? bc : 0;
+            var roomCount = roomCounts.TryGetValue(b.Id, out var rc) ? rc : 0;
 
             var displayName = isSuperAdmin && b.Tenant != null && !string.IsNullOrWhiteSpace(b.Tenant.Name)
                 ? $"{b.Name} [{b.Tenant.Name}]"

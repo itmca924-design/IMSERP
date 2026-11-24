@@ -38,8 +38,6 @@ public class EventsController : ControllerBase
         // 1. Top upcoming events
         var upcomingEvents = await _db.SchoolEvents
             .AsNoTracking()
-            .Include(e => e.Branch)
-            .Include(e => e.Photos)
             .Where(e => e.IsActive && e.StartDate.Date >= today.AddDays(-1))
             .OrderBy(e => e.StartDate)
             .Take(6)

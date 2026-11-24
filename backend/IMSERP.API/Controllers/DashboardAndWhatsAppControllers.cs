@@ -56,14 +56,9 @@ public class DashboardController : ControllerBase
         var totalTestsConducted = await testsQuery.CountAsync();
         var whatsAppSent = await whatsAppQuery.CountAsync();
 
-        var rawOverdueInvoices = await feeInvoicesQuery
+        // Top 10 Overdue / Pending students consolidated purely via SQL projection & aggregation
+        var topOverdueStudentStats = await feeInvoicesQuery
             .AsNoTracking()
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Class)
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Section)
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Batch)
             .Where(i => i.Student != null &&
                         !i.Student.IsDeleted &&
                         i.Student.IsActive &&
@@ -71,71 +66,105 @@ public class DashboardController : ControllerBase
                         i.Status != InvoiceStatus.Cancelled &&
                         (i.TotalAmount - i.PaidAmount) > 0 &&
                         (i.Status == InvoiceStatus.Overdue || i.DueDate <= DateTime.UtcNow || i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.Partial))
-            .ToListAsync();
-
-        var overdueInvoices = rawOverdueInvoices
             .GroupBy(i => i.StudentId)
-            .Select(g =>
+            .Select(g => new
             {
-                var rep = g.OrderByDescending(x => x.DueDate).ThenByDescending(x => x.CreatedAt).First();
-                var totalAmt = g.Sum(x => x.TotalAmount);
-                var paidAmt = g.Sum(x => x.PaidAmount);
-                var dueAmt = g.Sum(x => x.TotalAmount - x.PaidAmount);
-                var latestCreated = g.Max(x => x.CreatedAt);
-                var latestDue = g.Max(x => x.DueDate);
-                var invCount = g.Count();
-                var statusStr = paidAmt > 0
-                    ? InvoiceStatus.Partial.ToString()
-                    : (g.Any(x => x.Status == InvoiceStatus.Overdue || x.DueDate <= DateTime.UtcNow) ? InvoiceStatus.Overdue.ToString() : InvoiceStatus.Pending.ToString());
-
-                string className = !string.IsNullOrEmpty(rep.ClassName)
-                    ? (!string.IsNullOrEmpty(rep.SectionName) ? $"{rep.ClassName} ({rep.SectionName})" : rep.ClassName)
-                    : (rep.Student != null && rep.Student.Class != null
-                        ? (rep.Student.Section != null ? $"{rep.Student.Class.Name} ({rep.Student.Section.Name})" : rep.Student.Class.Name)
-                        : (rep.Student != null && rep.Student.Batch != null ? rep.Student.Batch.Name : "General"));
-
-                bool isSchool = rep.Student != null && rep.Student.IsSchoolStudent;
-                bool isCoaching = rep.Student != null && rep.Student.IsCoachingStudent;
-                string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
-
-                return new
-                {
-                    LatestCreated = latestCreated,
-                    LatestDue = latestDue,
-                    Dto = new FeeInvoiceDto(
-                        rep.Id,
-                        rep.StudentId,
-                        rep.Student != null ? rep.Student.StudentName : "",
-                        rep.Student != null ? rep.Student.RollNumber : "",
-                        rep.Student != null ? rep.Student.ParentWhatsAppPhone : "",
-                        invCount > 1 ? $"{rep.InvoiceNumber} (+{invCount - 1})" : rep.InvoiceNumber,
-                        invCount > 1 ? $"{invCount} Pending Invoices Consolidated" : rep.Title,
-                        totalAmt,
-                        paidAmt,
-                        dueAmt,
-                        latestDue,
-                        statusStr,
-                        className,
-                        rep.Student != null ? rep.Student.ProfilePhoto : null,
-                        false,
-                        null,
-                        null,
-                        isSchool,
-                        isCoaching,
-                        scopeTag
-                    )
-                };
+                StudentId = g.Key,
+                TotalAmt = g.Sum(x => x.TotalAmount),
+                PaidAmt = g.Sum(x => x.PaidAmount),
+                DueAmt = g.Sum(x => x.TotalAmount - x.PaidAmount),
+                LatestCreated = g.Max(x => x.CreatedAt),
+                LatestDue = g.Max(x => x.DueDate),
+                InvCount = g.Count(),
+                HasOverdue = g.Any(x => x.Status == InvoiceStatus.Overdue || x.DueDate <= DateTime.UtcNow)
             })
             .OrderByDescending(x => x.LatestCreated)
             .ThenBy(x => x.LatestDue)
             .Take(10)
-            .Select(x => x.Dto)
-            .ToList();
+            .ToListAsync();
+
+        var overdueInvoices = new List<FeeInvoiceDto>();
+        if (topOverdueStudentStats.Count > 0)
+        {
+            var topStudentIds = topOverdueStudentStats.Select(x => x.StudentId).ToList();
+            var repInvoices = await feeInvoicesQuery
+                .AsNoTracking()
+                .Where(i => topStudentIds.Contains(i.StudentId) &&
+                            i.Status != InvoiceStatus.Paid &&
+                            i.Status != InvoiceStatus.Cancelled &&
+                            (i.TotalAmount - i.PaidAmount) > 0)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.StudentId,
+                    i.InvoiceNumber,
+                    i.Title,
+                    i.DueDate,
+                    i.CreatedAt,
+                    i.ClassName,
+                    i.SectionName,
+                    StudentName = i.Student != null ? i.Student.StudentName : "",
+                    RollNumber = i.Student != null ? i.Student.RollNumber : "",
+                    ParentWhatsAppPhone = i.Student != null ? i.Student.ParentWhatsAppPhone : "",
+                    ProfilePhoto = i.Student != null ? i.Student.ProfilePhoto : null,
+                    IsSchoolStudent = i.Student != null && i.Student.IsSchoolStudent,
+                    IsCoachingStudent = i.Student != null && i.Student.IsCoachingStudent,
+                    StudentClassName = i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
+                    StudentSectionName = i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null,
+                    StudentBatchName = i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : null
+                })
+                .ToListAsync();
+
+            var repByStudent = repInvoices
+                .GroupBy(i => i.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(x => x.DueDate).ThenByDescending(x => x.CreatedAt).First()
+                );
+
+            foreach (var stat in topOverdueStudentStats)
+            {
+                if (!repByStudent.TryGetValue(stat.StudentId, out var rep)) continue;
+
+                var statusStr = stat.PaidAmt > 0
+                    ? InvoiceStatus.Partial.ToString()
+                    : (stat.HasOverdue ? InvoiceStatus.Overdue.ToString() : InvoiceStatus.Pending.ToString());
+
+                string className = !string.IsNullOrEmpty(rep.ClassName)
+                    ? (!string.IsNullOrEmpty(rep.SectionName) ? $"{rep.ClassName} ({rep.SectionName})" : rep.ClassName)
+                    : (!string.IsNullOrEmpty(rep.StudentClassName)
+                        ? (!string.IsNullOrEmpty(rep.StudentSectionName) ? $"{rep.StudentClassName} ({rep.StudentSectionName})" : rep.StudentClassName)
+                        : (!string.IsNullOrEmpty(rep.StudentBatchName) ? rep.StudentBatchName : "General"));
+
+                string scopeTag = (rep.IsSchoolStudent && rep.IsCoachingStudent) ? "School + Coaching" : (rep.IsCoachingStudent ? "Coaching" : "School");
+
+                overdueInvoices.Add(new FeeInvoiceDto(
+                    rep.Id,
+                    rep.StudentId,
+                    rep.StudentName,
+                    rep.RollNumber,
+                    rep.ParentWhatsAppPhone,
+                    stat.InvCount > 1 ? $"{rep.InvoiceNumber} (+{stat.InvCount - 1})" : rep.InvoiceNumber,
+                    stat.InvCount > 1 ? $"{stat.InvCount} Pending Invoices Consolidated" : rep.Title,
+                    stat.TotalAmt,
+                    stat.PaidAmt,
+                    stat.DueAmt,
+                    stat.LatestDue,
+                    statusStr,
+                    className,
+                    rep.ProfilePhoto,
+                    false,
+                    null,
+                    null,
+                    rep.IsSchoolStudent,
+                    rep.IsCoachingStudent,
+                    scopeTag
+                ));
+            }
+        }
 
         var recentTests = await testsQuery
-            .Include(t => t.Batch)
-            .Include(t => t.Class)
-            .Include(t => t.Section)
+            .AsNoTracking()
             .OrderByDescending(t => t.TestDate)
             .Take(5)
             .Select(t => new TestDto(
@@ -153,10 +182,23 @@ public class DashboardController : ControllerBase
                 t.Section != null ? t.Section.Name : null
             )).ToListAsync();
 
-        // Dynamic Chart Analytics from Database
+        // Dynamic Chart Analytics from Database (SQL-side GroupBy & Aggregations)
         var now = DateTime.UtcNow;
-        var allInvoices = await feeInvoicesQuery.AsNoTracking().ToListAsync();
-        var allPayments = await feePaymentsQuery.AsNoTracking().ToListAsync();
+        var sixMonthsAgoStart = new DateTime(now.AddMonths(-5).Year, now.AddMonths(-5).Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var monthlyBilledRaw = await feeInvoicesQuery
+            .AsNoTracking()
+            .Where(inv => inv.DueDate >= sixMonthsAgoStart)
+            .GroupBy(inv => new { inv.DueDate.Year, inv.DueDate.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(x => x.TotalAmount) })
+            .ToListAsync();
+
+        var monthlyCollectedRaw = await feePaymentsQuery
+            .AsNoTracking()
+            .Where(p => !p.IsReversed && !p.IsAdvanceAdjustment && p.PaymentDate >= sixMonthsAgoStart)
+            .GroupBy(p => new { p.PaymentDate.Year, p.PaymentDate.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(x => x.AmountPaid) })
+            .ToListAsync();
 
         // 1. Monthly Revenue & Collection Trend (Last 6 Months)
         var revenueTrends = new List<MonthlyRevenueTrendItemDto>();
@@ -167,56 +209,86 @@ public class DashboardController : ControllerBase
             int month = targetDate.Month;
             string monthName = targetDate.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
-            decimal billed = allInvoices
-                .Where(inv => inv.DueDate.Year == year && inv.DueDate.Month == month)
-                .Sum(inv => inv.TotalAmount);
+            decimal billed = monthlyBilledRaw
+                .Where(inv => inv.Year == year && inv.Month == month)
+                .Sum(inv => inv.Amount);
 
-            decimal collected = allPayments
-                .Where(p => p.PaymentDate.Year == year && p.PaymentDate.Month == month)
-                .Sum(p => p.AmountPaid);
+            decimal collected = monthlyCollectedRaw
+                .Where(p => p.Year == year && p.Month == month)
+                .Sum(p => p.Amount);
 
             revenueTrends.Add(new MonthlyRevenueTrendItemDto(monthName, year, month, billed, collected));
         }
 
-        // 2. Batch-wise Student Enrollment Distribution
-        var batches = await batchesQuery.AsNoTracking().ToListAsync();
-        var students = await studentsQuery.AsNoTracking().Where(s => s.IsActive).ToListAsync();
+        // 2. Batch-wise Student Enrollment Distribution (SQL projection without fetching full student rows)
+        var batches = await batchesQuery
+            .AsNoTracking()
+            .Select(b => new { b.Id, b.Name, b.StandardMonthlyFee })
+            .ToListAsync();
+
+        var studentCountsByBatch = await studentsQuery
+            .AsNoTracking()
+            .Where(s => s.IsActive && s.BatchId != null)
+            .GroupBy(s => s.BatchId!.Value)
+            .Select(g => new { BatchId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BatchId, x => x.Count);
+
         var batchDistributions = batches.Select(b =>
         {
-            int count = students.Count(s => s.BatchId == b.Id);
+            int count = studentCountsByBatch.TryGetValue(b.Id, out var c) ? c : 0;
             decimal potential = count * b.StandardMonthlyFee;
             return new BatchDistributionItemDto(b.Id, b.Name, count, b.StandardMonthlyFee, potential);
         }).OrderByDescending(x => x.StudentCount).ToList();
 
-        // 3. Overall Fee Collection & Recovery Breakdown
-        decimal totalBilledAll = allInvoices.Sum(i => i.TotalAmount);
-        decimal totalPaidAll = allInvoices.Sum(i => i.PaidAmount);
-        decimal totalPendingAll = allInvoices.Where(i => i.Status != InvoiceStatus.Paid).Sum(i => i.TotalAmount - i.PaidAmount);
+        // 3. Overall Fee Collection & Recovery Breakdown (Single SQL aggregate query)
+        var invoiceTotals = await feeInvoicesQuery
+            .AsNoTracking()
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalBilled = g.Sum(i => i.TotalAmount),
+                TotalPaid = g.Sum(i => i.PaidAmount)
+            })
+            .FirstOrDefaultAsync();
+
+        decimal totalBilledAll = invoiceTotals?.TotalBilled ?? 0m;
+        decimal totalPaidAll = invoiceTotals?.TotalPaid ?? 0m;
+        decimal totalPendingAll = pendingFeesTotal;
         decimal recoveryRate = totalBilledAll > 0 ? Math.Round((totalPaidAll / totalBilledAll) * 100m, 1) : 0m;
 
         var feeBreakdown = new FeeCollectionBreakdownDto(totalBilledAll, totalPaidAll, totalPendingAll, recoveryRate);
 
-        // 4. Today's Student Attendance Live Summary & Time
+        // 4. Today's Student Attendance Live Summary & Time (SQL group by status + top 1 latest timestamp)
         var today = DateTime.UtcNow.Date;
-        var todayAttendances = await studentAttendancesQuery
+        var attendanceStatusCounts = await studentAttendancesQuery
             .AsNoTracking()
-            .Include(a => a.Student)
-            .ThenInclude(s => s!.Batch)
             .Where(a => a.AttendanceDate == today)
-            .OrderByDescending(a => a.CapturedAt ?? a.CreatedAt)
+            .GroupBy(a => a.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
 
         TodayAttendanceSummaryDto? todayAttendance = null;
-        if (todayAttendances.Any())
+        if (attendanceStatusCounts.Count > 0)
         {
-            int presentCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
-            int absentCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Absent);
-            int lateCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.Late);
-            int halfDayCount = todayAttendances.Count(a => a.Status == TeacherAttendanceStatus.HalfDay);
-            int totalMarked = todayAttendances.Count;
+            int presentCount = attendanceStatusCounts.Where(x => x.Status == TeacherAttendanceStatus.Present).Sum(x => x.Count);
+            int absentCount = attendanceStatusCounts.Where(x => x.Status == TeacherAttendanceStatus.Absent).Sum(x => x.Count);
+            int lateCount = attendanceStatusCounts.Where(x => x.Status == TeacherAttendanceStatus.Late).Sum(x => x.Count);
+            int halfDayCount = attendanceStatusCounts.Where(x => x.Status == TeacherAttendanceStatus.HalfDay).Sum(x => x.Count);
+            int totalMarked = attendanceStatusCounts.Sum(x => x.Count);
             decimal pct = totalMarked > 0 ? Math.Round((decimal)presentCount / totalMarked * 100m, 1) : 0m;
 
-            var latest = todayAttendances.FirstOrDefault();
+            var latest = await studentAttendancesQuery
+                .AsNoTracking()
+                .Where(a => a.AttendanceDate == today)
+                .OrderByDescending(a => a.CapturedAt ?? a.CreatedAt)
+                .Select(a => new
+                {
+                    a.CapturedAt,
+                    a.CreatedAt,
+                    BatchName = a.Student != null && a.Student.Batch != null ? a.Student.Batch.Name : null
+                })
+                .FirstOrDefaultAsync();
+
             string? lastTime = null;
             if (latest != null)
             {
@@ -225,7 +297,7 @@ public class DashboardController : ControllerBase
                 var istTime = utcDt.AddHours(5).AddMinutes(30);
                 lastTime = istTime.ToString("hh:mm tt");
             }
-            string? lastBatch = latest?.Student?.Batch?.Name;
+            string? lastBatch = latest?.BatchName;
 
             todayAttendance = new TodayAttendanceSummaryDto(
                 totalMarked,
@@ -276,12 +348,6 @@ public class DashboardController : ControllerBase
 
         var query = feeInvoicesQuery
             .AsNoTracking()
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Class)
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Section)
-            .Include(i => i.Student)
-                .ThenInclude(s => s.Batch)
             .Where(i => i.Student != null &&
                         !i.Student.IsDeleted &&
                         i.Student.IsActive &&
@@ -301,11 +367,11 @@ public class DashboardController : ControllerBase
         {
             if (scope.Equals("School", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(i => i.Student.IsSchoolStudent);
+                query = query.Where(i => i.Student!.IsSchoolStudent);
             }
             else if (scope.Equals("Coaching", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(i => i.Student.IsCoachingStudent);
+                query = query.Where(i => i.Student!.IsCoachingStudent);
             }
         }
 
@@ -319,7 +385,7 @@ public class DashboardController : ControllerBase
         var searchTermNorm = !string.IsNullOrWhiteSpace(search) ? search.Trim().ToLower() : null;
         if (!string.IsNullOrEmpty(searchTermNorm))
         {
-            query = query.Where(i => (i.Student.StudentName != null && i.Student.StudentName.ToLower().Contains(searchTermNorm)) ||
+            query = query.Where(i => (i.Student!.StudentName != null && i.Student.StudentName.ToLower().Contains(searchTermNorm)) ||
                                      (i.Student.RollNumber != null && i.Student.RollNumber.ToLower().Contains(searchTermNorm)) ||
                                      (i.InvoiceNumber != null && i.InvoiceNumber.ToLower().Contains(searchTermNorm)) ||
                                      (i.Student.ParentWhatsAppPhone != null && i.Student.ParentWhatsAppPhone.Contains(searchTermNorm)) ||
@@ -328,7 +394,31 @@ public class DashboardController : ControllerBase
                                      (i.Student.Batch != null && i.Student.Batch.Name.ToLower().Contains(searchTermNorm)));
         }
 
-        var matchingInvoices = await query.ToListAsync();
+        var matchingInvoices = await query
+            .Select(i => new
+            {
+                i.Id,
+                i.StudentId,
+                i.InvoiceNumber,
+                i.Title,
+                i.TotalAmount,
+                i.PaidAmount,
+                i.DueDate,
+                i.CreatedAt,
+                i.Status,
+                i.ClassName,
+                i.SectionName,
+                StudentName = i.Student != null ? i.Student.StudentName : "",
+                RollNumber = i.Student != null ? i.Student.RollNumber : "",
+                ParentWhatsAppPhone = i.Student != null ? i.Student.ParentWhatsAppPhone : "",
+                ProfilePhoto = i.Student != null ? i.Student.ProfilePhoto : null,
+                IsSchoolStudent = i.Student != null && i.Student.IsSchoolStudent,
+                IsCoachingStudent = i.Student != null && i.Student.IsCoachingStudent,
+                StudentClassName = i.Student != null && i.Student.Class != null ? i.Student.Class.Name : null,
+                StudentSectionName = i.Student != null && i.Student.Section != null ? i.Student.Section.Name : null,
+                StudentBatchName = i.Student != null && i.Student.Batch != null ? i.Student.Batch.Name : null
+            })
+            .ToListAsync();
 
         // Check deduplication logs for today in IST - Student-Specific (Handles Siblings sharing parent phone)
         var todayStartUtc = GetTodayStartUtcInIst();
@@ -363,8 +453,8 @@ public class DashboardController : ControllerBase
                 var latestDueDate = g.Max(x => x.DueDate);
                 var invCount = g.Count();
 
-                var phoneNorm = NormalizePhone(rep.Student?.ParentWhatsAppPhone);
-                var nameNorm = rep.Student?.StudentName?.Trim().ToLower() ?? "";
+                var phoneNorm = NormalizePhone(rep.ParentWhatsAppPhone);
+                var nameNorm = rep.StudentName?.Trim().ToLower() ?? "";
                 string compositeKey = $"{phoneNorm}::{nameNorm}";
 
                 bool alreadyReminded = !string.IsNullOrEmpty(nameNorm) &&
@@ -376,12 +466,12 @@ public class DashboardController : ControllerBase
 
                 string className = !string.IsNullOrEmpty(rep.ClassName)
                     ? (!string.IsNullOrEmpty(rep.SectionName) ? $"{rep.ClassName} ({rep.SectionName})" : rep.ClassName)
-                    : (rep.Student != null && rep.Student.Class != null
-                        ? (rep.Student.Section != null ? $"{rep.Student.Class.Name} ({rep.Student.Section.Name})" : rep.Student.Class.Name)
-                        : (rep.Student != null && rep.Student.Batch != null ? rep.Student.Batch.Name : "General"));
+                    : (!string.IsNullOrEmpty(rep.StudentClassName)
+                        ? (!string.IsNullOrEmpty(rep.StudentSectionName) ? $"{rep.StudentClassName} ({rep.StudentSectionName})" : rep.StudentClassName)
+                        : (!string.IsNullOrEmpty(rep.StudentBatchName) ? rep.StudentBatchName : "General"));
 
-                bool isSchool = rep.Student?.IsSchoolStudent ?? false;
-                bool isCoaching = rep.Student?.IsCoachingStudent ?? false;
+                bool isSchool = rep.IsSchoolStudent;
+                bool isCoaching = rep.IsCoachingStudent;
                 string scopeTag = (isSchool && isCoaching) ? "School + Coaching" : (isCoaching ? "Coaching" : "School");
 
                 var statusStr = paidAmt > 0
@@ -391,7 +481,7 @@ public class DashboardController : ControllerBase
                 int searchRank = 0;
                 if (!string.IsNullOrEmpty(searchTermNorm))
                 {
-                    var rollNorm = rep.Student?.RollNumber?.Trim().ToLower() ?? "";
+                    var rollNorm = rep.RollNumber?.Trim().ToLower() ?? "";
                     if (nameNorm == searchTermNorm || rollNorm == searchTermNorm || g.Any(x => x.InvoiceNumber != null && x.InvoiceNumber.Trim().ToLower() == searchTermNorm))
                         searchRank = 0;
                     else if (nameNorm.StartsWith(searchTermNorm))
@@ -404,7 +494,7 @@ public class DashboardController : ControllerBase
                 {
                     SearchRank = searchRank,
                     NameLength = nameNorm.Length,
-                    StudentName = rep.Student?.StudentName ?? "",
+                    StudentName = rep.StudentName ?? "",
                     ClassName = className,
                     DueAmount = dueAmt,
                     DueDate = latestDueDate,
@@ -412,9 +502,9 @@ public class DashboardController : ControllerBase
                     Dto = new FeeInvoiceDto(
                         rep.Id,
                         rep.StudentId,
-                        rep.Student?.StudentName ?? "",
-                        rep.Student?.RollNumber ?? "",
-                        rep.Student?.ParentWhatsAppPhone ?? "",
+                        rep.StudentName ?? "",
+                        rep.RollNumber ?? "",
+                        rep.ParentWhatsAppPhone ?? "",
                         invCount > 1 ? $"{rep.InvoiceNumber} (+{invCount - 1})" : rep.InvoiceNumber,
                         invCount > 1 ? $"{invCount} Pending Invoices Consolidated" : rep.Title,
                         totalAmt,
@@ -423,7 +513,7 @@ public class DashboardController : ControllerBase
                         latestDueDate,
                         statusStr,
                         className,
-                        rep.Student?.ProfilePhoto,
+                        rep.ProfilePhoto,
                         alreadyReminded,
                         logMatch != null ? DateTime.SpecifyKind(logMatch.SentAt, DateTimeKind.Utc) : null,
                         logMatch?.Content?.Contains("AI Voice") == true ? "Voice" : "WhatsApp",
@@ -555,20 +645,23 @@ public class DashboardController : ControllerBase
 
         if (student == null) return NotFound(new { message = "Student profile not found." });
 
-        // Personal Attendance
-        var attendances = await _dbContext.StudentAttendances.AsNoTracking()
+        // Personal Attendance (SQL aggregate instead of loading all historical rows)
+        var attendanceStats = await _dbContext.StudentAttendances.AsNoTracking()
             .Where(a => a.StudentId == student.Id)
+            .GroupBy(a => a.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
-        int totalAttDays = attendances.Count;
-        int presentDays = attendances.Count(a => a.Status == TeacherAttendanceStatus.Present);
-        int absentDays = attendances.Count(a => a.Status == TeacherAttendanceStatus.Absent);
+        int totalAttDays = attendanceStats.Sum(x => x.Count);
+        int presentDays = attendanceStats.Where(x => x.Status == TeacherAttendanceStatus.Present).Sum(x => x.Count);
+        int absentDays = attendanceStats.Where(x => x.Status == TeacherAttendanceStatus.Absent).Sum(x => x.Count);
         decimal attPct = totalAttDays > 0 ? Math.Round((decimal)presentDays / totalAttDays * 100m, 1) : 100m;
         string attStatus = attPct >= 85 ? "Excellent Attendance" : (attPct >= 75 ? "Good Standing" : "Attendance Warning (<75%)");
 
-        // Personal Fees
+        // Personal Fees (Lightweight projection)
         var invoices = await _dbContext.FeeInvoices.AsNoTracking()
             .Where(i => i.StudentId == student.Id)
             .OrderByDescending(i => i.DueDate)
+            .Select(i => new { i.TotalAmount, i.PaidAmount, i.Status, i.DueDate })
             .ToListAsync();
         decimal totalBilled = invoices.Sum(i => i.TotalAmount);
         decimal totalPaid = invoices.Sum(i => i.PaidAmount);
@@ -577,9 +670,9 @@ public class DashboardController : ControllerBase
         DateTime? nextDueDate = nextDueInv?.DueDate;
 
         var lastPayment = await _dbContext.FeePayments.AsNoTracking()
-            .Include(p => p.Invoice)
             .Where(p => p.Invoice != null && p.Invoice.StudentId == student.Id)
             .OrderByDescending(p => p.PaymentDate)
+            .Select(p => new { p.ReceiptNumber, p.AmountPaid, p.PaymentDate })
             .FirstOrDefaultAsync();
         string? lastReceiptNumber = lastPayment?.ReceiptNumber;
         decimal? lastPaymentAmount = lastPayment?.AmountPaid;
@@ -587,33 +680,29 @@ public class DashboardController : ControllerBase
 
         // Upcoming Tests
         var today = DateTime.UtcNow.Date;
-        var upcomingTestsRaw = await _dbContext.Tests.AsNoTracking()
-            .Include(t => t.Batch)
-            .Include(t => t.Class)
-            .Include(t => t.Section)
+        var upcomingTests = await _dbContext.Tests.AsNoTracking()
             .Where(t => t.TenantId == tenantId && t.TestDate >= today &&
                 ((student.ClassId.HasValue && t.ClassId == student.ClassId) ||
                  (student.BatchId.HasValue && t.BatchId == student.BatchId)))
             .OrderBy(t => t.TestDate)
             .Take(5)
+            .Select(t => new StudentUpcomingTestDto(
+                t.Id,
+                t.Title,
+                t.Subject,
+                t.TestDate,
+                t.MaxMarks,
+                t.Class != null ? (t.Section != null ? $"{t.Class.Name} - {t.Section.Name}" : t.Class.Name) : (t.Batch != null ? t.Batch.Name : "General")
+            ))
             .ToListAsync();
 
-        var upcomingTests = upcomingTestsRaw.Select(t => new StudentUpcomingTestDto(
-            t.Id,
-            t.Title,
-            t.Subject,
-            t.TestDate,
-            t.MaxMarks,
-            t.Class != null ? (t.Section != null ? $"{t.Class.Name} - {t.Section.Name}" : t.Class.Name) : (t.Batch != null ? t.Batch.Name : "General")
-        )).ToList();
-
         var latestMark = await _dbContext.TestMarks.AsNoTracking()
-            .Include(m => m.Test)
-            .Where(m => m.StudentId == student.Id)
-            .OrderByDescending(m => m.Test != null ? m.Test.TestDate : DateTime.MinValue)
+            .Where(m => m.StudentId == student.Id && m.Test != null)
+            .OrderByDescending(m => m.Test!.TestDate)
+            .Select(m => new { m.MarksObtained, MaxMarks = m.Test!.MaxMarks, Subject = m.Test.Subject })
             .FirstOrDefaultAsync();
-        decimal? latestTestPct = (latestMark != null && latestMark.Test != null && latestMark.Test.MaxMarks > 0) ? Math.Round((latestMark.MarksObtained / latestMark.Test.MaxMarks) * 100m, 1) : null;
-        string? latestTestSubject = latestMark?.Test?.Subject;
+        decimal? latestTestPct = (latestMark != null && latestMark.MaxMarks > 0) ? Math.Round((latestMark.MarksObtained / latestMark.MaxMarks) * 100m, 1) : null;
+        string? latestTestSubject = latestMark?.Subject;
 
         // Recent Homework
         var recentHomeworkRaw = await _dbContext.StudentHomeworks.AsNoTracking()
@@ -810,17 +899,20 @@ public class DashboardController : ControllerBase
         // Pending Marks Entry Tests
         var batchIds = assignments.Where(a => a.BatchId.HasValue).Select(a => a.BatchId!.Value).Distinct().ToList();
         var classIds = assignments.Where(a => a.ClassId.HasValue).Select(a => a.ClassId!.Value).Distinct().ToList();
-        var tests = await _dbContext.Tests.AsNoTracking()
-            .Include(t => t.Batch)
-            .Include(t => t.Class)
-            .Include(t => t.MarksList)
-            .Where(t => t.TenantId == tenantId && ((t.BatchId.HasValue && batchIds.Contains(t.BatchId.Value)) || (t.ClassId.HasValue && classIds.Contains(t.ClassId.Value))))
+        var pendingTests = await _dbContext.Tests.AsNoTracking()
+            .Where(t => t.TenantId == tenantId &&
+                        ((t.BatchId.HasValue && batchIds.Contains(t.BatchId.Value)) || (t.ClassId.HasValue && classIds.Contains(t.ClassId.Value))) &&
+                        !t.MarksList.Any())
             .OrderByDescending(t => t.TestDate)
-            .Take(10)
+            .Take(5)
+            .Select(t => new TeacherPendingTestDto(
+                t.Id,
+                t.Title,
+                t.Subject,
+                t.Class != null ? t.Class.Name : (t.Batch != null ? t.Batch.Name : "Class"),
+                t.TestDate
+            ))
             .ToListAsync();
-        var pendingTests = tests.Where(t => t.MarksList.Count == 0).Take(5).Select(t => new TeacherPendingTestDto(
-            t.Id, t.Title, t.Subject, t.Class != null ? t.Class.Name : (t.Batch != null ? t.Batch.Name : "Class"), t.TestDate
-        )).ToList();
 
         // Homework this week
         var startOfWeek = today.AddDays(-(int)today.DayOfWeek);

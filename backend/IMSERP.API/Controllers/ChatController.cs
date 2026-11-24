@@ -61,6 +61,7 @@ public class ChatController : ControllerBase
         // Fetch all conversations where current user is a participant
         var participantEntries = await _dbContext.ChatParticipants
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(p => p.TenantId == tenantId && p.UserId == userId)
             .Include(p => p.Conversation)
                 .ThenInclude(c => c!.Participants)
@@ -631,12 +632,13 @@ public class ChatController : ControllerBase
             else
             {
                 // 2. If user is a Teacher or Admin ("teacher global hoga, but multi tenant branch wise")
-                var user = await _dbContext.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId);
+                var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
                 var roleStr = user?.Role.ToString() ?? "";
                 if (roleStr.Contains("Teacher") || roleStr.Contains("Faculty") || roleStr.Contains("Admin"))
                 {
                     var classesQuery = _dbContext.SchoolClasses
                         .IgnoreQueryFilters()
+                        .AsNoTracking()
                         .Include(c => c.Sections)
                         .Where(c => c.TenantId == tenantId && c.IsActive);
 
@@ -647,20 +649,87 @@ public class ChatController : ControllerBase
 
                     var classes = await classesQuery.ToListAsync();
 
+                    // Batch load existing class conversations and user participations to avoid N+1 queries on every page load
+                    var existingClassConvs = await _dbContext.ChatConversations
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(c => c.TenantId == tenantId && c.ConversationType == ChatConversationType.ClassGroup)
+                        .ToListAsync();
+
+                    var convByClassSection = existingClassConvs
+                        .GroupBy(c => $"{c.ClassId}::{c.SectionId}")
+                        .ToDictionary(g => g.Key, g => g.First());
+
+                    var existingParticipations = await _dbContext.ChatParticipants
+                        .IgnoreQueryFilters()
+                        .AsNoTracking()
+                        .Where(p => p.TenantId == tenantId && p.UserId == userId)
+                        .Select(p => p.ConversationId)
+                        .ToListAsync();
+                    var joinedConvIds = new HashSet<Guid>(existingParticipations);
+
+                    bool anyChanges = false;
+
+                    void EnsureRoomInBatch(Guid? targetBranchId, Guid? classId, Guid? sectionId, string title, string description)
+                    {
+                        var key = $"{classId}::{sectionId}";
+                        if (!convByClassSection.TryGetValue(key, out var conv))
+                        {
+                            conv = new ChatConversation
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = tenantId,
+                                BranchId = targetBranchId,
+                                ConversationType = ChatConversationType.ClassGroup,
+                                ClassId = classId,
+                                SectionId = sectionId,
+                                Title = title,
+                                Description = description,
+                                CreatedAt = DateTime.UtcNow,
+                                CreatedByUserId = userId,
+                                IsActive = true
+                            };
+                            _dbContext.ChatConversations.Add(conv);
+                            convByClassSection[key] = conv;
+                            anyChanges = true;
+                        }
+
+                        if (!joinedConvIds.Contains(conv.Id))
+                        {
+                            _dbContext.ChatParticipants.Add(new ChatParticipant
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = tenantId,
+                                BranchId = targetBranchId,
+                                ConversationId = conv.Id,
+                                UserId = userId,
+                                RoleInChat = "Faculty",
+                                JoinedAt = DateTime.UtcNow
+                            });
+                            joinedConvIds.Add(conv.Id);
+                            anyChanges = true;
+                        }
+                    }
+
                     foreach (var cls in classes)
                     {
                         var sections = cls.Sections.Where(s => s.IsActive).ToList();
                         if (sections.Count == 0)
                         {
-                            await EnsureClassRoomAndMember(tenantId, userId, cls.BranchId ?? branchId, cls.Id, null, $"{cls.Name} Group", $"Official room for {cls.Name}", "Faculty");
+                            EnsureRoomInBatch(cls.BranchId ?? branchId, cls.Id, null, $"{cls.Name} Group", $"Official room for {cls.Name}");
                         }
                         else
                         {
                             foreach (var sec in sections)
                             {
-                                await EnsureClassRoomAndMember(tenantId, userId, sec.BranchId ?? cls.BranchId ?? branchId, cls.Id, sec.Id, $"{cls.Name} - {sec.Name} Group", $"Official room for {cls.Name} ({sec.Name})", "Faculty");
+                                EnsureRoomInBatch(sec.BranchId ?? cls.BranchId ?? branchId, cls.Id, sec.Id, $"{cls.Name} - {sec.Name} Group", $"Official room for {cls.Name} ({sec.Name})");
                             }
                         }
+                    }
+
+                    if (anyChanges)
+                    {
+                        await _dbContext.SaveChangesAsync();
                     }
                 }
             }

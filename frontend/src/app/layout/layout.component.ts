@@ -3956,7 +3956,7 @@ export class LayoutComponent implements OnInit {
         this.userAvatarFailed.set(false);
       }
       if (user?.userId) {
-        this.loadMenu(true);
+        this.loadMenu(false);
       }
     });
 
@@ -4007,7 +4007,7 @@ export class LayoutComponent implements OnInit {
             hasTransportModule: t.hasTransportModule,
             licensedModules: t.licensedModules
           });
-          this.loadMenu();
+          this.loadMenu(false);
         }
       },
       error: () => { }
@@ -4136,7 +4136,7 @@ export class LayoutComponent implements OnInit {
     this.branchService.branchesChanged.subscribe(() => {
       this.loadHeaderBranches();
     });
-    this.loadMenu();
+    this.loadMenu(false);
     this.loadCalendarHolidays();
     this.idleTimeout.startMonitoring();
     this.presenceService.init();

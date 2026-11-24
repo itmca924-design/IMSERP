@@ -5026,8 +5026,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadUrgentFeeReminders();
       });
 
-    this.loadUrgentFeeReminders();
-
     this.aiDirectorSub = this.aiCopilotService.getSpeechTranscript().subscribe(text => {
       if (this.isAiDirectorListening) {
         this.aiDirectorPromptText = text;
@@ -5147,9 +5145,14 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         .subscribe({
           next: (res) => {
             this.summary.set(res);
+            if (res?.overdueInvoices && this.feePageIndex === 0 && !this.feeSearchControl.value && this.feeScopeControl.value === 'All') {
+              this.feeRemindersList.set(res.overdueInvoices);
+              this.feeTotalCount.set(res.overdueInvoices.length);
+            }
             this.loading.set(false);
             this.cdr.markForCheck();
             setTimeout(() => this.initCharts(), 50);
+            this.loadUrgentFeeReminders(true);
           },
           error: () => {
             this.loading.set(false);
@@ -5666,11 +5669,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  loadUrgentFeeReminders(): void {
+  loadUrgentFeeReminders(silent: boolean = false): void {
     if (this.authService.isStudentOrParent()) return;
 
-    this.feeRemindersLoading.set(true);
-    this.cdr.markForCheck();
+    if (!silent) {
+      this.feeRemindersLoading.set(true);
+      this.cdr.markForCheck();
+    }
 
     this.coachingService
       .getUrgentFeeReminders(
