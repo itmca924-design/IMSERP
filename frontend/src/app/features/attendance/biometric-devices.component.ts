@@ -133,10 +133,10 @@ interface BiometricMappingPagedResult {
         </div>
       </div>
       <div class="guide-item">
-        <mat-icon>http</mat-icon>
+        <mat-icon>download_for_offline</mat-icon>
         <div>
-          <strong>2. HTTP Listening Host</strong>
-          <small>In Device Settings &gt; Network &gt; HTTP Listening, set destination to the Webhook URL displayed above.</small>
+          <strong>2. 1-Click Local Sync Bridge</strong>
+          <small>Download the pre-configured IMSERP Biometric Bridge from your registered device card below and run it on any PC connected to the same Wi-Fi/LAN.</small>
         </div>
       </div>
       <div class="guide-item">
@@ -612,8 +612,11 @@ interface BiometricMappingPagedResult {
           <small class="error">{{device.lastError}}</small>
         }
         <div class="actions">
-          <button color="primary" (click)="testConnection(device)" matButton="filled">
-            <mat-icon>sync</mat-icon> Test Socket Connection
+          <button color="primary" (click)="downloadBridge(device)" [disabled]="downloadingBridgeId === device.id" matButton="filled" matTooltip="Download pre-configured Windows Sync Bridge ZIP for this Hikvision device">
+            <mat-icon>download</mat-icon> {{ downloadingBridgeId === device.id ? 'Preparing ZIP...' : 'Download Sync Bridge' }}
+          </button>
+          <button (click)="testConnection(device)" matButton="outlined" matTooltip="Direct TCP Socket Test (for local/public IP)">
+            <mat-icon>sync</mat-icon> Test
           </button>
           <button (click)="editDevice(device)" matTooltip="Edit device" mat-icon-button>
             <mat-icon>edit</mat-icon>
@@ -3174,6 +3177,50 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     this.showForm = false;
     this.editingId = '';
     this.form = { name: '', brand: '', model: '', serialNumber: '', ipAddress: '', port: 80, connectionMode: 'PendingAdapter', isActive: true };
+  }
+
+  downloadingBridgeId = '';
+
+  downloadBridge(device: Device): void {
+    this.downloadingBridgeId = device.id;
+    this.http.get(`${this.api}/biometric-devices/${device.id}/bridge-package`, {
+      responseType: 'blob',
+      observe: 'response'
+    }).subscribe({
+      next: resp => {
+        this.downloadingBridgeId = '';
+        const blob = resp.body;
+        if (!blob) return;
+        const safeSerial = (device.serialNumber || device.name || 'Device').replace(/[^A-Za-z0-9_-]/g, '');
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `IMSERP-Biometric-Bridge-${safeSerial}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.confirmDialog.alert(
+          'Biometric Sync Bridge Downloaded',
+          `ZIP package downloaded for "${device.name}".\n\n1. Extract the ZIP on your school PC (same Wi-Fi as the Hikvision device).\n2. Double-click IMSERP.BiometricBridge.exe and enter your Hikvision Admin Password once.\n3. Live attendance punches will start syncing automatically every 5 seconds!`,
+          'success'
+        );
+      },
+      error: async err => {
+        this.downloadingBridgeId = '';
+        let message = 'Could not download Biometric Sync Bridge package.';
+        if (err?.error instanceof Blob) {
+          try {
+            const text = await err.error.text();
+            const parsed = JSON.parse(text);
+            if (parsed?.message) message = parsed.message;
+          } catch {}
+        } else if (err?.error?.message) {
+          message = err.error.message;
+        }
+        this.confirmDialog.alert('Download Failed', message, 'danger');
+      }
+    });
   }
 
   testConnection(device: Device): void {

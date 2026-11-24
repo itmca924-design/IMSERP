@@ -27,4 +27,7 @@
     <Compile Include="..\IMSERP.Infrastructure\Persistence\*.cs" Link="Infrastructure\Persistence\%(FileName)%(Extension)" />
     <Compile Include="..\IMSERP.Infrastructure\Services\*.cs" Link="Infrastructure\Services\%(FileName)%(Extension)" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

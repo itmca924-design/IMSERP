@@ -1381,6 +1381,7 @@ public class AttendanceController : ControllerBase
         string? employeeNo = null;
         string? cardNo = null;
         string? serialNo = serialNumber;
+        string? incomingDeviceEventId = Request.Query["deviceEventId"].FirstOrDefault();
         DateTime eventTime = DateTime.UtcNow;
         string rawBody = string.Empty;
 
@@ -1454,9 +1455,21 @@ public class AttendanceController : ControllerBase
                 employeeNo ??= GetVal(root, "employeeNoString") ?? GetVal(root, "employeeNo") ?? GetVal(root, "userId");
                 cardNo ??= GetVal(root, "cardNo");
                 serialNo ??= GetVal(root, "serialNumber") ?? GetVal(root, "serialNo");
+                incomingDeviceEventId ??= GetVal(root, "deviceEventId");
 
-                if (root.TryGetProperty("dateTime", out var dt) && dt.TryGetDateTime(out var parsedDt)) eventTime = parsedDt;
-                else if (root.TryGetProperty("eventTime", out var et) && et.TryGetDateTime(out var parsedEt)) eventTime = parsedEt;
+                var rawTimeStr = GetVal(root, "dateTime") ?? GetVal(root, "eventTime");
+                if (!string.IsNullOrWhiteSpace(rawTimeStr) && DateTimeOffset.TryParse(rawTimeStr, out var parsedDto))
+                {
+                    eventTime = parsedDto.UtcDateTime;
+                }
+                else if (root.TryGetProperty("dateTime", out var dt) && dt.TryGetDateTime(out var parsedDt))
+                {
+                    eventTime = parsedDt.Kind == DateTimeKind.Utc ? parsedDt : parsedDt.ToUniversalTime();
+                }
+                else if (root.TryGetProperty("eventTime", out var et) && et.TryGetDateTime(out var parsedEt))
+                {
+                    eventTime = parsedEt.Kind == DateTimeKind.Utc ? parsedEt : parsedEt.ToUniversalTime();
+                }
             }
             catch
             {
@@ -1499,6 +1512,20 @@ public class AttendanceController : ControllerBase
         var punchId = !string.IsNullOrWhiteSpace(employeeNo) ? employeeNo.Trim() : cardNo?.Trim();
         if (string.IsNullOrWhiteSpace(punchId))
         {
+            if (!string.IsNullOrWhiteSpace(serialNo))
+            {
+                var hbDevice = await _db.BiometricDevices.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(d => d.SerialNumber == serialNo.Trim() && d.IsActive);
+                if (hbDevice != null && (!tenantId.HasValue || tenantId.Value == hbDevice.TenantId))
+                {
+                    HttpContext.Items["TrustedTenantWrite"] = true;
+                    hbDevice.LastSeenAt = DateTime.UtcNow;
+                    hbDevice.Status = "Online";
+                    hbDevice.LastError = null;
+                    await _db.SaveChangesAsync();
+                    return Ok(new { message = "Heartbeat received. Biometric terminal marked Online.", device = hbDevice.Name, status = "Online" });
+                }
+            }
             return Ok(new { message = "Heartbeat or non-punch event received. No employeeNo or cardNo detected." });
         }
 
@@ -1521,6 +1548,22 @@ public class AttendanceController : ControllerBase
         matchedDevice.LastSeenAt = DateTime.UtcNow;
         matchedDevice.LastSyncAt = DateTime.UtcNow;
         matchedDevice.Status = "Online";
+        matchedDevice.LastError = null;
+
+        var resolvedEventId = !string.IsNullOrWhiteSpace(incomingDeviceEventId)
+            ? incomingDeviceEventId.Trim()
+            : $"HIK-{DateTime.UtcNow.Ticks}";
+
+        if (!string.IsNullOrWhiteSpace(incomingDeviceEventId))
+        {
+            var alreadySynced = await _db.BiometricEventLogs.IgnoreQueryFilters()
+                .AnyAsync(e => e.TenantId == resolvedTenantId && e.DeviceEventId == resolvedEventId);
+            if (alreadySynced)
+            {
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "Duplicate biometric punch already processed.", duplicate = true });
+            }
+        }
 
         var tz = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata");
         var indiaTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
@@ -1533,7 +1576,7 @@ public class AttendanceController : ControllerBase
             PersonType = "Auto",
             BiometricUserId = punchId,
             EventTime = eventTime,
-            DeviceEventId = $"HIK-{DateTime.UtcNow.Ticks}",
+            DeviceEventId = resolvedEventId,
             Status = "Received"
         };
         _db.BiometricEventLogs.Add(eventLog);
