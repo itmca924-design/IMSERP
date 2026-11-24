@@ -353,9 +353,9 @@ public class StudentBulkImportController : ControllerBase
             var formattedPrimaryPhone = primaryPhone10.Length == 10 ? $"+91{primaryPhone10}" : rawPhone;
             var formattedAltPhone = altPhone10.Length == 10 ? $"+91{altPhone10}" : (string.IsNullOrWhiteSpace(rawAltPhone) ? null : rawAltPhone);
 
-            // Parse dates safely
-            DateTime? parsedDob = TryParseFlexibleDate(dobStr);
-            DateTime? parsedDoj = TryParseFlexibleDate(dojStr);
+            // Parse dates safely with valid ERP bounds (DOJ: 2010..NextYear, DOB: 1950..Today)
+            DateTime? parsedDob = TryParseFlexibleDate(dobStr, 1950, DateTime.UtcNow.Year);
+            DateTime? parsedDoj = TryParseFlexibleDate(dojStr, 2010, DateTime.UtcNow.Year + 1);
 
             // Collect custom fields for this row
             var rowCustomDict = new Dictionary<string, string>();
@@ -729,7 +729,7 @@ public class StudentBulkImportController : ControllerBase
                 else
                 {
                     var vText = c.Element(sNs + "v")?.Value ?? "";
-                    if (!string.IsNullOrEmpty(vText) && dateStyleIndices.Contains(styleIdx) && double.TryParse(vText, NumberStyles.Any, CultureInfo.InvariantCulture, out var serial) && serial > 1 && serial < 90000)
+                    if (!string.IsNullOrEmpty(vText) && dateStyleIndices.Contains(styleIdx) && double.TryParse(vText, NumberStyles.Any, CultureInfo.InvariantCulture, out var serial) && serial >= 18264 && serial <= 55000)
                     {
                         var dt = DateTime.FromOADate(serial);
                         val = dt.ToString("dd/MM/yyyy");
@@ -993,15 +993,26 @@ public class StudentBulkImportController : ControllerBase
         return list.Count > 0 ? list[0] : "";
     }
 
-    private static DateTime? TryParseFlexibleDate(string? raw)
+    private static DateTime? TryParseFlexibleDate(string? raw, int minYear = 1950, int maxYear = 2050)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var s = raw.Trim();
 
-        // Excel serial date fallback
-        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var serial) && serial > 1000 && serial < 90000)
+        // Handle plain 4-digit year entered in Excel (e.g. "2023", "2024", "2025") -> treat as 01-Apr-YYYY (academic session start)
+        if (Regex.IsMatch(s, @"^\d{4}$") && int.TryParse(s, out var plainYear) && plainYear >= minYear && plainYear <= maxYear)
         {
-            try { return DateTime.FromOADate(serial); } catch { }
+            return new DateTime(plainYear, 4, 1);
+        }
+
+        // Excel serial date fallback: real dates 1950..2050 are between 18264 and 55000 (never treat 4-digit years like 2023 as 1905!)
+        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var serial) && serial >= 18264 && serial <= 55000)
+        {
+            try
+            {
+                var dtSerial = DateTime.FromOADate(serial);
+                if (dtSerial.Year >= minYear && dtSerial.Year <= maxYear) return dtSerial;
+            }
+            catch { }
         }
 
         string[] formats =
@@ -1012,10 +1023,10 @@ public class StudentBulkImportController : ControllerBase
             "dd MMM yyyy", "d MMM yyyy"
         };
 
-        if (DateTime.TryParseExact(s, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        if (DateTime.TryParseExact(s, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) && dt.Year >= minYear && dt.Year <= maxYear)
             return dt;
 
-        if (DateTime.TryParse(s, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out var dtIn))
+        if (DateTime.TryParse(s, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out var dtIn) && dtIn.Year >= minYear && dtIn.Year <= maxYear)
             return dtIn;
 
         return null;
