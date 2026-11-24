@@ -1037,4 +1037,343 @@ public class StudentBulkImportController : ControllerBase
         if (g.StartsWith("o")) return "Other";
         return "Male";
     }
+
+    // ─── Native Zero-Dependency .xlsx Excel Export (Standard + Dynamic Custom Fields) ───
+    [HttpGet("export-excel")]
+    public async Task<IActionResult> ExportStudentsExcel(
+        [FromQuery] string? search = null,
+        [FromQuery] string? stream = null,
+        [FromQuery] Guid? classId = null,
+        [FromQuery] Guid? sectionId = null,
+        [FromQuery] Guid? batchId = null,
+        [FromQuery] string? status = null)
+    {
+        var tenantId = _currentUser.TenantId;
+        var branchId = _currentUser.BranchId;
+
+        var query = _dbContext.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Include(s => s.Section)
+            .Include(s => s.Batch)
+            .Include(s => s.TransportAllocation)
+                .ThenInclude(t => t!.Route)
+            .Include(s => s.TransportAllocation)
+                .ThenInclude(t => t!.RouteStop)
+            .Where(s => s.TenantId == tenantId && !s.IsDeleted);
+
+        if (branchId.HasValue)
+            query = query.Where(s => s.BranchId == null || s.BranchId == branchId.Value);
+
+        if (classId.HasValue)
+            query = query.Where(s => s.ClassId == classId.Value);
+
+        if (sectionId.HasValue)
+            query = query.Where(s => s.SectionId == sectionId.Value);
+
+        if (batchId.HasValue)
+            query = query.Where(s => s.BatchId == batchId.Value);
+
+        if (!string.IsNullOrWhiteSpace(stream) && !string.Equals(stream, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var st = stream.Trim().ToLowerInvariant();
+            if (st == "school") query = query.Where(s => s.IsSchoolStudent);
+            else if (st == "coaching") query = query.Where(s => s.IsCoachingStudent);
+            else if (st == "dual") query = query.Where(s => s.IsSchoolStudent && s.IsCoachingStudent);
+            else if (st == "hostel") query = query.Where(s => s.IsHostelStudent);
+            else if (st == "library") query = query.Where(s => s.IsLibraryMember);
+            else if (st == "transport") query = query.Where(s => s.IsTransportStudent);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var st = status.Trim().ToLowerInvariant();
+            if (st == "active") query = query.Where(s => s.IsActive);
+            else if (st == "inactive" || st == "left") query = query.Where(s => !s.IsActive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.Trim().ToLowerInvariant();
+            query = query.Where(s =>
+                (s.StudentName != null && s.StudentName.ToLower().Contains(q)) ||
+                (s.ParentName != null && s.ParentName.ToLower().Contains(q)) ||
+                (s.MotherName != null && s.MotherName.ToLower().Contains(q)) ||
+                (s.AdmissionNumber != null && s.AdmissionNumber.ToLower().Contains(q)) ||
+                (s.RollNumber != null && s.RollNumber.ToLower().Contains(q)) ||
+                (s.SchoolRollNumber != null && s.SchoolRollNumber.ToLower().Contains(q)) ||
+                (s.ParentWhatsAppPhone != null && s.ParentWhatsAppPhone.ToLower().Contains(q)) ||
+                (s.Class != null && s.Class.Name.ToLower().Contains(q)));
+        }
+
+        var students = await query
+            .OrderBy(s => s.Class != null ? s.Class.Name : "ZZZ")
+            .ThenBy(s => s.Section != null ? s.Section.Name : "ZZZ")
+            .ThenBy(s => s.StudentName)
+            .ToListAsync();
+
+        var customDefs = await _dbContext.CustomFieldDefinitions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(f => f.TenantId == tenantId && f.EntityType == "Student" && f.IsActive)
+            .OrderBy(f => f.SortOrder)
+            .ThenBy(f => f.CreatedAt)
+            .ToListAsync();
+
+        var headers = new List<string>
+        {
+            "S.No",
+            "Admission No",
+            "School Roll No",
+            "Student Name",
+            "Gender",
+            "Date of Birth",
+            "Date of Admission",
+            "Class",
+            "Section",
+            "Stream",
+            "Batch",
+            "Father's / Guardian Name",
+            "Mother's Name",
+            "WhatsApp / Primary Phone",
+            "Alternate / Emergency Phone",
+            "Local / Residential Address",
+            "Blood Group",
+            "Category",
+            "Religion",
+            "Aadhaar Number",
+            "PEN Number",
+            "APAAR ID",
+            "Transport",
+            "Hostel",
+            "Status"
+        };
+
+        foreach (var cf in customDefs)
+            headers.Add(cf.FieldLabel);
+
+        var dataRows = new List<List<string>>();
+        int sno = 1;
+        foreach (var s in students)
+        {
+            var streamLabel = s.IsSchoolStudent && s.IsCoachingStudent ? "School + Coaching"
+                : (s.IsSchoolStudent ? "School Only" : "Coaching Only");
+
+            var transportLabel = s.IsTransportStudent
+                ? (s.TransportAllocation?.Route != null
+                    ? $"Yes ({s.TransportAllocation.Route.RouteName}{(s.TransportAllocation.RouteStop != null ? " - " + s.TransportAllocation.RouteStop.StopName : "")})"
+                    : "Yes")
+                : "No";
+
+            var customMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(s.CustomFieldsJson))
+            {
+                try
+                {
+                    using var jdoc = JsonDocument.Parse(s.CustomFieldsJson);
+                    foreach (var prop in jdoc.RootElement.EnumerateObject())
+                    {
+                        customMap[prop.Name] = prop.Value.ValueKind == JsonValueKind.True ? "Yes"
+                            : prop.Value.ValueKind == JsonValueKind.False ? "No"
+                            : prop.Value.ToString();
+                    }
+                }
+                catch { }
+            }
+
+            var row = new List<string>
+            {
+                (sno++).ToString(),
+                s.AdmissionNumber ?? "",
+                s.SchoolRollNumber ?? s.RollNumber ?? "",
+                s.StudentName ?? "",
+                s.Gender ?? "",
+                s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd-MM-yyyy") : "",
+                s.JoiningDate.ToString("dd-MM-yyyy"),
+                s.Class?.Name ?? "",
+                s.Section?.Name ?? "",
+                streamLabel,
+                s.Batch?.Name ?? "",
+                s.ParentName ?? "",
+                s.MotherName ?? "",
+                s.ParentWhatsAppPhone ?? "",
+                s.EmergencyContactPhone ?? "",
+                s.Address ?? "",
+                s.BloodGroup ?? "",
+                s.Category ?? "",
+                s.Religion ?? "",
+                s.AadhaarNumber ?? "",
+                s.PenNumber ?? "",
+                s.ApaarId ?? "",
+                transportLabel,
+                s.IsHostelStudent ? "Yes" : "No",
+                s.IsActive ? "Active" : (string.IsNullOrWhiteSpace(s.TCNumber) ? "Inactive / Left" : $"Left ({s.TCNumber})")
+            };
+
+            foreach (var cf in customDefs)
+            {
+                customMap.TryGetValue(cf.FieldKey, out var cfVal);
+                row.Add(cfVal ?? "");
+            }
+
+            dataRows.Add(row);
+        }
+
+        var xlsxBytes = BuildSimpleXlsxBytes("Students Directory", headers, dataRows);
+        var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "India Standard Time" : "Asia/Kolkata"));
+        var fileName = $"Students_Directory_{istNow:yyyy-MM-dd}.xlsx";
+
+        return File(xlsxBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    private static byte[] BuildSimpleXlsxBytes(string sheetName, List<string> headers, List<List<string>> rows)
+    {
+        using var ms = new MemoryStream();
+        using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteZipEntry(archive, "[Content_Types].xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+                "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
+                "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+                "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+                "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+                "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
+                "</Types>");
+
+            WriteZipEntry(archive, "_rels/.rels",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+                "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
+                "</Relationships>");
+
+            WriteZipEntry(archive, "xl/workbook.xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+                $"<sheets><sheet name=\"{XmlEscape(sheetName)}\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+                "</workbook>");
+
+            WriteZipEntry(archive, "xl/_rels/workbook.xml.rels",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+                "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
+                "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
+                "</Relationships>");
+
+            // Style 0 = normal cell, Style 1 = bold white header on #1E3A8A blue background
+            WriteZipEntry(archive, "xl/styles.xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<fonts count=\"2\">" +
+                "<font><sz val=\"10\"/><name val=\"Calibri\"/></font>" +
+                "<font><b/><sz val=\"10\"/><color rgb=\"FFFFFFFF\"/><name val=\"Calibri\"/></font>" +
+                "</fonts>" +
+                "<fills count=\"3\">" +
+                "<fill><patternFill patternType=\"none\"/></fill>" +
+                "<fill><patternFill patternType=\"gray125\"/></fill>" +
+                "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FF1E3A8A\"/><bgColor indexed=\"64\"/></patternFill></fill>" +
+                "</fills>" +
+                "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>" +
+                "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
+                "<cellXfs count=\"2\">" +
+                "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>" +
+                "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/>" +
+                "</cellXfs>" +
+                "</styleSheet>");
+
+            // Compute auto column widths
+            var colWidths = new int[headers.Count];
+            for (int c = 0; c < headers.Count; c++)
+                colWidths[c] = Math.Max(12, Math.Min(42, headers[c].Length + 4));
+            foreach (var r in rows.Take(200))
+            {
+                for (int c = 0; c < Math.Min(r.Count, headers.Count); c++)
+                {
+                    int len = (r[c]?.Length ?? 0) + 3;
+                    if (len > colWidths[c]) colWidths[c] = Math.Min(45, len);
+                }
+            }
+
+            var sb = new StringBuilder();
+            sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+            sb.Append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+            sb.Append("<cols>");
+            for (int c = 0; c < colWidths.Length; c++)
+                sb.Append($"<col min=\"{c + 1}\" max=\"{c + 1}\" width=\"{colWidths[c]}\" customWidth=\"1\"/>");
+            sb.Append("</cols><sheetData>");
+
+            // Header row
+            sb.Append("<row r=\"1\" ht=\"22\" customHeight=\"1\">");
+            for (int c = 0; c < headers.Count; c++)
+            {
+                var cellRef = $"{IndexToColLetters(c)}1";
+                sb.Append($"<c r=\"{cellRef}\" t=\"inlineStr\" s=\"1\"><is><t>{XmlEscape(headers[c])}</t></is></c>");
+            }
+            sb.Append("</row>");
+
+            // Data rows
+            for (int rIdx = 0; rIdx < rows.Count; rIdx++)
+            {
+                int excelRow = rIdx + 2;
+                sb.Append($"<row r=\"{excelRow}\">");
+                var row = rows[rIdx];
+                for (int c = 0; c < headers.Count; c++)
+                {
+                    var val = c < row.Count ? (row[c] ?? "") : "";
+                    var cellRef = $"{IndexToColLetters(c)}{excelRow}";
+                    sb.Append($"<c r=\"{cellRef}\" t=\"inlineStr\"><is><t>{XmlEscape(val)}</t></is></c>");
+                }
+                sb.Append("</row>");
+            }
+
+            sb.Append("</sheetData></worksheet>");
+            WriteZipEntry(archive, "xl/worksheets/sheet1.xml", sb.ToString());
+        }
+
+        return ms.ToArray();
+    }
+
+    private static void WriteZipEntry(ZipArchive archive, string path, string content)
+    {
+        var entry = archive.CreateEntry(path, CompressionLevel.Fastest);
+        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+        writer.Write(content);
+    }
+
+    private static string IndexToColLetters(int index)
+    {
+        var result = "";
+        int n = index + 1;
+        while (n > 0)
+        {
+            int rem = (n - 1) % 26;
+            result = (char)('A' + rem) + result;
+            n = (n - 1) / 26;
+        }
+        return result;
+    }
+
+    private static string XmlEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        // Strip invalid XML 1.0 control chars
+        var sb = new StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            if (ch == '\t' || ch == '\n' || ch == '\r' || (ch >= 0x20 && ch <= 0xD7FF) || (ch >= 0xE000 && ch <= 0xFFFD))
+            {
+                switch (ch)
+                {
+                    case '&': sb.Append("&amp;"); break;
+                    case '<': sb.Append("&lt;"); break;
+                    case '>': sb.Append("&gt;"); break;
+                    case '"': sb.Append("&quot;"); break;
+                    case '\'': sb.Append("&apos;"); break;
+                    default: sb.Append(ch); break;
+                }
+            }
+        }
+        return sb.ToString();
+    }
 }

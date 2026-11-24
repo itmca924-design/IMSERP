@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, HostListener, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -151,6 +152,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <mat-icon style="color:#059669;">upload_file</mat-icon>
                 <span>Bulk Import Excel / CSV</span>
               </button>
+              <button mat-menu-item (click)="exportStudentsToExcel()">
+                <mat-icon style="color:#0284c7;">download</mat-icon>
+                <span>Export Directory to Excel (.xlsx)</span>
+              </button>
               <button mat-menu-item (click)="openManageCustomFields()">
                 <mat-icon style="color:#0f766e;">tune</mat-icon>
                 <span>Manage Custom Fields</span>
@@ -162,6 +167,10 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
             <button type="button" (click)="openBulkImportDialog()" matButton="filled" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px;" matTooltip="Bulk Import Students from Excel (.xlsx / .csv) with Auto Custom Fields &amp; Duplicate Check">
               <mat-icon style="font-size: 19px; width: 19px; height: 19px;">upload_file</mat-icon>
               <span>Bulk Import Excel</span>
+            </button>
+            <button type="button" (click)="exportStudentsToExcel()" [disabled]="loading" matButton="filled" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #fff; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px;" matTooltip="Download full filtered Student Directory (including Custom Fields) as Excel (.xlsx)">
+              <mat-icon style="font-size: 19px; width: 19px; height: 19px;">download</mat-icon>
+              <span>Export Excel</span>
             </button>
           }
     
@@ -4437,6 +4446,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     private inventoryService: InventoryService,
     private aiAdmissionService: AiAdmissionAssistantService,
     private customFieldsService: CustomFieldsService,
+    private http: HttpClient,
     private cdr: ChangeDetectorRef
   ) {
     const hasSchool = this.authService.hasSchoolModule();
@@ -4668,6 +4678,43 @@ export class StudentsComponent implements OnInit, OnDestroy {
   private resetCustomFieldsForm(): void {
     this.rebuildCustomFieldsForm({});
     this.cdr.markForCheck();
+  }
+
+  exportStudentsToExcel(): void {
+    this.loading = true;
+    this.cdr.markForCheck();
+
+    let params = new HttpParams();
+    if (this.searchTerm?.trim()) params = params.set('search', this.searchTerm.trim());
+    if (this.selectedStreamFilter && this.selectedStreamFilter !== 'all') params = params.set('stream', this.selectedStreamFilter);
+    if (this.selectedClassFilter) params = params.set('classId', this.selectedClassFilter);
+    if (this.selectedSectionFilter) params = params.set('sectionId', this.selectedSectionFilter);
+    if (this.selectedBatchFilter) params = params.set('batchId', this.selectedBatchFilter);
+    if (this.selectedStatusFilter && this.selectedStatusFilter !== 'all') params = params.set('status', this.selectedStatusFilter);
+
+    this.http.get(`${environment.apiUrl}/students/bulk-import/export-excel`, {
+      params,
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        this.loading = false;
+        this.cdr.markForCheck();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        a.href = url;
+        a.download = `Students_Directory_${dateStr}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.loading = false;
+        this.cdr.markForCheck();
+        this.confirmDialog.alert('Export Failed', err?.error?.message || 'Could not export Student Directory to Excel.', 'danger');
+      }
+    });
   }
 
   openBulkImportDialog(): void {
