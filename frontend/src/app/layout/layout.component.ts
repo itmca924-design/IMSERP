@@ -602,6 +602,18 @@ export interface BreadcrumbItem {
                 </button>
               </mat-menu>
             }
+
+            <!-- 📢 Principal AI Morning Briefing Desk Header Icon -->
+            @if (!authService.isStudentOrParent() && !authService.isTeacher()) {
+              <button type="button"
+                class="header-tool-button"
+                routerLink="/dashboard/briefing"
+                matTooltip="Principal AI Morning Briefing Desk"
+                aria-label="Principal AI Morning Briefing Desk"
+                mat-icon-button>
+                <mat-icon>campaign</mat-icon>
+              </button>
+            }
           </div>
           <span class="spacer"></span>
     
