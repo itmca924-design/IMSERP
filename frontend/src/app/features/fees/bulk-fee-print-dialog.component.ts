@@ -3167,11 +3167,47 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const pages: string[] = [];
 
     if (meta.printLayout === 'three_per_page') {
-      // 3 Students per A4 Page (1x3 Tri-Fold with horizontal tear divider between cards)
-      for (let i = 0; i < slips.length; i += 3) {
-        const pageSlips = slips.slice(i, i + 3);
-        const cardDivs = pageSlips.map(s => this.renderGrid3DueSlipCard(s, meta));
-        const dividerHtml = `
+      // Continuous 1-column Tri-Fold flow: packs as many slips as fit on each A4 page before breaking
+      const dividerHtml = `
+        <div class="grid-cut-divider">
+          <span class="cut-sc">✂</span>
+          <span class="cut-line"></span>
+          <span class="cut-txt">CUT / TEAR HERE (यहाँ से काटें / अलग करें)</span>
+          <span class="cut-line"></span>
+          <span class="cut-sc flip">✂</span>
+        </div>
+      `;
+      const blocks = slips.map((s, idx) => `
+        <div class="print-row-block">
+          ${this.renderGrid3DueSlipCard(s, meta)}
+          ${idx < slips.length - 1 ? dividerHtml : ''}
+        </div>
+      `);
+      return `<div class="a4-flow-page flow-gap-4">${blocks.join('')}</div>`;
+    } else if (
+      meta.printLayout === 'four_per_page' ||
+      meta.printLayout === 'eight_per_page' ||
+      meta.printLayout === 'ten_per_page' ||
+      meta.printLayout === 'twelve_per_page'
+    ) {
+      // Continuous 2-column Grid flow: packs rows onto the A4 page until the page is actually full
+      const isFour = meta.printLayout === 'four_per_page';
+      const isEight = meta.printLayout === 'eight_per_page';
+      const isTen = meta.printLayout === 'ten_per_page';
+
+      const renderCard = (s: BulkDueSlipItem) =>
+        isFour ? this.renderGrid4DueSlipCard(s, meta)
+        : isEight ? this.renderGrid8DueSlipCard(s, meta)
+        : isTen ? this.renderGrid10DueSlipCard(s, meta)
+        : this.renderGrid12DueSlipCard(s, meta);
+
+      const placeholderClass = isFour ? 'card-grid-4'
+        : isEight ? 'card-grid-8'
+        : isTen ? 'card-grid-10'
+        : 'card-grid-12';
+
+      const dividerHtml = isFour
+        ? `
           <div class="grid-cut-divider">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3179,73 +3215,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-line"></span>
             <span class="cut-sc flip">✂</span>
           </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-3">
-            ${cardDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'four_per_page') {
-      // 4 Students per A4 Page (2x2 Grid with horizontal tear divider between Row 1 & Row 2)
-      for (let i = 0; i < slips.length; i += 4) {
-        const pageSlips = slips.slice(i, i + 4);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageSlips.length; r += 2) {
-          const s1 = pageSlips[r];
-          const s2 = pageSlips[r + 1];
-          const card1 = this.renderGrid4DueSlipCard(s1, meta);
-          const card2 = s2
-            ? this.renderGrid4DueSlipCard(s2, meta)
-            : '<div class="slip-card card-grid-4 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
-          <div class="grid-cut-divider">
-            <span class="cut-sc">✂</span>
-            <span class="cut-line"></span>
-            <span class="cut-txt">CUT / TEAR HERE (यहाँ से काटें / अलग करें)</span>
-            <span class="cut-line"></span>
-            <span class="cut-sc flip">✂</span>
-          </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-4">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'eight_per_page') {
-      // 8 Students per A4 Page (2x4 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < slips.length; i += 8) {
-        const pageSlips = slips.slice(i, i + 8);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageSlips.length; r += 2) {
-          const s1 = pageSlips[r];
-          const s2 = pageSlips[r + 1];
-          const card1 = this.renderGrid8DueSlipCard(s1, meta);
-          const card2 = s2
-            ? this.renderGrid8DueSlipCard(s2, meta)
-            : '<div class="slip-card card-grid-8 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
+        `
+        : (isEight || isTen)
+        ? `
           <div class="grid-cut-divider mini">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3253,73 +3225,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-line"></span>
             <span class="cut-sc flip">✂</span>
           </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-8">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'ten_per_page') {
-      // 10 Students per A4 Page (2x5 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < slips.length; i += 10) {
-        const pageSlips = slips.slice(i, i + 10);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageSlips.length; r += 2) {
-          const s1 = pageSlips[r];
-          const s2 = pageSlips[r + 1];
-          const card1 = this.renderGrid10DueSlipCard(s1, meta);
-          const card2 = s2
-            ? this.renderGrid10DueSlipCard(s2, meta)
-            : '<div class="slip-card card-grid-10 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
-          <div class="grid-cut-divider mini">
-            <span class="cut-sc">✂</span>
-            <span class="cut-line"></span>
-            <span class="cut-txt">CUT HERE (यहाँ से काटें)</span>
-            <span class="cut-line"></span>
-            <span class="cut-sc flip">✂</span>
-          </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-10">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'twelve_per_page') {
-      // 12 Students per A4 Page (2x6 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < slips.length; i += 12) {
-        const pageSlips = slips.slice(i, i + 12);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageSlips.length; r += 2) {
-          const s1 = pageSlips[r];
-          const s2 = pageSlips[r + 1];
-          const card1 = this.renderGrid12DueSlipCard(s1, meta);
-          const card2 = s2
-            ? this.renderGrid12DueSlipCard(s2, meta)
-            : '<div class="slip-card card-grid-12 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
+        `
+        : `
           <div class="grid-cut-divider micro">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3328,12 +3235,30 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-sc flip">✂</span>
           </div>
         `;
-        pages.push(`
-          <div class="a4-page page-layout-12">
-            ${rowDivs.join(dividerHtml)}
+
+      const rowBlocks: string[] = [];
+      for (let r = 0; r < slips.length; r += 2) {
+        const s1 = slips[r];
+        const s2 = slips[r + 1];
+        const card1 = renderCard(s1);
+        const card2 = s2
+          ? renderCard(s2)
+          : `<div class="slip-card ${placeholderClass} placeholder-card"></div>`;
+        const isLastRow = r + 2 >= slips.length;
+
+        rowBlocks.push(`
+          <div class="print-row-block">
+            <div class="grid-row-2">
+              ${card1}
+              ${card2}
+            </div>
+            ${!isLastRow ? dividerHtml : ''}
           </div>
         `);
       }
+
+      const flowGapClass = isFour ? 'flow-gap-4' : 'flow-gap-2';
+      return `<div class="a4-flow-page ${flowGapClass}">${rowBlocks.join('')}</div>`;
     } else if (meta.printLayout === 'counterfoil') {
       // 1 Student per A4 (Student Copy + Office Counterfoil)
       for (const slip of slips) {
@@ -3348,20 +3273,14 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     } else {
-      // 2 Students per A4 (Half-Page Detailed)
-      for (let i = 0; i < slips.length; i += 2) {
-        const first = slips[i];
-        const second = slips[i + 1];
-        pages.push(`
-          <div class="a4-page">
-            <div class="grid-2-page">
-              ${this.renderSingleDueSlipCard(first, 'OFFICIAL FEE DEMAND SLIP (मांग पर्ची)', meta)}
-              ${second ? `<div class="cut-line">✂ — — — — — — — — — CUT HERE FOR NEXT STUDENT — — — — — — — — — ✂</div>` : ''}
-              ${second ? this.renderSingleDueSlipCard(second, 'OFFICIAL FEE DEMAND SLIP (मांग पर्ची)', meta) : ''}
-            </div>
-          </div>
-        `);
-      }
+      // 2 Students per A4 (Half-Page Detailed — continuous packing)
+      const blocks = slips.map((slip, idx) => `
+        <div class="print-row-block">
+          ${this.renderSingleDueSlipCard(slip, 'OFFICIAL FEE DEMAND SLIP (मांग पर्ची)', meta)}
+          ${idx < slips.length - 1 ? `<div class="cut-line" style="margin: 6px 0;">✂ — — — — — — — — — CUT HERE FOR NEXT STUDENT — — — — — — — — — ✂</div>` : ''}
+        </div>
+      `);
+      return `<div class="a4-flow-page flow-gap-4">${blocks.join('')}</div>`;
     }
 
     return pages.join('');
@@ -3780,11 +3699,45 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const pages: string[] = [];
 
     if (meta.printLayout === 'three_per_page') {
-      // 3 Receipts per A4 Page (1x3 Tri-Fold with horizontal tear divider between cards)
-      for (let i = 0; i < receipts.length; i += 3) {
-        const pageReceipts = receipts.slice(i, i + 3);
-        const cardDivs = pageReceipts.map(r => this.renderGrid3ReceiptCard(r, meta));
-        const dividerHtml = `
+      const dividerHtml = `
+        <div class="grid-cut-divider">
+          <span class="cut-sc">✂</span>
+          <span class="cut-line"></span>
+          <span class="cut-txt">CUT / TEAR HERE (यहाँ से काटें / अलग करें)</span>
+          <span class="cut-line"></span>
+          <span class="cut-sc flip">✂</span>
+        </div>
+      `;
+      const blocks = receipts.map((r, idx) => `
+        <div class="print-row-block">
+          ${this.renderGrid3ReceiptCard(r, meta)}
+          ${idx < receipts.length - 1 ? dividerHtml : ''}
+        </div>
+      `);
+      return `<div class="a4-flow-page flow-gap-4">${blocks.join('')}</div>`;
+    } else if (
+      meta.printLayout === 'four_per_page' ||
+      meta.printLayout === 'eight_per_page' ||
+      meta.printLayout === 'ten_per_page' ||
+      meta.printLayout === 'twelve_per_page'
+    ) {
+      const isFour = meta.printLayout === 'four_per_page';
+      const isEight = meta.printLayout === 'eight_per_page';
+      const isTen = meta.printLayout === 'ten_per_page';
+
+      const renderCard = (r: BulkReceiptItem) =>
+        isFour ? this.renderGrid4ReceiptCard(r, meta)
+        : isEight ? this.renderGrid8ReceiptCard(r, meta)
+        : isTen ? this.renderGrid10ReceiptCard(r, meta)
+        : this.renderGrid12ReceiptCard(r, meta);
+
+      const placeholderClass = isFour ? 'card-grid-4'
+        : isEight ? 'card-grid-8'
+        : isTen ? 'card-grid-10'
+        : 'card-grid-12';
+
+      const dividerHtml = isFour
+        ? `
           <div class="grid-cut-divider">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3792,73 +3745,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-line"></span>
             <span class="cut-sc flip">✂</span>
           </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-3">
-            ${cardDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'four_per_page') {
-      // 4 Receipts per A4 Page (2x2 Grid with horizontal tear divider between Row 1 & Row 2)
-      for (let i = 0; i < receipts.length; i += 4) {
-        const pageReceipts = receipts.slice(i, i + 4);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageReceipts.length; r += 2) {
-          const r1 = pageReceipts[r];
-          const r2 = pageReceipts[r + 1];
-          const card1 = this.renderGrid4ReceiptCard(r1, meta);
-          const card2 = r2
-            ? this.renderGrid4ReceiptCard(r2, meta)
-            : '<div class="slip-card card-grid-4 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
-          <div class="grid-cut-divider">
-            <span class="cut-sc">✂</span>
-            <span class="cut-line"></span>
-            <span class="cut-txt">CUT / TEAR HERE (यहाँ से काटें / अलग करें)</span>
-            <span class="cut-line"></span>
-            <span class="cut-sc flip">✂</span>
-          </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-4">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'eight_per_page') {
-      // 8 Receipts per A4 Page (2x4 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < receipts.length; i += 8) {
-        const pageReceipts = receipts.slice(i, i + 8);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageReceipts.length; r += 2) {
-          const r1 = pageReceipts[r];
-          const r2 = pageReceipts[r + 1];
-          const card1 = this.renderGrid8ReceiptCard(r1, meta);
-          const card2 = r2
-            ? this.renderGrid8ReceiptCard(r2, meta)
-            : '<div class="slip-card card-grid-8 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
+        `
+        : (isEight || isTen)
+        ? `
           <div class="grid-cut-divider mini">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3866,73 +3755,8 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-line"></span>
             <span class="cut-sc flip">✂</span>
           </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-8">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'ten_per_page') {
-      // 10 Receipts per A4 Page (2x5 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < receipts.length; i += 10) {
-        const pageReceipts = receipts.slice(i, i + 10);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageReceipts.length; r += 2) {
-          const r1 = pageReceipts[r];
-          const r2 = pageReceipts[r + 1];
-          const card1 = this.renderGrid10ReceiptCard(r1, meta);
-          const card2 = r2
-            ? this.renderGrid10ReceiptCard(r2, meta)
-            : '<div class="slip-card card-grid-10 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
-          <div class="grid-cut-divider mini">
-            <span class="cut-sc">✂</span>
-            <span class="cut-line"></span>
-            <span class="cut-txt">CUT HERE (यहाँ से काटें)</span>
-            <span class="cut-line"></span>
-            <span class="cut-sc flip">✂</span>
-          </div>
-        `;
-        pages.push(`
-          <div class="a4-page page-layout-10">
-            ${rowDivs.join(dividerHtml)}
-          </div>
-        `);
-      }
-    } else if (meta.printLayout === 'twelve_per_page') {
-      // 12 Receipts per A4 Page (2x6 Grid with horizontal tear dividers between each row)
-      for (let i = 0; i < receipts.length; i += 12) {
-        const pageReceipts = receipts.slice(i, i + 12);
-        const rowDivs: string[] = [];
-
-        for (let r = 0; r < pageReceipts.length; r += 2) {
-          const r1 = pageReceipts[r];
-          const r2 = pageReceipts[r + 1];
-          const card1 = this.renderGrid12ReceiptCard(r1, meta);
-          const card2 = r2
-            ? this.renderGrid12ReceiptCard(r2, meta)
-            : '<div class="slip-card card-grid-12 placeholder-card"></div>';
-
-          rowDivs.push(`
-            <div class="grid-row-2">
-              ${card1}
-              ${card2}
-            </div>
-          `);
-        }
-
-        const dividerHtml = `
+        `
+        : `
           <div class="grid-cut-divider micro">
             <span class="cut-sc">✂</span>
             <span class="cut-line"></span>
@@ -3941,12 +3765,30 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="cut-sc flip">✂</span>
           </div>
         `;
-        pages.push(`
-          <div class="a4-page page-layout-12">
-            ${rowDivs.join(dividerHtml)}
+
+      const rowBlocks: string[] = [];
+      for (let r = 0; r < receipts.length; r += 2) {
+        const r1 = receipts[r];
+        const r2 = receipts[r + 1];
+        const card1 = renderCard(r1);
+        const card2 = r2
+          ? renderCard(r2)
+          : `<div class="slip-card ${placeholderClass} placeholder-card"></div>`;
+        const isLastRow = r + 2 >= receipts.length;
+
+        rowBlocks.push(`
+          <div class="print-row-block">
+            <div class="grid-row-2">
+              ${card1}
+              ${card2}
+            </div>
+            ${!isLastRow ? dividerHtml : ''}
           </div>
         `);
       }
+
+      const flowGapClass = isFour ? 'flow-gap-4' : 'flow-gap-2';
+      return `<div class="a4-flow-page ${flowGapClass}">${rowBlocks.join('')}</div>`;
     } else if (meta.printLayout === 'counterfoil') {
       // 1 Receipt per A4 (Student Copy + Office Counterfoil)
       for (const rcp of receipts) {
@@ -3961,20 +3803,14 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         `);
       }
     } else {
-      // 2 Receipts per A4 Page
-      for (let i = 0; i < receipts.length; i += 2) {
-        const first = receipts[i];
-        const second = receipts[i + 1];
-        pages.push(`
-          <div class="a4-page">
-            <div class="grid-2-page">
-              ${this.renderSingleReceiptCard(first, 'OFFICIAL FEE PAYMENT RECEIPT (भुगतान रसीद)', meta)}
-              ${second ? `<div class="cut-line">✂ — — — — — — — — — CUT HERE FOR NEXT RECEIPT — — — — — — — — — ✂</div>` : ''}
-              ${second ? this.renderSingleReceiptCard(second, 'OFFICIAL FEE PAYMENT RECEIPT (भुगतान रसीद)', meta) : ''}
-            </div>
-          </div>
-        `);
-      }
+      // 2 Receipts per A4 Page (continuous packing)
+      const blocks = receipts.map((rcp, idx) => `
+        <div class="print-row-block">
+          ${this.renderSingleReceiptCard(rcp, 'OFFICIAL FEE PAYMENT RECEIPT (भुगतान रसीद)', meta)}
+          ${idx < receipts.length - 1 ? `<div class="cut-line" style="margin: 6px 0;">✂ — — — — — — — — — CUT HERE FOR NEXT RECEIPT — — — — — — — — — ✂</div>` : ''}
+        </div>
+      `);
+      return `<div class="a4-flow-page flow-gap-4">${blocks.join('')}</div>`;
     }
 
     return pages.join('');
@@ -4048,7 +3884,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
         <style>
           @page {
             size: A4 portrait;
-            margin: 0mm !important;
+            margin: 4mm 6mm !important;
           }
           * {
             box-sizing: border-box;
@@ -4065,13 +3901,29 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             print-color-adjust: exact !important;
           }
 
+          .a4-flow-page {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .print-row-block {
+            display: block;
+            width: 100%;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-bottom: 1.5mm;
+          }
+          .flow-gap-4 .print-row-block {
+            margin-bottom: 2.5mm;
+          }
+
           .a4-page {
             display: block;
             width: 100%;
             page-break-after: always;
             break-after: page;
             box-sizing: border-box;
-            padding: 4mm 6mm;
+            padding: 0;
             height: auto;
           }
           .a4-page:last-child {
