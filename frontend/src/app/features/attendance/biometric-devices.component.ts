@@ -160,49 +160,63 @@ interface BiometricMappingPagedResult {
     <div class="section-heading">
       <div>
         <h2>Biometric &amp; RFID User Mapping</h2>
-        <p>Select Coaching Student, School Student, or Teacher to map terminal IDs and RFID cards.</p>
+        <p>
+          @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+            Select Coaching Student, School Student, or Teacher to map terminal IDs and RFID cards.
+          } @else if (authService.hasCoachingModule()) {
+            Select Coaching Student or Teacher to map terminal IDs and RFID cards.
+          } @else {
+            Select School Student or Teacher to map terminal IDs and RFID cards.
+          }
+        </p>
       </div>
       <button (click)="loadPagedMappings()" matButton="filled"><mat-icon>refresh</mat-icon> Refresh People</button>
     </div>
 
-    <!-- 5 User-Friendly KPI Category Cards: All Students, School Only, Coaching Only, School + Coaching, Teachers -->
+    <!-- Dynamic Subscription-Aware KPI Category Cards -->
     <div class="category-tabs-container">
       <div class="category-pills">
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'AllStudents'" (click)="setCategory('AllStudents')">
           <mat-icon class="pill-icon">groups</mat-icon>
           <div class="pill-info">
             <span class="pill-title">All Students</span>
-            <small class="pill-sub">School + Coaching Total</small>
+            <small class="pill-sub">{{ authService.hasSchoolModule() && authService.hasCoachingModule() ? 'School + Coaching Total' : (authService.hasCoachingModule() ? 'Coaching Students Total' : 'School Students Total') }}</small>
           </div>
           <span class="count-badge">{{ allStudentCount }}</span>
         </button>
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
-          <mat-icon class="pill-icon">domain</mat-icon>
-          <div class="pill-info">
-            <span class="pill-title">School Only</span>
-            <small class="pill-sub">Class &amp; Section Division</small>
-          </div>
-          <span class="count-badge">{{ schoolCount }}</span>
-        </button>
+        @if (authService.hasSchoolModule()) {
+          <button type="button" class="pill-btn" [class.active]="activeCategory === 'School'" (click)="setCategory('School')">
+            <mat-icon class="pill-icon">domain</mat-icon>
+            <div class="pill-info">
+              <span class="pill-title">School Only</span>
+              <small class="pill-sub">Class &amp; Section Division</small>
+            </div>
+            <span class="count-badge">{{ schoolCount }}</span>
+          </button>
+        }
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
-          <mat-icon class="pill-icon">school</mat-icon>
-          <div class="pill-info">
-            <span class="pill-title">Coaching Only</span>
-            <small class="pill-sub">Batch-wise Enrollment</small>
-          </div>
-          <span class="count-badge">{{ coachingCount }}</span>
-        </button>
+        @if (authService.hasCoachingModule()) {
+          <button type="button" class="pill-btn" [class.active]="activeCategory === 'Coaching'" (click)="setCategory('Coaching')">
+            <mat-icon class="pill-icon">school</mat-icon>
+            <div class="pill-info">
+              <span class="pill-title">Coaching Only</span>
+              <small class="pill-sub">Batch-wise Enrollment</small>
+            </div>
+            <span class="count-badge">{{ coachingCount }}</span>
+          </button>
+        }
 
-        <button type="button" class="pill-btn" [class.active]="activeCategory === 'Hybrid'" (click)="setCategory('Hybrid')">
-          <mat-icon class="pill-icon">verified</mat-icon>
-          <div class="pill-info">
-            <span class="pill-title">School + Coaching</span>
-            <small class="pill-sub">Dual Enrolled (Hybrid)</small>
-          </div>
-          <span class="count-badge">{{ hybridCount }}</span>
-        </button>
+        @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+          <button type="button" class="pill-btn" [class.active]="activeCategory === 'Hybrid'" (click)="setCategory('Hybrid')">
+            <mat-icon class="pill-icon">verified</mat-icon>
+            <div class="pill-info">
+              <span class="pill-title">School + Coaching</span>
+              <small class="pill-sub">Dual Enrolled (Hybrid)</small>
+            </div>
+            <span class="count-badge">{{ hybridCount }}</span>
+          </button>
+        }
 
         <button type="button" class="pill-btn" [class.active]="activeCategory === 'Teacher'" (click)="setCategory('Teacher')">
           <mat-icon class="pill-icon">badge</mat-icon>
@@ -242,8 +256,8 @@ interface BiometricMappingPagedResult {
         </mat-form-field>
       }
 
-      <!-- Coaching Batch Filter (Cascades dynamically from selected Academic Class) -->
-      @if (activeCategory === 'Coaching' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents') {
+      <!-- Coaching Batch Filter (Cascades dynamically from selected Academic Class; Coaching module only) -->
+      @if (authService.hasCoachingModule() && (activeCategory === 'Coaching' || activeCategory === 'Hybrid' || activeCategory === 'AllStudents')) {
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Coaching Batch</mat-label>
           <mat-select [(ngModel)]="mapping.batchName" (selectionChange)="onFilterChange()">
@@ -949,7 +963,7 @@ interface BiometricMappingPagedResult {
 }
 .category-pills {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
 }
 @media (max-width: 1400px) {
@@ -2314,7 +2328,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   constructor(
     private http: HttpClient,
     private confirmDialog: ConfirmDialogService,
-    private authService: AuthService
+    public authService: AuthService
   ) {}
 
   ngOnInit(): void {
