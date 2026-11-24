@@ -601,6 +601,7 @@ export class FeesService {
     pageNumber?: number;
     pageSize?: number;
     fetchAll?: boolean;
+    groupSiblingsFirst?: boolean;
   }): Observable<BulkPrintDataResponse> {
     let params = new HttpParams().set('cycleType', options.cycleType || 'Monthly');
     if (options.year) params = params.set('year', options.year.toString());
@@ -619,6 +620,7 @@ export class FeesService {
     if (options.pageNumber) params = params.set('pageNumber', options.pageNumber.toString());
     if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
     if (options.fetchAll !== undefined) params = params.set('fetchAll', options.fetchAll.toString());
+    if (options.groupSiblingsFirst !== undefined) params = params.set('groupSiblingsFirst', options.groupSiblingsFirst.toString());
     return this.http.get<BulkPrintDataResponse>(`${this.apiUrl}/bulk-print-data`, { params });
   }
 
@@ -938,6 +940,17 @@ export interface BulkDueSlipInvoiceItem {
   heads: { headName: string; amount: number }[];
 }
 
+export interface BulkSiblingDueInfo {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  className: string;
+  sectionName: string;
+  batchName: string;
+  balanceDue: number;
+  discountPercent: number;
+}
+
 export interface BulkDueSlipItem {
   studentId: string;
   studentName: string;
@@ -956,6 +969,12 @@ export interface BulkDueSlipItem {
   paidAmount: number;
   totalBalanceDue: number;
   advanceWalletBalance: number;
+  siblingDiscountPercent?: number;
+  familyGroupKey?: string;
+  familyTotalDue?: number;
+  hasSiblings?: boolean;
+  hasSiblingDues?: boolean;
+  siblingsInfo?: BulkSiblingDueInfo[];
   qrDataUrl?: string;
   invoices: BulkDueSlipInvoiceItem[];
 }
@@ -1009,6 +1028,12 @@ export interface BulkRegisterRow {
   balanceDue: number;
   advanceWalletBalance: number;
   status: 'Paid' | 'Partial' | 'Unpaid' | string;
+  siblingDiscountPercent?: number;
+  familyGroupKey?: string;
+  familyTotalDue?: number;
+  hasSiblings?: boolean;
+  hasSiblingDues?: boolean;
+  siblingsInfo?: BulkSiblingDueInfo[];
 }
 
 export interface BulkPrintDataResponse {

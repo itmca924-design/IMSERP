@@ -31,6 +31,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { FeeCollectionDialogComponent } from './fee-collection-dialog.component';
 import { FeeReceiptDialogComponent } from './fee-receipt-dialog.component';
+import { FeeDueReceiptDialogComponent } from './fee-due-receipt-dialog.component';
 import { StudentVoiceDialogComponent } from '../finance/dialogs/student-voice-dialog.component';
 import { FeeReminderDispatchDialogComponent } from '../dashboard/dialogs/fee-reminder-dispatch-dialog.component';
 import * as QRCode from '../../shared/utils/qr-code';
@@ -173,6 +174,9 @@ export interface BulkFeePrintDialogData {
             </div>
 
             <div class="arrear-toggle-wrap">
+              <mat-checkbox formControlName="groupSiblingsFirst" color="primary" (change)="onFilterChange()">
+                <span class="arrear-label" style="color: #1e40af; font-weight: 700;">👨‍👩‍👧‍👦 Group Siblings Together (भाई-बहन एक साथ दिखाएँ)</span>
+              </mat-checkbox>
               <mat-checkbox formControlName="includeArrears" color="primary" (change)="onFilterChange()">
                 <span class="arrear-label">Include Previous Months Pending Arrears (पिछला बकाया शामिल करें)</span>
               </mat-checkbox>
@@ -414,10 +418,29 @@ export interface BulkFeePrintDialogData {
                             </mat-checkbox>
                           </td>
                           <td>
-                            <div class="st-name">{{ slip.studentName }}</div>
+                            <div class="st-name">
+                              {{ slip.studentName }}
+                              @if (slip.siblingDiscountPercent && slip.siblingDiscountPercent > 0) {
+                                <span class="bulk-sib-disc-pill">🎁 {{ slip.siblingDiscountPercent }}% Sibling Concession</span>
+                              }
+                            </div>
                             <div class="st-meta">Roll: {{ slip.rollNumber }} • Adm: {{ slip.admissionNumber }}</div>
                             @if (slip.parentPhone) {
                               <div class="st-phone">📞 {{ slip.parentPhone }}</div>
+                            }
+                            @if (slip.siblingsInfo && slip.siblingsInfo.length > 0) {
+                              <div class="bulk-sibling-family-badge" (click)="openCombinedFamilyDemandBill(slip); $event.stopPropagation()" matTooltip="Click to view / print Combined Family Demand Bill for all siblings">
+                                <span class="fam-ic">👨‍👩‍👧‍👦</span>
+                                <span class="fam-txt">
+                                  Sibling:
+                                  @for (sib of slip.siblingsInfo; track sib.studentId; let isLast = $last) {
+                                    <strong>{{ sib.studentName }}</strong> ({{ sib.className || sib.batchName || 'Gen' }}: ₹{{ sib.balanceDue | number:'1.0-0' }}){{ !isLast ? ', ' : '' }}
+                                  }
+                                  @if (slip.familyTotalDue && slip.familyTotalDue > slip.totalBalanceDue) {
+                                    <span class="fam-tot-pill">• Family Total: ₹{{ slip.familyTotalDue | number:'1.0-0' }}</span>
+                                  }
+                                </span>
+                              </div>
                             }
                           </td>
                           <td>
@@ -482,6 +505,12 @@ export interface BulkFeePrintDialogData {
                                   <mat-icon style="color: #059669;">payments</mat-icon>
                                   <span>Collect Fee / Payment</span>
                                 </button>
+                                @if (slip.siblingsInfo && slip.siblingsInfo.length > 0) {
+                                  <button mat-menu-item (click)="openCombinedFamilyDemandBill(slip)">
+                                    <mat-icon style="color: #2563eb;">family_restroom</mat-icon>
+                                    <span>Print Combined Family Demand Bill (भाई-बहन संयुक्त बिल)</span>
+                                  </button>
+                                }
                                 <button mat-menu-item (click)="openWhatsAppReminder(slip)">
                                   <mat-icon style="color: #16a34a;">chat</mat-icon>
                                   <span>Send WhatsApp Due Reminder</span>
@@ -1335,6 +1364,48 @@ export interface BulkFeePrintDialogData {
       line-height: 1.2;
     }
 
+    .bulk-sib-disc-pill {
+      display: inline-block;
+      margin-left: 5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      font-size: 10px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .bulk-sibling-family-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      padding: 2.5px 7px;
+      border-radius: 5px;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #93c5fd;
+      color: #1e3a8a;
+      font-size: 10.5px;
+      line-height: 1.3;
+      max-width: 260px;
+      white-space: normal;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        border-color: #2563eb;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
+      }
+
+      .fam-tot-pill {
+        color: #b91c1c;
+        font-weight: 800;
+        margin-left: 3px;
+      }
+    }
+
     .period-text {
       display: block;
       font-weight: 600;
@@ -1889,6 +1960,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       sectionId: new FormControl<string>(''),
       batchId: new FormControl<string>(''),
       includeArrears: new FormControl<boolean>(true),
+      groupSiblingsFirst: new FormControl<boolean>(false),
       printLayout: new FormControl<'three_per_page' | 'four_per_page' | 'eight_per_page' | 'ten_per_page' | 'twelve_per_page' | 'two_per_page' | 'counterfoil'>('four_per_page'),
       searchTerm: new FormControl<string>('')
     });
@@ -2118,6 +2190,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       batchId: raw.batchId || null,
       branchId: activeBranchId || null,
       includeArrears: raw.includeArrears,
+      groupSiblingsFirst: !!raw.groupSiblingsFirst,
       searchTerm: (raw.searchTerm || '').trim() || null,
       sortBy: this.sortBy || null,
       sortDescending: this.sortDescending,
@@ -2157,6 +2230,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
 
   get filteredDueSlips(): BulkDueSlipItem[] {
     const list = [...(this.bulkData?.dueSlips || [])];
+    if (this.filterForm.get('groupSiblingsFirst')?.value) {
+      return list;
+    }
     if (!this.sortBy) {
       return list.sort((a, b) => (b.totalBalanceDue || 0) - (a.totalBalanceDue || 0) || (b.totalInvoiced || 0) - (a.totalInvoiced || 0));
     }
@@ -2173,6 +2249,9 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
 
   get filteredRegisterRows(): BulkRegisterRow[] {
     const list = [...(this.bulkData?.registerRows || [])];
+    if (this.filterForm.get('groupSiblingsFirst')?.value) {
+      return list;
+    }
     if (!this.sortBy) {
       return list.sort((a, b) => (b.balanceDue || 0) - (a.balanceDue || 0) || (b.totalInvoiced || 0) - (a.totalInvoiced || 0));
     }
@@ -2202,6 +2281,59 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
     const isChecked = checked !== undefined ? checked : !this.selectedDueStudentIds.has(studentId);
     if (isChecked) this.selectedDueStudentIds.add(studentId);
     else this.selectedDueStudentIds.delete(studentId);
+
+    // When Group Siblings Together is active, auto-select/unselect matching siblings on the page
+    if (this.filterForm.get('groupSiblingsFirst')?.value) {
+      const targetSlip = this.filteredDueSlips.find(s => s.studentId === studentId);
+      if (targetSlip?.siblingsInfo?.length) {
+        for (const sib of targetSlip.siblingsInfo) {
+          if (this.filteredDueSlips.some(s => s.studentId === sib.studentId)) {
+            if (isChecked) this.selectedDueStudentIds.add(sib.studentId);
+            else this.selectedDueStudentIds.delete(sib.studentId);
+          }
+        }
+      }
+    }
+  }
+
+  openCombinedFamilyDemandBill(slip: BulkDueSlipItem): void {
+    if (!slip) return;
+    const dialogRef = this.dialog.open(FeeDueReceiptDialogComponent, {
+      width: '840px',
+      maxWidth: '96vw',
+      panelClass: 'receipt-dialog-panel',
+      data: {
+        studentId: slip.studentId,
+        studentName: slip.studentName,
+        rollNumber: slip.rollNumber,
+        batchName: slip.batchName,
+        className: slip.className,
+        sectionName: slip.sectionName,
+        parentWhatsAppPhone: slip.parentPhone,
+        instituteName: this.authService.getInstituteName(),
+        branchName: slip.branchName || this.authService.getCurrentBranchName(),
+        initialCombinedFamilyMode: true
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((action) => {
+      if (action === 'COLLECT_NOW') {
+        this.openQuickCollect(slip);
+      }
+    });
+  }
+
+  private renderSiblingFamilyNoteHtml(slip: BulkDueSlipItem, compact = false): string {
+    const sibsWithDues = (slip.siblingsInfo || []).filter(s => s.balanceDue > 0);
+    if (sibsWithDues.length === 0) return '';
+    const sibText = sibsWithDues
+      .map(s => `${s.studentName} (${s.className || s.batchName || 'Gen'}: ₹${Number(s.balanceDue).toLocaleString('en-IN')})`)
+      .join(', ');
+    const famTotal = Number(slip.familyTotalDue || (slip.totalBalanceDue + sibsWithDues.reduce((a, b) => a + b.balanceDue, 0))).toLocaleString('en-IN');
+    if (compact) {
+      return `<div style="font-size:6.8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:3px;padding:1.5px 4px;margin-bottom:2px;display:flex;justify-content:space-between;gap:4px;white-space:nowrap;overflow:hidden;"><span>👨‍👩‍👧‍👦 Sibling: <strong>${sibText}</strong></span><strong style="color:#b91c1c;">Family Total: ₹${famTotal}</strong></div>`;
+    }
+    return `<div style="font-size:8px;background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;border-radius:4px;padding:2.5px 6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>👨‍👩‍👧‍👦 <strong>Family Sibling Dues:</strong> ${sibText}</span><strong style="color:#b91c1c;white-space:nowrap;">Total Family Due: ₹${famTotal}</strong></div>`;
   }
 
   getSelectedDueSlipsTotal(): number {
@@ -2565,6 +2697,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             </tr>
           </tfoot>
         </table>
+        ${this.renderSiblingFamilyNoteHtml(slip, false)}
         <div class="slip-footer">
           <div class="note">
             ${meta.showOnDue && meta.footerNoteHi ? `<div><strong>नोट:</strong> ${meta.footerNoteHi}</div>` : ''}
@@ -2692,6 +2825,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="g4-due-lbl">TOTAL BALANCE DUE (कुल देय बकाया):</span>
             <span class="g4-due-amount">₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
+          ${this.renderSiblingFamilyNoteHtml(slip, true)}
         </div>
 
         <div class="grid4-footer">
@@ -2752,6 +2886,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
               <strong>₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
             </div>
           </div>
+          ${this.renderSiblingFamilyNoteHtml(slip, true)}
         </div>
 
         <div class="grid8-footer">
@@ -2870,6 +3005,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             <span class="g3-due-lbl">TOTAL BALANCE DUE (कुल देय बकाया):</span>
             <span class="g3-due-amount">₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
+          ${this.renderSiblingFamilyNoteHtml(slip, false)}
         </div>
 
         <div class="g3-footer">

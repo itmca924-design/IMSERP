@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem, UpiPaymentSettings } from '../../core/services/fees.service';
+import { FeesService, FeeDueSlip, FeeDueSlipItem, FeeInvoicePagedItem, UpiPaymentSettings, SiblingPendingDue } from '../../core/services/fees.service';
 import { AuthService } from '../../core/services/auth.service';
 import { QuickSettingsService } from '../../core/services/quick-settings.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
@@ -40,6 +40,7 @@ export interface FeeDueReceiptDialogData {
   sectionName?: string;
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
+  initialCombinedFamilyMode?: boolean;
 }
 
 @Component({
@@ -55,8 +56,8 @@ export interface FeeDueReceiptDialogData {
             <mat-icon>receipt_long</mat-icon>
           </div>
           <div class="title-text-group">
-            <span class="main-title">Fee Due Slip / Demand Note</span>
-            <span class="sub-title">शुल्क मांग पत्र / बकाया पर्ची</span>
+            <span class="main-title">{{ isCombinedFamilyDueMode ? 'Combined Family Fee Demand Bill' : 'Fee Due Slip / Demand Note' }}</span>
+            <span class="sub-title">{{ isCombinedFamilyDueMode ? 'संयुक्त पारिवारिक शुल्क मांग पत्र (सभी भाई-बहनों का एक साथ बकाया बिल)' : 'शुल्क मांग पत्र / बकाया पर्ची' }}</span>
           </div>
         </div>
         <div class="btn-group">
@@ -93,6 +94,34 @@ export interface FeeDueReceiptDialogData {
           </button>
         </div>
       </div>
+
+      <!-- Dual-Mode Sibling / Family Demand Bill Switcher Bar (hidden in print) -->
+      @if (!loading && dueSlip && siblingDuesList.length > 0) {
+        <div class="family-due-mode-bar no-print">
+          <div class="f-mode-label">
+            <mat-icon>family_restroom</mat-icon>
+            <span>Demand Bill Mode (मांग पर्ची मोड):</span>
+          </div>
+          <div class="f-mode-pills">
+            <button
+              type="button"
+              class="f-mode-pill"
+              [class.active]="!isCombinedFamilyDueMode"
+              (click)="toggleFamilyDueMode(false)">
+              <mat-icon>person</mat-icon>
+              <span>{{ dueSlip.studentName }} Only (₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }})</span>
+            </button>
+            <button
+              type="button"
+              class="f-mode-pill combined"
+              [class.active]="isCombinedFamilyDueMode"
+              (click)="toggleFamilyDueMode(true)">
+              <mat-icon>groups</mat-icon>
+              <span>Combined Family Demand Bill ({{ siblingDuesList.length + 1 }} Siblings • Total ₹{{ combinedFamilyTotalDue | number:'1.2-2' }})</span>
+            </button>
+          </div>
+        </div>
+      }
 
       <!-- Loading State -->
       @if (loading) {
@@ -137,8 +166,8 @@ export interface FeeDueReceiptDialogData {
                 </div>
                 <div class="due-badge-block">
                   <div class="badge-title-wrap">
-                    <span class="badge-title">FEE DUE SLIP</span>
-                    <span class="badge-sub">शुल्क बकाया पर्ची / मांग पत्र</span>
+                    <span class="badge-title">{{ isCombinedFamilyDueMode ? 'FAMILY FEE DEMAND BILL' : 'FEE DUE SLIP' }}</span>
+                    <span class="badge-sub">{{ isCombinedFamilyDueMode ? 'संयुक्त पारिवारिक शुल्क मांग पत्र' : 'शुल्क बकाया पर्ची / मांग पत्र' }}</span>
                   </div>
                   <span class="copy-tag" [class.office-copy-tag]="copy.isOffice">
                     {{ copy.title }} ({{ copy.hindiTitle }})
@@ -178,71 +207,110 @@ export interface FeeDueReceiptDialogData {
                 </div>
               </div>
 
-              <!-- Student Profile Card -->
-              <div class="student-profile-card">
-                <div class="prof-col">
-                  <div class="prof-row">
-                    <span class="k">Student Name:</span>
-                    <span class="v student-highlight">{{ dueSlip.studentName }}</span>
-                  </div>
-                  <div class="prof-row">
-                    <span class="k">Roll / Admission No:</span>
-                    <span class="v">
-                      <strong>{{ dueSlip.rollNumber || 'N/A' }}</strong>
-                      @if (dueSlip.admissionNumber && dueSlip.admissionNumber !== dueSlip.rollNumber) {
-                        <span> (Adm: {{ dueSlip.admissionNumber }})</span>
-                      }
-                    </span>
-                  </div>
-                  <div class="prof-row">
-                    <span class="k">Admission Date:</span>
-                    <span class="v">
-                      @if (dueSlip.admissionDate) {
-                        <strong>{{ formatDateOnlyIST(dueSlip.admissionDate) }}</strong>
-                      } @else {
-                        <span>N/A</span>
-                      }
-                    </span>
-                  </div>
-                  @if (showClassRow) {
+              <!-- Student / Family Profile Card -->
+              @if (isCombinedFamilyDueMode) {
+                <div class="student-profile-card">
+                  <div class="prof-col">
                     <div class="prof-row">
-                      <span class="k">Class:</span>
+                      <span class="k">Father / Guardian:</span>
+                      <span class="v student-highlight">{{ dueSlip.parentName || 'N/A' }}</span>
+                    </div>
+                    <div class="prof-row">
+                      <span class="k">Registered Mobile:</span>
+                      <span class="v"><strong>{{ dueSlip.parentPhone || 'N/A' }}</strong></span>
+                    </div>
+                    <div class="prof-row">
+                      <span class="k">Settlement Policy:</span>
+                      <span class="v">Combined Family FIFO Settlement</span>
+                    </div>
+                  </div>
+                  <div class="prof-col">
+                    <div class="prof-row">
+                      <span class="k">Siblings Included ({{ siblingDuesList.length + 1 }}):</span>
                       <span class="v">
-                        <strong>{{ effectiveClassName || 'N/A' }}</strong>
-                        @if (effectiveSectionName) {
-                          <span> - Section {{ effectiveSectionName }}</span>
+                        <div class="family-due-sibs-list">
+                          <div><strong>1. {{ dueSlip.studentName }}</strong> ({{ effectiveClassName || effectiveBatchName || 'General' }} • Roll: {{ dueSlip.rollNumber }}) — Due: <strong>₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</strong></div>
+                          @for (sib of siblingDuesList; track sib.studentId; let sIdx = $index) {
+                            <div>
+                              <strong>{{ sIdx + 2 }}. {{ sib.studentName }}</strong>
+                              ({{ sib.className ? sib.className + (sib.sectionName ? '-' + sib.sectionName : '') : (sib.batchName || 'General') }} • Roll: {{ sib.rollNumber }})
+                              @if (sib.discountPercent > 0) {
+                                <span class="fam-due-disc-pill">🎁 {{ sib.discountPercent }}% Concession</span>
+                              }
+                              — Due: <strong>₹{{ sib.totalOutstandingDue | number:'1.2-2' }}</strong>
+                            </div>
+                          }
+                        </div>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              } @else {
+                <div class="student-profile-card">
+                  <div class="prof-col">
+                    <div class="prof-row">
+                      <span class="k">Student Name:</span>
+                      <span class="v student-highlight">{{ dueSlip.studentName }}</span>
+                    </div>
+                    <div class="prof-row">
+                      <span class="k">Roll / Admission No:</span>
+                      <span class="v">
+                        <strong>{{ dueSlip.rollNumber || 'N/A' }}</strong>
+                        @if (dueSlip.admissionNumber && dueSlip.admissionNumber !== dueSlip.rollNumber) {
+                          <span> (Adm: {{ dueSlip.admissionNumber }})</span>
                         }
                       </span>
                     </div>
-                  }
-                  @if (showBatchRow) {
                     <div class="prof-row">
-                      <span class="k">Batch:</span>
-                      <span class="v"><strong>{{ effectiveBatchName }}</strong></span>
+                      <span class="k">Admission Date:</span>
+                      <span class="v">
+                        @if (dueSlip.admissionDate) {
+                          <strong>{{ formatDateOnlyIST(dueSlip.admissionDate) }}</strong>
+                        } @else {
+                          <span>N/A</span>
+                        }
+                      </span>
                     </div>
-                  }
-                </div>
-                <div class="prof-col">
-                  <div class="prof-row">
-                    <span class="k">Father / Guardian:</span>
-                    <span class="v">{{ dueSlip.parentName || 'N/A' }}</span>
+                    @if (showClassRow) {
+                      <div class="prof-row">
+                        <span class="k">Class:</span>
+                        <span class="v">
+                          <strong>{{ effectiveClassName || 'N/A' }}</strong>
+                          @if (effectiveSectionName) {
+                            <span> - Section {{ effectiveSectionName }}</span>
+                          }
+                        </span>
+                      </div>
+                    }
+                    @if (showBatchRow) {
+                      <div class="prof-row">
+                        <span class="k">Batch:</span>
+                        <span class="v"><strong>{{ effectiveBatchName }}</strong></span>
+                      </div>
+                    }
                   </div>
-                  <div class="prof-row">
-                    <span class="k">Registered Mobile:</span>
-                    <span class="v">{{ dueSlip.parentPhone || 'N/A' }}</span>
-                  </div>
-                  <div class="prof-row">
-                    <span class="k">Settlement Policy:</span>
-                    <span class="v">FIFO (Oldest Dues Settled First)</span>
-                  </div>
-                  @if (dueSlip.hostelInfo) {
+                  <div class="prof-col">
                     <div class="prof-row">
-                      <span class="k">🏠 Hostel:</span>
-                      <span class="v hostel-info-pill">{{ dueSlip.hostelInfo }}</span>
+                      <span class="k">Father / Guardian:</span>
+                      <span class="v">{{ dueSlip.parentName || 'N/A' }}</span>
                     </div>
-                  }
+                    <div class="prof-row">
+                      <span class="k">Registered Mobile:</span>
+                      <span class="v">{{ dueSlip.parentPhone || 'N/A' }}</span>
+                    </div>
+                    <div class="prof-row">
+                      <span class="k">Settlement Policy:</span>
+                      <span class="v">FIFO (Oldest Dues Settled First)</span>
+                    </div>
+                    @if (dueSlip.hostelInfo) {
+                      <div class="prof-row">
+                        <span class="k">🏠 Hostel:</span>
+                        <span class="v hostel-info-pill">{{ dueSlip.hostelInfo }}</span>
+                      </div>
+                    }
+                  </div>
                 </div>
-              </div>
+              }
 
               <!-- Dues Breakdown Table -->
               <div class="table-section">
@@ -258,30 +326,70 @@ export interface FeeDueReceiptDialogData {
                     </tr>
                   </thead>
                   <tbody>
-                    @for (row of flattenedDueRows; track row.rowNum) {
-                      <tr class="due-item-row">
-                        <td class="text-center row-num">{{ row.rowNum }}</td>
-                        <td>
-                          <div class="due-item-title">{{ row.headName }}</div>
-                          <div class="due-period-sub">
-                            <span>{{ row.periodTitle }}</span>
-                            @if (row.invoiceNumber) {
-                              <span class="inv-ref-tag">• Ref #{{ row.invoiceNumber }}</span>
+                    @if (isCombinedFamilyDueMode) {
+                      @for (group of combinedFamilyGroups; track group.studentId; let gIdx = $index) {
+                        <tr class="family-due-group-header">
+                          <td colspan="5" class="fam-grp-title">
+                            <strong>👦 {{ gIdx + 1 }}. {{ group.studentName }}</strong>
+                            <span class="fam-grp-meta">({{ group.classOrBatch }} • Roll: {{ group.rollNumber }})</span>
+                            @if (group.discountPercent > 0) {
+                              <span class="fam-due-disc-pill">🎁 {{ group.discountPercent }}% Sibling Concession</span>
                             }
-                          </div>
-                        </td>
-                        <td>
-                          <span class="due-date-val">{{ row.dueDate | date:'dd-MMM-yyyy' }}</span>
-                          @if (isOverdueDate(row.dueDate)) {
-                            <span class="overdue-chip">Overdue</span>
-                          }
-                        </td>
-                        <td class="text-right">₹{{ row.totalAmount | number:'1.2-2' }}</td>
-                        <td class="text-right amount-paid">₹{{ row.paidAmount | number:'1.2-2' }}</td>
-                        <td class="text-right amount-due"><strong>₹{{ row.dueAmount | number:'1.2-2' }}</strong></td>
-                      </tr>
+                          </td>
+                          <td class="text-right fam-grp-sub">
+                            Due: <strong>₹{{ group.totalDue | number:'1.2-2' }}</strong>
+                          </td>
+                        </tr>
+                        @for (row of group.rows; track row.rowNum; let rIdx = $index) {
+                          <tr class="due-item-row">
+                            <td class="text-center row-num">{{ gIdx + 1 }}.{{ rIdx + 1 }}</td>
+                            <td>
+                              <div class="due-item-title">{{ row.headName }}</div>
+                              <div class="due-period-sub">
+                                <span>{{ row.periodTitle }}</span>
+                                @if (row.invoiceNumber) {
+                                  <span class="inv-ref-tag">• Ref #{{ row.invoiceNumber }}</span>
+                                }
+                              </div>
+                            </td>
+                            <td>
+                              <span class="due-date-val">{{ row.dueDate | date:'dd-MMM-yyyy' }}</span>
+                              @if (isOverdueDate(row.dueDate)) {
+                                <span class="overdue-chip">Overdue</span>
+                              }
+                            </td>
+                            <td class="text-right">₹{{ row.totalAmount | number:'1.2-2' }}</td>
+                            <td class="text-right amount-paid">₹{{ row.paidAmount | number:'1.2-2' }}</td>
+                            <td class="text-right amount-due"><strong>₹{{ row.dueAmount | number:'1.2-2' }}</strong></td>
+                          </tr>
+                        }
+                      }
+                    } @else {
+                      @for (row of flattenedDueRows; track row.rowNum) {
+                        <tr class="due-item-row">
+                          <td class="text-center row-num">{{ row.rowNum }}</td>
+                          <td>
+                            <div class="due-item-title">{{ row.headName }}</div>
+                            <div class="due-period-sub">
+                              <span>{{ row.periodTitle }}</span>
+                              @if (row.invoiceNumber) {
+                                <span class="inv-ref-tag">• Ref #{{ row.invoiceNumber }}</span>
+                              }
+                            </div>
+                          </td>
+                          <td>
+                            <span class="due-date-val">{{ row.dueDate | date:'dd-MMM-yyyy' }}</span>
+                            @if (isOverdueDate(row.dueDate)) {
+                              <span class="overdue-chip">Overdue</span>
+                            }
+                          </td>
+                          <td class="text-right">₹{{ row.totalAmount | number:'1.2-2' }}</td>
+                          <td class="text-right amount-paid">₹{{ row.paidAmount | number:'1.2-2' }}</td>
+                          <td class="text-right amount-due"><strong>₹{{ row.dueAmount | number:'1.2-2' }}</strong></td>
+                        </tr>
+                      }
                     }
-                    @if (hasAdvanceAdjusted) {
+                    @if (hasAdvanceAdjusted && !isCombinedFamilyDueMode) {
                       <tr class="advance-adj-row">
                         <td colspan="5" class="text-right adv-label-cell">
                           <span class="adv-adjusted-pill">✓ Advance Paid (FIFO Adjusted):</span>
@@ -292,10 +400,10 @@ export interface FeeDueReceiptDialogData {
                       </tr>
                     }
                     <tr class="summary-subtotal">
-                      <td colspan="3" class="text-right"><strong>TOTAL (कुल योग):</strong></td>
-                      <td class="text-right"><strong>₹{{ totalBilledAmount | number:'1.2-2' }}</strong></td>
-                      <td class="text-right amount-paid"><strong>₹{{ totalPaidAmount | number:'1.2-2' }}</strong></td>
-                      <td class="text-right grand-due"><strong>₹{{ dueSlip.totalOutstandingDue | number:'1.2-2' }}</strong></td>
+                      <td colspan="3" class="text-right"><strong>{{ isCombinedFamilyDueMode ? 'TOTAL FAMILY PAYABLE (' + (siblingDuesList.length + 1) + ' Siblings):' : 'TOTAL (कुल योग):' }}</strong></td>
+                      <td class="text-right"><strong>₹{{ activeTotalBilledAmount | number:'1.2-2' }}</strong></td>
+                      <td class="text-right amount-paid"><strong>₹{{ activeTotalPaidAmount | number:'1.2-2' }}</strong></td>
+                      <td class="text-right grand-due"><strong>₹{{ activeTotalOutstandingDue | number:'1.2-2' }}</strong></td>
                     </tr>
                   </tbody>
                 </table>
@@ -305,7 +413,7 @@ export interface FeeDueReceiptDialogData {
               <div class="amount-words-strip">
                 <div class="words-left">
                   <span class="w-label">Total Payable in Words:</span>
-                  <span class="w-text">{{ getAmountInWords(dueSlip.totalOutstandingDue) }}</span>
+                  <span class="w-text">{{ getAmountInWords(activeTotalOutstandingDue) }}</span>
                 </div>
                 <div class="words-right">
                   <div class="due-stamp">
@@ -317,6 +425,19 @@ export interface FeeDueReceiptDialogData {
                   }
                 </div>
               </div>
+
+              <!-- Family Sibling Dues Summary Notice on Single Slip (when not in combined view) -->
+              @if (!isCombinedFamilyDueMode && siblingDuesList.length > 0) {
+                <div class="lib-due-notice-strip family-summary-strip">
+                  <span class="lib-text">
+                    👨‍👩‍👧‍👦 <strong>Family Sibling Dues Info:</strong>
+                    @for (sib of siblingDuesList; track sib.studentId; let isLastSib = $last) {
+                      <span>{{ sib.studentName }} ({{ sib.className || sib.batchName || 'General' }}): <strong>₹{{ sib.totalOutstandingDue | number:'1.0-0' }}</strong>{{ !isLastSib ? ' • ' : '' }}</span>
+                    }
+                  </span>
+                  <span class="lib-amt">Total Family Payable: ₹{{ combinedFamilyTotalDue | number:'1.2-2' }}</span>
+                </div>
+              }
 
               <!-- Library Dues Notice Strip (if any) -->
               @if (dueSlip.pendingLibraryFine && dueSlip.pendingLibraryFine > 0) {
@@ -1252,6 +1373,113 @@ export interface FeeDueReceiptDialogData {
       }
     }
 
+    /* Family Demand Bill Switcher Bar */
+    .family-due-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 18px;
+      background: #fff1f2;
+      border-bottom: 1px solid #fecdd3;
+
+      .f-mode-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #9f1239;
+        mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      }
+
+      .f-mode-pills {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .f-mode-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 11px;
+        border-radius: 16px;
+        border: 1px solid #fda4af;
+        background: #ffffff;
+        color: #9f1239;
+        font-size: 0.74rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+        &:hover {
+          background: #ffe4e6;
+          border-color: #e11d48;
+        }
+
+        &.active {
+          background: #dc2626;
+          color: #ffffff;
+          border-color: #b91c1c;
+          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+        }
+      }
+    }
+
+    .family-due-sibs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.7rem;
+      line-height: 1.3;
+    }
+
+    .fam-due-disc-pill {
+      display: inline-block;
+      margin-left: 4px;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 0.62rem;
+      font-weight: 700;
+    }
+
+    .family-due-group-header {
+      background: #eff6ff !important;
+      td {
+        border-top: 1px solid #bfdbfe !important;
+        border-bottom: 1px solid #bfdbfe !important;
+        padding: 3px 6px !important;
+        color: #1e3a8a !important;
+      }
+      .fam-grp-meta {
+        font-size: 0.68rem;
+        color: #1d4ed8;
+        margin-left: 4px;
+      }
+      .fam-grp-sub {
+        font-size: 0.72rem;
+        color: #b91c1c !important;
+        white-space: nowrap;
+      }
+    }
+
+    .family-summary-strip {
+      background: #eff6ff !important;
+      border-color: #93c5fd !important;
+      color: #1e3a8a !important;
+      .lib-amt {
+        color: #b91c1c !important;
+        font-weight: 800;
+      }
+    }
+
     @media print {
       .no-print { display: none !important; }
       .due-paper {
@@ -1301,6 +1529,115 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   payeeMerchantName = '';
   bankAccountDisplay = '';
   qrDataUrl: string | null = null;
+  siblingDuesList: SiblingPendingDue[] = [];
+  isCombinedFamilyDueMode = false;
+
+  toggleFamilyDueMode(combined: boolean): void {
+    this.isCombinedFamilyDueMode = combined;
+    this.generateQrCode();
+    this.cdr.markForCheck();
+  }
+
+  get combinedFamilyTotalDue(): number {
+    const primaryDue = this.dueSlip?.totalOutstandingDue || 0;
+    const sibsDue = this.siblingDuesList.reduce((s, x) => s + (x.totalOutstandingDue || 0), 0);
+    return Math.round((primaryDue + sibsDue) * 100) / 100;
+  }
+
+  get activeTotalOutstandingDue(): number {
+    return this.isCombinedFamilyDueMode ? this.combinedFamilyTotalDue : (this.dueSlip?.totalOutstandingDue || 0);
+  }
+
+  get activeTotalBilledAmount(): number {
+    if (!this.isCombinedFamilyDueMode) return this.totalBilledAmount;
+    return this.combinedFamilyGroups.reduce((s, g) => s + g.rows.reduce((rS, r) => rS + (r.totalAmount || 0), 0), 0);
+  }
+
+  get activeTotalPaidAmount(): number {
+    if (!this.isCombinedFamilyDueMode) return this.totalPaidAmount;
+    return this.combinedFamilyGroups.reduce((s, g) => s + g.rows.reduce((rS, r) => rS + (r.paidAmount || 0), 0), 0);
+  }
+
+  get combinedFamilyGroups(): Array<{
+    studentId: string;
+    studentName: string;
+    rollNumber: string;
+    classOrBatch: string;
+    discountPercent: number;
+    totalDue: number;
+    rows: any[];
+  }> {
+    if (!this.dueSlip) return [];
+    const buildRowsForItems = (dueItems: FeeDueSlipItem[]) => {
+      const rows: any[] = [];
+      let counter = 1;
+      for (const inv of (dueItems || [])) {
+        if (inv.breakdown && inv.breakdown.length > 0) {
+          for (const b of inv.breakdown) {
+            const bAmount = Number(b.amount) || 0;
+            const bPaid = Number(b.paidAmount) || 0;
+            rows.push({
+              rowNum: counter++,
+              periodTitle: inv.title || 'Fee Invoice',
+              invoiceNumber: inv.invoiceNumber || '',
+              headName: b.headName || 'Fee Head',
+              dueDate: inv.dueDate,
+              totalAmount: bAmount,
+              paidAmount: bPaid,
+              dueAmount: Math.max(0, bAmount - bPaid)
+            });
+          }
+        } else {
+          const invTotal = Number(inv.totalAmount) || 0;
+          const invPaid = Number(inv.paidAmount) || 0;
+          const invDue = Number(inv.dueAmount) || Math.max(0, invTotal - invPaid);
+          rows.push({
+            rowNum: counter++,
+            periodTitle: inv.title || 'Fee Invoice',
+            invoiceNumber: inv.invoiceNumber || '',
+            headName: inv.title || 'Tuition / Educational Fee',
+            dueDate: inv.dueDate,
+            totalAmount: invTotal,
+            paidAmount: invPaid,
+            dueAmount: invDue
+          });
+        }
+      }
+      return rows;
+    };
+
+    const primaryCls = this.effectiveClassName
+      ? `Class ${this.effectiveClassName}${this.effectiveSectionName ? '-' + this.effectiveSectionName : ''}`
+      : (this.effectiveBatchName || 'General');
+
+    const groups = [
+      {
+        studentId: this.dueSlip.studentId,
+        studentName: this.dueSlip.studentName,
+        rollNumber: this.dueSlip.rollNumber || 'N/A',
+        classOrBatch: primaryCls,
+        discountPercent: 0,
+        totalDue: this.dueSlip.totalOutstandingDue,
+        rows: this.flattenedDueRows
+      }
+    ];
+
+    for (const sib of this.siblingDuesList) {
+      const sibCls = sib.className
+        ? `Class ${sib.className}${sib.sectionName ? '-' + sib.sectionName : ''}`
+        : (sib.batchName || 'General');
+      groups.push({
+        studentId: sib.studentId,
+        studentName: sib.studentName,
+        rollNumber: sib.rollNumber || 'N/A',
+        classOrBatch: sibCls,
+        discountPercent: sib.discountPercent || 0,
+        totalDue: sib.totalOutstandingDue,
+        rows: buildRowsForItems(sib.dueItems)
+      });
+    }
+    return groups;
+  }
 
   get invoiceNumbersDisplay(): string {
     if (!this.dueSlip?.dueItems?.length) {
@@ -1499,6 +1836,26 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       }
     });
 
+    if (this.data?.initialCombinedFamilyMode) {
+      this.isCombinedFamilyDueMode = true;
+    }
+
+    if (this.data?.studentId) {
+      this.feesService.getStudentSiblingDues(this.data.studentId).subscribe({
+        next: (sibs) => {
+          this.siblingDuesList = (sibs || []).filter(s => s.totalOutstandingDue > 0);
+          if (this.siblingDuesList.length === 0) {
+            this.isCombinedFamilyDueMode = false;
+          }
+          this.generateQrCode();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.siblingDuesList = [];
+        }
+      });
+    }
+
     this.feesService.getStudentDueSlip(this.data.studentId, this.data.invoiceId).subscribe({
       next: (slip) => {
         this.dueSlip = slip;
@@ -1547,12 +1904,12 @@ export class FeeDueReceiptDialogComponent implements OnInit {
   }
 
   generateQrCode(): void {
-    if (!this.dueSlip || this.dueSlip.totalOutstandingDue <= 0) {
+    const amount = this.activeTotalOutstandingDue;
+    if (!this.dueSlip || amount <= 0) {
       this.qrDataUrl = null;
       return;
     }
 
-    const amount = this.dueSlip.totalOutstandingDue;
     const payee = (this.payeeUpiId || '').trim();
     if (!payee) {
       this.qrDataUrl = null;
@@ -1669,6 +2026,13 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       '.due-table th { background: #eff6ff !important; color: #1e3a8a !important; border-top: 1px solid #bfdbfe; border-bottom: 1.5px solid #bfdbfe; padding: 2px 4px; font-size: 0.65rem; font-weight: 700; text-align: left; }' +
       '.due-table td { padding: 2px 4px; border-bottom: 1px solid #e2e8f0; font-size: 0.67rem; line-height: 1.15; }' +
       '.due-item-title { font-size: 0.68rem; color: #0f172a; font-weight: 700; }' +
+      '.family-due-sibs-list { display: flex; flex-direction: column; gap: 1px; font-size: 0.63rem; line-height: 1.25; }' +
+      '.fam-due-disc-pill { display: inline-block; margin-left: 3px; background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 0 3px; border-radius: 2px; font-size: 0.56rem; font-weight: 700; }' +
+      '.family-due-group-header { background: #eff6ff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+      '.family-due-group-header td { border-top: 1px solid #bfdbfe !important; border-bottom: 1px solid #bfdbfe !important; padding: 2px 4px !important; color: #1e3a8a !important; font-size: 0.64rem !important; }' +
+      '.fam-grp-meta { font-size: 0.58rem; color: #1d4ed8; margin-left: 3px; }' +
+      '.fam-grp-sub { font-size: 0.64rem; color: #b91c1c !important; white-space: nowrap; }' +
+      '.family-summary-strip { background: #eff6ff !important; border-color: #93c5fd !important; color: #1e3a8a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
       '.row-num { font-weight: 700; color: #475569; font-size: 0.62rem; }' +
       '.due-period-sub { font-size: 0.50rem; color: #64748b; display: flex; align-items: center; gap: 3px; margin-top: 0.5px; }' +
       '.inv-ref-tag { color: #2563eb; font-weight: 600; }' +

@@ -2650,7 +2650,8 @@ public class FeesController : ControllerBase
         [FromQuery] bool sortDescending = false,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] bool fetchAll = false)
+        [FromQuery] bool fetchAll = false,
+        [FromQuery] bool groupSiblingsFirst = false)
     {
         var tenantId = _currentUser.TenantId;
         var effectiveBranchId = branchId ?? _currentUser.BranchId;
@@ -2834,8 +2835,49 @@ public class FeesController : ControllerBase
                 (invoiceById.TryGetValue(p.InvoiceId, out var inv) && IsInvoiceInCycle(inv)))
             .ToList();
 
-        var dueSlipEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal PaidAmount, decimal BalanceDue, string SearchBlob)>();
-        var registerEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, int MonthsCount, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal TotalPaid, decimal BalanceDue, string Status, string SearchBlob)>();
+        var dueSlipEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal PaidAmount, decimal BalanceDue, string SearchBlob, bool HasSiblingDues, string FamilyGroupKey, decimal FamilyTotalDue)>();
+        var registerEntries = new List<(object Dto, string StudentName, string RollNumber, string ClassName, string ParentName, int MonthsCount, decimal TotalInvoiced, decimal AdvanceAdjusted, decimal TotalPaid, decimal BalanceDue, string Status, string SearchBlob, bool HasSiblingDues, string FamilyGroupKey, decimal FamilyTotalDue)>();
+
+        // ── Sibling & Family Dues Lookup across all active students of the tenant ──
+        static string NormalizePhone10(string? rawPhone)
+        {
+            if (string.IsNullOrWhiteSpace(rawPhone)) return "";
+            var digits = new string(rawPhone.Where(char.IsDigit).ToArray());
+            if (digits.Length == 12 && digits.StartsWith("91")) digits = digits.Substring(2);
+            return digits.Length == 10 ? digits : "";
+        }
+
+        var allTenantActiveStudents = await _dbContext.Students.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.IsActive)
+            .Select(s => new
+            {
+                s.Id,
+                s.StudentName,
+                RollNumber = s.SchoolRollNumber ?? s.RollNumber ?? "",
+                ClassName = s.Class != null ? s.Class.Name : "",
+                SectionName = s.Section != null ? s.Section.Name : "",
+                BatchName = s.Batch != null ? s.Batch.Name : "",
+                s.ParentWhatsAppPhone
+            })
+            .ToListAsync();
+
+        var allTenantSibLinks = await _dbContext.StudentSiblings.AsNoTracking()
+            .Where(l => l.TenantId == tenantId)
+            .ToListAsync();
+
+        var allTenantUnpaidDues = await _dbContext.FeeInvoices.AsNoTracking()
+            .Where(i => i.TenantId == tenantId && i.Status != InvoiceStatus.Cancelled && i.TotalAmount > i.PaidAmount)
+            .GroupBy(i => i.StudentId)
+            .Select(g => new { StudentId = g.Key, TotalDue = g.Sum(x => x.TotalAmount - x.PaidAmount) })
+            .ToDictionaryAsync(x => x.StudentId, x => x.TotalDue);
+
+        var phoneToStudentsMap = allTenantActiveStudents
+            .Select(s => new { Student = s, NormPhone = NormalizePhone10(s.ParentWhatsAppPhone) })
+            .Where(x => x.NormPhone.Length == 10)
+            .GroupBy(x => x.NormPhone)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Student).ToList());
+
+        var activeStudentById = allTenantActiveStudents.ToDictionary(s => s.Id);
 
         decimal grandInvoiced = 0m;
         decimal grandAdvanceAdj = 0m;
@@ -2906,7 +2948,62 @@ public class FeesController : ControllerBase
             string statusStr = stDue <= 0 ? "Paid" : (stCashPaid > 0 || stAdvAdj > 0 ? "Partial" : "Unpaid");
             string periodsSummaryStr = string.Join(", ", invoiceBreakdowns.Select(b => b.period).Distinct());
             string invNumsBlob = string.Join(" ", invoiceBreakdowns.Select(b => b.invoiceNumber));
-            string stSearchBlob = $"{st.StudentName} {st.RollNumber} {st.AdmissionNumber} {st.Class?.Name} {st.Section?.Name} {st.Batch?.Name} {st.ParentName} {st.ParentWhatsAppPhone} {divLabel} {statusStr} {periodsSummaryStr} {invNumsBlob}".ToLowerInvariant();
+
+            // Resolve Siblings & Family Due Summary for this student
+            var normPhone = NormalizePhone10(st.ParentWhatsAppPhone);
+            var siblingIdsSet = new HashSet<Guid>();
+            foreach (var link in allTenantSibLinks)
+            {
+                if (link.StudentId == st.Id) siblingIdsSet.Add(link.SiblingStudentId);
+                else if (link.SiblingStudentId == st.Id) siblingIdsSet.Add(link.StudentId);
+            }
+            if (normPhone.Length == 10 && phoneToStudentsMap.TryGetValue(normPhone, out var samePhoneList))
+            {
+                foreach (var sp in samePhoneList)
+                {
+                    if (sp.Id != st.Id) siblingIdsSet.Add(sp.Id);
+                }
+            }
+
+            var ownDiscountPct = allTenantSibLinks
+                .Where(l => l.StudentId == st.Id)
+                .Select(l => (decimal?)l.DiscountPercent)
+                .Max() ?? 0m;
+
+            var siblingsInfoList = siblingIdsSet
+                .Where(sid => activeStudentById.ContainsKey(sid))
+                .Select(sid =>
+                {
+                    var sibObj = activeStudentById[sid];
+                    allTenantUnpaidDues.TryGetValue(sid, out var sibBalDue);
+                    var sibDisc = allTenantSibLinks
+                        .Where(l => l.StudentId == sid)
+                        .Select(l => (decimal?)l.DiscountPercent)
+                        .Max() ?? 0m;
+                    return new
+                    {
+                        studentId = sibObj.Id,
+                        studentName = sibObj.StudentName,
+                        rollNumber = sibObj.RollNumber,
+                        className = sibObj.ClassName,
+                        sectionName = sibObj.SectionName,
+                        batchName = sibObj.BatchName,
+                        balanceDue = sibBalDue,
+                        discountPercent = sibDisc
+                    };
+                })
+                .OrderBy(s => s.studentName)
+                .ToList();
+
+            decimal siblingsDueSum = siblingsInfoList.Sum(s => s.balanceDue);
+            decimal familyTotalDue = stDue + siblingsDueSum;
+            bool hasSiblingDues = siblingsInfoList.Any(s => s.balanceDue > 0);
+            var allFamilyIds = siblingIdsSet.Append(st.Id).OrderBy(id => id).ToList();
+            string familyGroupKey = siblingsInfoList.Count > 0
+                ? string.Join("_", allFamilyIds)
+                : st.Id.ToString();
+            string sibNamesBlob = string.Join(" ", siblingsInfoList.Select(s => $"{s.studentName} {s.className}"));
+            string stSearchBlob = $"{st.StudentName} {st.RollNumber} {st.AdmissionNumber} {st.Class?.Name} {st.Section?.Name} {st.Batch?.Name} {st.ParentName} {st.ParentWhatsAppPhone} {divLabel} {statusStr} {periodsSummaryStr} {invNumsBlob} {sibNamesBlob}".ToLowerInvariant();
 
             var regDto = new
             {
@@ -2927,9 +3024,15 @@ public class FeesController : ControllerBase
                 totalPaid = stCashPaid,
                 balanceDue = stDue,
                 advanceWalletBalance = st.AdvanceBalance,
-                status = statusStr
+                status = statusStr,
+                siblingDiscountPercent = ownDiscountPct,
+                familyGroupKey,
+                familyTotalDue,
+                hasSiblings = siblingsInfoList.Count > 0,
+                hasSiblingDues,
+                siblingsInfo = siblingsInfoList
             };
-            registerEntries.Add((regDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", stInvoices.Count, stInvoiced, stAdvAdj, stCashPaid, stDue, statusStr, stSearchBlob));
+            registerEntries.Add((regDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", stInvoices.Count, stInvoiced, stAdvAdj, stCashPaid, stDue, statusStr, stSearchBlob, hasSiblingDues, familyGroupKey, familyTotalDue));
 
             if (unpaidInvoices.Any())
             {
@@ -2956,9 +3059,15 @@ public class FeesController : ControllerBase
                     paidAmount = slipPaid,
                     totalBalanceDue = stDue,
                     advanceWalletBalance = st.AdvanceBalance,
+                    siblingDiscountPercent = ownDiscountPct,
+                    familyGroupKey,
+                    familyTotalDue,
+                    hasSiblings = siblingsInfoList.Count > 0,
+                    hasSiblingDues,
+                    siblingsInfo = siblingsInfoList,
                     invoices = unpaidBreakdowns
                 };
-                dueSlipEntries.Add((dueDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", slipInvoiced, slipAdv, slipPaid, stDue, stSearchBlob));
+                dueSlipEntries.Add((dueDto, st.StudentName ?? "", st.RollNumber ?? "", st.Class?.Name ?? "", st.ParentName ?? "", slipInvoiced, slipAdv, slipPaid, stDue, stSearchBlob, hasSiblingDues, familyGroupKey, familyTotalDue));
             }
         }
 
@@ -3101,10 +3210,31 @@ public class FeesController : ControllerBase
             registerEntries = registerEntries.Where(x => x.SearchBlob.Contains(q)).ToList();
         }
 
-        // 2. Server-Side Column Sorting
-        dueSlipEntries = dueSlipEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
+        // 2. Server-Side Column Sorting & Sibling Family Grouping
+        if (groupSiblingsFirst)
+        {
+            dueSlipEntries = dueSlipEntries
+                .OrderByDescending(x => x.HasSiblingDues)
+                .ThenByDescending(x => x.FamilyTotalDue)
+                .ThenBy(x => x.FamilyGroupKey)
+                .ThenByDescending(x => x.BalanceDue)
+                .ThenBy(x => x.StudentName)
+                .ToList();
+
+            registerEntries = registerEntries
+                .OrderByDescending(x => x.HasSiblingDues)
+                .ThenByDescending(x => x.FamilyTotalDue)
+                .ThenBy(x => x.FamilyGroupKey)
+                .ThenByDescending(x => x.BalanceDue)
+                .ThenBy(x => x.StudentName)
+                .ToList();
+        }
+        else
+        {
+            dueSlipEntries = dueSlipEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
+            registerEntries = registerEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
+        }
         receiptEntries = receiptEntries.OrderByDescending(x => x.RemainingDue).ThenByDescending(x => x.AmountPaid).ThenByDescending(x => x.PaymentDate).ToList();
-        registerEntries = registerEntries.OrderByDescending(x => x.BalanceDue).ThenByDescending(x => x.TotalInvoiced).ThenBy(x => x.StudentName).ToList();
         string sortKey = (sortBy ?? "").Trim().ToLowerInvariant();
         if (!string.IsNullOrEmpty(sortKey))
         {
