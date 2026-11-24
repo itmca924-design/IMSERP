@@ -479,7 +479,8 @@ public class StudentsController : ControllerBase
             null,
             s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteId : null,
             s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteStopId : null,
-            s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null
+            s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null,
+            s.CustomFieldsJson
         )).ToListAsync();
 
         if (list.Count > 0)
@@ -2739,7 +2740,8 @@ public class StudentsController : ControllerBase
                 null,
                 s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteId : null,
                 s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteStopId : null,
-                s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null
+                s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null,
+                s.CustomFieldsJson
             )).ToListAsync();
 
         if (items.Count > 0)
@@ -2929,6 +2931,7 @@ public class StudentsController : ControllerBase
                 EmergencyContactPhone = dto.EmergencyContactPhone,
                 PreviousSchoolName = dto.PreviousSchoolName,
                 PreviousBoard = dto.PreviousBoard,
+                CustomFieldsJson = dto.CustomFieldsJson,
                 JoiningDate = (dto.IsCoachingStudent && !dto.IsSchoolStudent)
                     ? (dto.CoachingJoiningDate ?? dto.JoiningDate ?? DateTime.UtcNow)
                     : (dto.JoiningDate ?? DateTime.UtcNow),
@@ -3161,7 +3164,8 @@ public class StudentsController : ControllerBase
                 null,
                 transAlloc?.RouteId,
                 transAlloc?.RouteStopId,
-                transAlloc?.PickupDropType
+                transAlloc?.PickupDropType,
+                student.CustomFieldsJson
             ));
         });
     }
@@ -3365,6 +3369,10 @@ public class StudentsController : ControllerBase
             student.EmergencyContactPhone = dto.EmergencyContactPhone?.Trim();
             student.PreviousSchoolName = dto.PreviousSchoolName?.Trim();
             student.PreviousBoard = dto.PreviousBoard;
+            if (dto.CustomFieldsJson != null)
+            {
+                student.CustomFieldsJson = dto.CustomFieldsJson;
+            }
             student.ProfilePhoto = ImageStorageHelper.SaveBase64Image(dto.ProfilePhoto, "students", student.Id.ToString(), _env.ContentRootPath)
                 ?? student.ProfilePhoto;
 
@@ -3555,7 +3563,8 @@ public class StudentsController : ControllerBase
                 null,
                 transAlloc?.RouteId,
                 transAlloc?.RouteStopId,
-                transAlloc?.PickupDropType
+                transAlloc?.PickupDropType,
+                student.CustomFieldsJson
             ));
         }
         catch (Exception ex)

@@ -42,6 +42,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryItem } from '../inventory/inventory.models';
 import { AiAdmissionAssistantService, AiParsedAdmissionData } from '../../core/services/ai-admission-assistant.service';
+import { CustomFieldsService, CustomFieldDefinitionDto } from '../../core/services/custom-fields.service';
+import { ManageCustomFieldsDialogComponent } from './manage-custom-fields-dialog.component';
+import { StudentBulkImportDialogComponent } from './student-bulk-import-dialog.component';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -142,7 +145,25 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                 <span>Roll No. Sequencer</span>
               </button>
             }
+            @if (!authService.isTeacher()) {
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="openBulkImportDialog()">
+                <mat-icon style="color:#059669;">upload_file</mat-icon>
+                <span>Bulk Import Excel / CSV</span>
+              </button>
+              <button mat-menu-item (click)="openManageCustomFields()">
+                <mat-icon style="color:#0f766e;">tune</mat-icon>
+                <span>Manage Custom Fields</span>
+              </button>
+            }
           </mat-menu>
+
+          @if (!authService.isTeacher() && !showForm) {
+            <button type="button" (click)="openBulkImportDialog()" matButton="filled" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px;" matTooltip="Bulk Import Students from Excel (.xlsx / .csv) with Auto Custom Fields &amp; Duplicate Check">
+              <mat-icon style="font-size: 19px; width: 19px; height: 19px;">upload_file</mat-icon>
+              <span>Bulk Import Excel</span>
+            </button>
+          }
     
           @if (!authService.isTeacher()) {
             <button color="primary" class="add-btn app-button-update" (click)="toggleForm()" matButton="filled">
@@ -1047,6 +1068,88 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                     </mat-form-field>
                       </div>
                     </mat-expansion-panel>
+
+                    <!-- Dynamic Multi-Tenant Custom Fields Panel -->
+                    <mat-expansion-panel #customFieldsPanel [expanded]="customFieldDefinitions.length > 0" class="enrollment-panel full-span custom-fields-panel">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <mat-icon style="color:#0f766e;">tune</mat-icon>
+                          <span>Additional / Custom Institute Fields</span>
+                          @if (customFieldDefinitions.length > 0) {
+                            <span style="margin-left:8px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#ccfbf1;color:#0f766e;">{{ customFieldDefinitions.length }}</span>
+                          }
+                        </mat-panel-title>
+                        <mat-panel-description>Dynamic institute-specific columns (e.g. Permanent Address, Height)</mat-panel-description>
+                      </mat-expansion-panel-header>
+                      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+                        <button type="button" mat-stroked-button color="primary" (click)="openManageCustomFields()" style="height:32px;font-size:12px;">
+                          <mat-icon style="font-size:16px;width:16px;height:16px;margin-right:4px;">add_circle_outline</mat-icon>
+                          <span>Add / Manage Custom Fields</span>
+                        </button>
+                      </div>
+                      @if (customFieldDefinitions.length === 0) {
+                        <div style="padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px dashed #cbd5e1;font-size:12.5px;color:#64748b;">
+                          No custom fields configured for this institute yet. Click <strong>Add / Manage Custom Fields</strong> above to add fields like <em>Permanent Address</em>, <em>Height</em>, <em>House</em>, etc.
+                        </div>
+                      } @else {
+                        <div class="enrollment-panel-fields" [formGroup]="customFieldsForm">
+                          @for (cf of customFieldDefinitions; track cf.id) {
+                            @if (cf.dataType === 'Textarea') {
+                              <mat-form-field appearance="outline" class="full-span">
+                                <mat-label>{{ cf.fieldLabel }}@if (cf.isRequired) { * }</mat-label>
+                                <textarea matInput rows="2" [formControlName]="cf.fieldKey" [placeholder]="cf.placeholder || ('Enter ' + cf.fieldLabel)"></textarea>
+                                @if (customFieldsForm.get(cf.fieldKey)?.hasError('required')) {
+                                  <mat-error>{{ cf.fieldLabel }} is required</mat-error>
+                                }
+                              </mat-form-field>
+                            } @else if (cf.dataType === 'Dropdown') {
+                              <mat-form-field appearance="outline">
+                                <mat-label>{{ cf.fieldLabel }}@if (cf.isRequired) { * }</mat-label>
+                                <mat-select [formControlName]="cf.fieldKey">
+                                  <mat-option value="">-- Select {{ cf.fieldLabel }} --</mat-option>
+                                  @for (opt of cf.dropdownOptions; track opt) {
+                                    <mat-option [value]="opt">{{ opt }}</mat-option>
+                                  }
+                                </mat-select>
+                                @if (customFieldsForm.get(cf.fieldKey)?.hasError('required')) {
+                                  <mat-error>{{ cf.fieldLabel }} is required</mat-error>
+                                }
+                              </mat-form-field>
+                            } @else if (cf.dataType === 'Checkbox') {
+                              <div style="display:flex;align-items:center;padding:8px 4px;">
+                                <mat-checkbox [formControlName]="cf.fieldKey" color="primary">
+                                  {{ cf.fieldLabel }}@if (cf.isRequired) { * }
+                                </mat-checkbox>
+                              </div>
+                            } @else if (cf.dataType === 'Number') {
+                              <mat-form-field appearance="outline">
+                                <mat-label>{{ cf.fieldLabel }}@if (cf.isRequired) { * }</mat-label>
+                                <input matInput type="number" [formControlName]="cf.fieldKey" [placeholder]="cf.placeholder || ('Enter ' + cf.fieldLabel)" />
+                                @if (customFieldsForm.get(cf.fieldKey)?.hasError('required')) {
+                                  <mat-error>{{ cf.fieldLabel }} is required</mat-error>
+                                }
+                              </mat-form-field>
+                            } @else if (cf.dataType === 'Date') {
+                              <mat-form-field appearance="outline">
+                                <mat-label>{{ cf.fieldLabel }}@if (cf.isRequired) { * }</mat-label>
+                                <input matInput type="date" [formControlName]="cf.fieldKey" />
+                                @if (customFieldsForm.get(cf.fieldKey)?.hasError('required')) {
+                                  <mat-error>{{ cf.fieldLabel }} is required</mat-error>
+                                }
+                              </mat-form-field>
+                            } @else {
+                              <mat-form-field appearance="outline">
+                                <mat-label>{{ cf.fieldLabel }}@if (cf.isRequired) { * }</mat-label>
+                                <input matInput type="text" [formControlName]="cf.fieldKey" [placeholder]="cf.placeholder || ('Enter ' + cf.fieldLabel)" />
+                                @if (customFieldsForm.get(cf.fieldKey)?.hasError('required')) {
+                                  <mat-error>{{ cf.fieldLabel }} is required</mat-error>
+                                }
+                              </mat-form-field>
+                            }
+                          }
+                        </div>
+                      }
+                    </mat-expansion-panel>
                     </mat-accordion>
                     <!-- Live Form Validation Summary Banner -->
                     @if (getFormValidationErrorsList().length > 0 && (studentForm.dirty || studentForm.touched)) {
@@ -1268,6 +1371,15 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                               @if (s.admissionNumber || s.admissionNo || s.rollNumber || s.coachingRollNumber) {
                                 <div class="student-adm-sub">
                                   <span>Adm: {{ s.admissionNumber || s.admissionNo || s.rollNumber || s.coachingRollNumber }}</span>
+                                </div>
+                              }
+                              @if (getVisibleCustomFieldEntries(s).length > 0) {
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                                  @for (cfEntry of getVisibleCustomFieldEntries(s); track cfEntry.key) {
+                                    <span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;padding:1.5px 6px;border-radius:4px;background:#f0fdfa;border:1px solid #99f6e4;color:#115e59;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" [matTooltip]="cfEntry.label + ': ' + cfEntry.value">
+                                      <strong>{{ cfEntry.label }}:</strong> {{ cfEntry.value }}
+                                    </span>
+                                  }
                                 </div>
                               }
                             </div>
@@ -4225,6 +4337,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
   }
 
   studentForm: FormGroup;
+  customFieldsForm: FormGroup = new FormGroup({});
+  customFieldDefinitions: CustomFieldDefinitionDto[] = [];
   private batchIdSub?: Subscription;
   private phoneSub?: Subscription;
   private studentNameSub?: Subscription;
@@ -4322,6 +4436,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
     public authService: AuthService,
     private inventoryService: InventoryService,
     private aiAdmissionService: AiAdmissionAssistantService,
+    private customFieldsService: CustomFieldsService,
     private cdr: ChangeDetectorRef
   ) {
     const hasSchool = this.authService.hasSchoolModule();
@@ -4462,6 +4577,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.loadCustomFields();
+
     if (this.authService.hasCoachingModule()) {
       this.coachingService.getBatches().subscribe(b => this.batches = b || []);
     }
@@ -4506,6 +4623,105 @@ export class StudentsComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe(() => {
       this.loadLibraryPlans();
     });
+  }
+
+  loadCustomFields(): void {
+    this.customFieldsService.getCustomFields('Student', false).subscribe({
+      next: (defs) => {
+        this.customFieldDefinitions = defs || [];
+        this.rebuildCustomFieldsForm(this.customFieldsForm?.value || {});
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.customFieldDefinitions = [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private rebuildCustomFieldsForm(existingValues: Record<string, any> = {}): void {
+    const group: Record<string, FormControl> = {};
+    for (const cf of this.customFieldDefinitions) {
+      const defaultVal = cf.dataType === 'Checkbox'
+        ? Boolean(existingValues[cf.fieldKey])
+        : (existingValues[cf.fieldKey] ?? '');
+      const validators = cf.isRequired
+        ? (cf.dataType === 'Checkbox' ? [Validators.requiredTrue] : [Validators.required])
+        : [];
+      group[cf.fieldKey] = new FormControl(defaultVal, validators);
+    }
+    this.customFieldsForm = this.fb.group(group);
+  }
+
+  private patchCustomFieldsFromJson(json?: string | null): void {
+    const parsed = this.customFieldsService.parseCustomFieldsJson(json);
+    this.rebuildCustomFieldsForm(parsed);
+    this.cdr.markForCheck();
+  }
+
+  private resetCustomFieldsForm(): void {
+    this.rebuildCustomFieldsForm({});
+    this.cdr.markForCheck();
+  }
+
+  openBulkImportDialog(): void {
+    const ref = this.dialog.open(StudentBulkImportDialogComponent, {
+      width: '1040px',
+      maxWidth: '96vw',
+      panelClass: 'custom-dialog-container',
+      disableClose: true
+    });
+    ref.afterClosed().subscribe((imported) => {
+      if (imported) {
+        this.loadCustomFields();
+        if (this.authService.hasSchoolModule()) {
+          this.schoolService.getClasses(false).subscribe(c => {
+            this.schoolClasses = c || [];
+            this.cdr.markForCheck();
+          });
+        }
+        this.loadStudents();
+      }
+    });
+  }
+
+  openManageCustomFields(): void {
+    const ref = this.dialog.open(ManageCustomFieldsDialogComponent, {
+      width: '780px',
+      maxWidth: '96vw',
+      panelClass: 'custom-dialog-container',
+      data: { entityType: 'Student' }
+    });
+    ref.afterClosed().subscribe((changed) => {
+      if (changed) {
+        const currentValues = this.customFieldsForm?.value || {};
+        this.customFieldsService.getCustomFields('Student', false).subscribe({
+          next: (defs) => {
+            this.customFieldDefinitions = defs || [];
+            this.rebuildCustomFieldsForm(currentValues);
+            this.cdr.markForCheck();
+          }
+        });
+      }
+    });
+  }
+
+  getVisibleCustomFieldEntries(student: any): Array<{ key: string; label: string; value: string }> {
+    if (!student?.customFieldsJson || !this.customFieldDefinitions.length) return [];
+    const parsed = this.customFieldsService.parseCustomFieldsJson(student.customFieldsJson);
+    const out: Array<{ key: string; label: string; value: string }> = [];
+    for (const cf of this.customFieldDefinitions) {
+      if (!cf.showInTable) continue;
+      const val = parsed[cf.fieldKey];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        out.push({
+          key: cf.fieldKey,
+          label: cf.fieldLabel,
+          value: typeof val === 'boolean' ? (val ? 'Yes' : 'No') : String(val)
+        });
+      }
+    }
+    return out;
   }
 
   ngOnDestroy(): void {
@@ -5733,6 +5949,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
         kitPaymentMode: 'Cash',
         gender: 'Male'
       });
+      this.resetCustomFieldsForm();
       this.onStreamCheckChanged();
       this.loadStudents();
     } else if (!this.isEditMode) {
@@ -5885,6 +6102,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
       previousSchoolName: student.previousSchoolName || '',
       previousBoard: student.previousBoard || ''
     });
+
+    this.patchCustomFieldsFromJson(student.customFieldsJson);
 
     this.onStreamCheckChanged();
 
@@ -6240,10 +6459,16 @@ export class StudentsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.studentForm.invalid) {
+    if (this.studentForm.invalid || this.customFieldsForm.invalid) {
       this.studentForm.markAllAsTouched();
+      this.customFieldsForm.markAllAsTouched();
       this.expandPanelForValidation();
       const errorList = this.getFormValidationErrorsList();
+      for (const cf of this.customFieldDefinitions) {
+        if (this.customFieldsForm.get(cf.fieldKey)?.invalid) {
+          errorList.push(`${cf.fieldLabel} (Custom Field) is required`);
+        }
+      }
       const bulletListHtml = errorList.map(err => `<li>${err}</li>`).join('');
       const message = errorList.length > 0
         ? `<div><strong>Please resolve the following required fields / validation errors:</strong></div><ul>${bulletListHtml}</ul>`
@@ -6336,6 +6561,7 @@ export class StudentsComponent implements OnInit, OnDestroy {
       emergencyContactPhone: formVal.emergencyContactPhone ? formVal.emergencyContactPhone.trim() : null,
       previousSchoolName: formVal.previousSchoolName ? formVal.previousSchoolName.trim() : null,
       previousBoard: formVal.previousBoard || null,
+      customFieldsJson: this.customFieldsService.serializeCustomFields(this.customFieldsForm.value),
       linkedSiblingStudentId: (formVal.linkSibling && this.siblingInfo?.studentId) ? this.siblingInfo.studentId : null,
       siblingRelationship: (formVal.linkSibling && this.siblingInfo?.studentId) ? (formVal.siblingRelationship || null) : null,
       siblingDiscountPercent: (formVal.linkSibling && this.siblingInfo?.studentId) ? (Number(formVal.siblingDiscountPercent) || 0) : null,

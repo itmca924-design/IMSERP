@@ -139,6 +139,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<TeacherAiLessonPlan> TeacherAiLessonPlans => Set<TeacherAiLessonPlan>();
     public DbSet<SubscriptionPlanConfig> SubscriptionPlanConfigs => Set<SubscriptionPlanConfig>();
     public DbSet<SubscriptionRenewalRequest> SubscriptionRenewalRequests => Set<SubscriptionRenewalRequest>();
+    public DbSet<CustomFieldDefinition> CustomFieldDefinitions => Set<CustomFieldDefinition>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -234,6 +235,10 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 
         modelBuilder.Entity<ChatMessage>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+
+        modelBuilder.Entity<CustomFieldDefinition>().HasQueryFilter(x =>
             (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
 

@@ -128,6 +128,7 @@ public interface IIMSERPDbContext
     DbSet<GrievanceComment> GrievanceComments { get; }
     DbSet<FeeRecoveryPlan> FeeRecoveryPlans { get; }
     DbSet<FeePromiseToPay> FeePromisesToPay { get; }
+    DbSet<CustomFieldDefinition> CustomFieldDefinitions { get; }
     DbSet<SubscriptionPlanConfig> SubscriptionPlanConfigs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

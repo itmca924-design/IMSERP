@@ -641,7 +641,9 @@ public record StudentDto(
     // Additional Transport Details
     Guid? TransportRouteId = null,
     Guid? TransportRouteStopId = null,
-    string? TransportPickupDropType = null
+    string? TransportPickupDropType = null,
+    // Dynamic Multi-Tenant Custom Fields (JSON dictionary)
+    string? CustomFieldsJson = null
 );
 
 public record StudentLeavingClearanceDto(
@@ -755,7 +757,8 @@ public record CreateStudentDto(
     string? SiblingRelationship = null,
     decimal? SiblingDiscountPercent = null,
     string? SiblingDiscountNotes = null,
-    DateTime? CoachingJoiningDate = null
+    DateTime? CoachingJoiningDate = null,
+    string? CustomFieldsJson = null
 );
 
 public record CreateStudentKitItemDto(

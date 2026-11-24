@@ -424,6 +424,8 @@ public class Student
     public string? PreviousSchoolName { get; set; }
     public decimal AdvanceBalance { get; set; } = 0m;
     public string? PreviousBoard { get; set; }
+    // Dynamic Multi-Tenant Custom Fields (JSON dictionary: { "field_key": "value" })
+    public string? CustomFieldsJson { get; set; }
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }
@@ -3539,6 +3541,32 @@ public class SubscriptionRenewalRequest
     public DateTime? ProcessedAt { get; set; }
     public string? ProcessedBy { get; set; }
     public string? AdminRemarks { get; set; }
+}
+
+// =========================================================================================
+// DYNAMIC MULTI-TENANT CUSTOM FIELDS ENGINE
+// =========================================================================================
+
+public class CustomFieldDefinition
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string EntityType { get; set; } = "Student"; // Student | Teacher | Enquiry
+    public string FieldKey { get; set; } = string.Empty; // snake_case key e.g. permanent_address, height
+    public string FieldLabel { get; set; } = string.Empty; // Display label e.g. Permanent Address
+    public string DataType { get; set; } = "Text"; // Text | Textarea | Number | Date | Dropdown | Checkbox
+    public string? DropdownOptionsJson { get; set; } // JSON array of strings e.g. ["Red", "Blue"]
+    public string? Placeholder { get; set; }
+    public bool IsRequired { get; set; } = false;
+    public bool ShowInTable { get; set; } = false;
+    public int SortOrder { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 

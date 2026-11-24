@@ -1865,6 +1865,35 @@ using (var scope = app.Services.CreateScope())
                         CREATE INDEX IX_ChatMessages_Conv_Created ON ChatMessages (TenantId, ConversationId, CreatedAt);
                     END
 
+                    -- Dynamic Multi-Tenant Custom Fields Engine
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'CustomFieldsJson')
+                    BEGIN
+                        ALTER TABLE Students ADD CustomFieldsJson NVARCHAR(MAX) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'CustomFieldDefinitions')
+                    BEGIN
+                        CREATE TABLE CustomFieldDefinitions (
+                            Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+                            TenantId UNIQUEIDENTIFIER NOT NULL,
+                            BranchId UNIQUEIDENTIFIER NULL,
+                            EntityType NVARCHAR(50) NOT NULL DEFAULT 'Student',
+                            FieldKey NVARCHAR(100) NOT NULL,
+                            FieldLabel NVARCHAR(200) NOT NULL,
+                            DataType NVARCHAR(50) NOT NULL DEFAULT 'Text',
+                            DropdownOptionsJson NVARCHAR(MAX) NULL,
+                            Placeholder NVARCHAR(300) NULL,
+                            IsRequired BIT NOT NULL DEFAULT 0,
+                            ShowInTable BIT NOT NULL DEFAULT 0,
+                            SortOrder INT NOT NULL DEFAULT 0,
+                            IsActive BIT NOT NULL DEFAULT 1,
+                            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                            UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                        );
+                        CREATE INDEX IX_CustomFieldDefinitions_Tenant_Entity ON CustomFieldDefinitions (TenantId, EntityType, IsActive, SortOrder);
+                        CREATE UNIQUE INDEX UX_CustomFieldDefinitions_Tenant_Entity_Key ON CustomFieldDefinitions (TenantId, EntityType, FieldKey);
+                    END
+
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'FeeRecoveryPlans')
                     BEGIN
                         CREATE TABLE FeeRecoveryPlans (
