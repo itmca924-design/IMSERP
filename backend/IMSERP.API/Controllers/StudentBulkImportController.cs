@@ -1060,7 +1060,7 @@ public class StudentBulkImportController : ControllerBase
             .Include(s => s.TransportAllocation)
                 .ThenInclude(t => t!.Route)
             .Include(s => s.TransportAllocation)
-                .ThenInclude(t => t!.RouteStop)
+                .ThenInclude(t => t!.Stop)
             .Where(s => s.TenantId == tenantId && !s.IsDeleted);
 
         if (branchId.HasValue)
@@ -1162,7 +1162,7 @@ public class StudentBulkImportController : ControllerBase
 
             var transportLabel = s.IsTransportStudent
                 ? (s.TransportAllocation?.Route != null
-                    ? $"Yes ({s.TransportAllocation.Route.RouteName}{(s.TransportAllocation.RouteStop != null ? " - " + s.TransportAllocation.RouteStop.StopName : "")})"
+                    ? $"Yes ({s.TransportAllocation.Route.RouteName}{(s.TransportAllocation.Stop != null ? " - " + s.TransportAllocation.Stop.StopName : "")})"
                     : "Yes")
                 : "No";
 
