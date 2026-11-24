@@ -180,7 +180,9 @@ export class QuickSettingsDrawerComponent implements OnInit {
     const currentUrl = this.router.url.toLowerCase();
     if (!updated.hasSchoolModule && (currentUrl.includes('/school') || currentUrl.includes('/promotion'))) {
       this.router.navigate(['/dashboard']);
-    } else if (!updated.hasCoachingModule && (currentUrl.includes('/batches') || currentUrl.includes('/tests'))) {
+    } else if (!updated.hasCoachingModule && currentUrl.includes('/batches')) {
+      this.router.navigate(['/dashboard']);
+    } else if (!updated.hasSchoolModule && !updated.hasCoachingModule && currentUrl.includes('/tests')) {
       this.router.navigate(['/dashboard']);
     } else if (!updated.hasHostelModule && currentUrl.includes('/hostel')) {
       this.router.navigate(['/dashboard']);

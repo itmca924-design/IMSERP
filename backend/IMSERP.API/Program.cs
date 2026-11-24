@@ -3055,18 +3055,52 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("[Database] Auto-seeded 'Faculty Operations' parent menu item.");
         }
 
-        // Ensure '/tests' is strictly bound to Faculty Operations, never HRMS or Academic Operations
+        // Ensure '/tests' is bound to Academic Operations so Test Exams & Marks Entry appears under Academic Operations
         var testsMenu = context.MenuItems.FirstOrDefault(m => m.RouteUrl == "/tests");
-        if (testsMenu != null)
+        if (academicMenu != null)
         {
-            if (testsMenu.ParentId != facultyMenu.Id || testsMenu.Title != "Test Exams & Marks Entry")
+            if (testsMenu == null)
             {
-                testsMenu.ParentId = facultyMenu.Id;
-                testsMenu.Title = "Test Exams & Marks Entry";
-                testsMenu.Module = "Teachers";
-                testsMenu.SortOrder = 4;
+                testsMenu = new IMSERP.Domain.Entities.MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Test Exams & Marks Entry",
+                    RouteUrl = "/tests",
+                    Icon = "quiz",
+                    ParentId = academicMenu.Id,
+                    SortOrder = 4,
+                    Module = "Academic",
+                    IsActive = true
+                };
+                context.MenuItems.Add(testsMenu);
                 context.SaveChanges();
-                Console.WriteLine("[Database] Re-parented '/tests' menu item strictly to 'Faculty Operations'.");
+
+                var allRolesForTests = context.Roles.ToList();
+                foreach (var role in allRolesForTests)
+                {
+                    context.RolePermissions.Add(new IMSERP.Domain.Entities.RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        RoleId = role.Id,
+                        MenuItemId = testsMenu.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true
+                    });
+                }
+                context.SaveChanges();
+                Console.WriteLine("[Database] Auto-seeded '/tests' menu item under 'Academic Operations'.");
+            }
+            else if (testsMenu.ParentId != academicMenu.Id || testsMenu.Title != "Test Exams & Marks Entry" || !testsMenu.IsActive || testsMenu.Module != "Academic")
+            {
+                testsMenu.ParentId = academicMenu.Id;
+                testsMenu.Title = "Test Exams & Marks Entry";
+                testsMenu.Module = "Academic";
+                testsMenu.SortOrder = 4;
+                testsMenu.IsActive = true;
+                context.SaveChanges();
+                Console.WriteLine("[Database] Re-parented '/tests' menu item to 'Academic Operations'.");
             }
         }
 

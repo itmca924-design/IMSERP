@@ -156,12 +156,16 @@ export interface NoticeStatsDto {
               <mat-option value="Students">🎓 Students & Parents</mat-option>
               <mat-option value="Teachers">👨‍🏫 Teachers & Staff</mat-option>
               <mat-option value="Parents">👨‍👩‍👦 Parents Only</mat-option>
-              <mat-option value="SpecificClass">🏫 Specific Class</mat-option>
-              <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
+              @if (authService.hasSchoolModule()) {
+                <mat-option value="SpecificClass">🏫 Specific Class</mat-option>
+              }
+              @if (authService.hasCoachingModule()) {
+                <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
+              }
             </mat-select>
           </mat-form-field>
     
-          @if (filterAudience === 'SpecificClass' || filterAudience === 'SpecificBatch') {
+          @if (filterAudience === 'SpecificClass' || (filterAudience === 'SpecificBatch' && authService.hasCoachingModule())) {
             <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
               <mat-label>{{ filterAudience === 'SpecificBatch' ? 'Academic Class (कक्षा)' : 'Class' }}</mat-label>
               <mat-select [(ngModel)]="filterClassId" (selectionChange)="onClassFilterChange()">
@@ -173,7 +177,7 @@ export interface NoticeStatsDto {
             </mat-form-field>
           }
     
-          @if (filterAudience === 'SpecificBatch') {
+          @if (filterAudience === 'SpecificBatch' && authService.hasCoachingModule()) {
             <mat-form-field appearance="outline" class="filter-field" subscriptSizing="dynamic">
               <mat-label>Coaching Batch</mat-label>
               <mat-select [(ngModel)]="filterBatchId" (selectionChange)="loadNotices()">
@@ -745,7 +749,9 @@ export class SchoolNoticesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadClasses();
-    this.loadBatches();
+    if (this.authService.hasCoachingModule()) {
+      this.loadBatches();
+    }
     this.loadNotices();
   }
 
@@ -1002,8 +1008,8 @@ export class SchoolNoticesComponent implements OnInit {
               {{ isEdit ? 'Edit School Circular' : (form.get('category')?.value === 'Weekly Exam Test' ? 'Publish Weekly Exam Test Notice' : 'Publish New Circular / Notice') }}
             </h2>
             <p class="modal-subtitle">
-              <strong style="color:#1e40af">{{ isEdit ? editNoticeNumber : (form.get('category')?.value === 'Weekly Exam Test' ? 'Weekly Coaching Test' : 'Official Institutional Notice') }}</strong>
-              <span> &bull; {{ form.get('category')?.value === 'Weekly Exam Test' ? 'Broadcast weekly test schedule with batch & shift' : 'Broadcast academic & admin announcements' }}</span>
+              <strong style="color:#1e40af">{{ isEdit ? editNoticeNumber : (form.get('category')?.value === 'Weekly Exam Test' ? (authService.hasCoachingModule() ? 'Weekly Coaching Test' : 'Weekly School Test') : 'Official Institutional Notice') }}</strong>
+              <span> &bull; {{ form.get('category')?.value === 'Weekly Exam Test' ? (authService.hasCoachingModule() ? 'Broadcast weekly test schedule with batch & shift' : 'Broadcast weekly test schedule for school classes') : 'Broadcast academic & admin announcements' }}</span>
             </p>
           </div>
         </div>
@@ -1181,8 +1187,12 @@ export class SchoolNoticesComponent implements OnInit {
             <mat-form-field appearance="outline" class="form-field">
               <mat-label>Target Audience (लक्षित समूह) *</mat-label>
               <mat-select formControlName="targetAudience" (selectionChange)="onAudienceSelect()">
-                <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
-                <mat-option value="SpecificClass">🏫 Specific School Class</mat-option>
+                @if (authService.hasCoachingModule()) {
+                  <mat-option value="SpecificBatch">🎯 Coaching Batch (विशिष्ट बैच)</mat-option>
+                }
+                @if (authService.hasSchoolModule()) {
+                  <mat-option value="SpecificClass">🏫 Specific School Class</mat-option>
+                }
                 <mat-option value="All">👥 Everyone (Students, Parents & Staff)</mat-option>
                 <mat-option value="Students">🎓 Students & Parents</mat-option>
                 <mat-option value="Teachers">👨‍🏫 Teaching Faculty & Staff</mat-option>
@@ -1205,8 +1215,8 @@ export class SchoolNoticesComponent implements OnInit {
             </div>
           }
     
-          <!-- Coaching Batch Scope & Selector Deck (when SpecificBatch) -->
-          @if (form.get('targetAudience')?.value === 'SpecificBatch') {
+          <!-- Coaching Batch Scope & Selector Deck (when SpecificBatch & Coaching Module enabled) -->
+          @if (authService.hasCoachingModule() && form.get('targetAudience')?.value === 'SpecificBatch') {
             <div class="batch-scope-toggle-deck">
               <div class="scope-deck-header">
                 <div class="scope-deck-left">
@@ -2188,19 +2198,22 @@ export class NoticeFormDialogComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private http: HttpClient,
     private batchesService: BatchesService,
-    private authService: AuthService,
+    public authService: AuthService,
     private aiCopilotService: AiErpCopilotService
   ) {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const defaultAudience = this.authService.hasCoachingModule()
+      ? 'SpecificBatch'
+      : (this.authService.hasSchoolModule() ? 'SpecificClass' : 'All');
 
     this.form = this.fb.group({
       title: ['Weekly Test Exam (साप्ताहिक परीक्षा)', [Validators.required]],
       category: ['Weekly Exam Test', [Validators.required]],
       priority: ['Urgent'],
-      targetAudience: ['SpecificBatch', [Validators.required]],
+      targetAudience: [defaultAudience, [Validators.required]],
       classId: [null],
       batchId: [null],
       publishDate: [todayStr, [Validators.required]],
@@ -2336,21 +2349,23 @@ export class NoticeFormDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    if (this.batchesList.length === 0) {
-      this.batchesService.getBatches().subscribe({
-        next: b => {
-          this.batchesList = b || [];
-          if (this.batchScope === 'single' && !this.filterCoachingClassCtrl.value && this.activeClasses.length > 0) {
-            this.filterCoachingClassCtrl.setValue(this.activeClasses[0].id);
-            this.onCoachingClassChange();
-          }
-        },
-        error: () => this.batchesList = []
-      });
-    } else {
-      if (this.batchScope === 'single' && !this.filterCoachingClassCtrl.value && this.activeClasses.length > 0) {
-        this.filterCoachingClassCtrl.setValue(this.activeClasses[0].id);
-        this.onCoachingClassChange();
+    if (this.authService.hasCoachingModule()) {
+      if (this.batchesList.length === 0) {
+        this.batchesService.getBatches().subscribe({
+          next: b => {
+            this.batchesList = b || [];
+            if (this.batchScope === 'single' && !this.filterCoachingClassCtrl.value && this.activeClasses.length > 0) {
+              this.filterCoachingClassCtrl.setValue(this.activeClasses[0].id);
+              this.onCoachingClassChange();
+            }
+          },
+          error: () => this.batchesList = []
+        });
+      } else {
+        if (this.batchScope === 'single' && !this.filterCoachingClassCtrl.value && this.activeClasses.length > 0) {
+          this.filterCoachingClassCtrl.setValue(this.activeClasses[0].id);
+          this.onCoachingClassChange();
+        }
       }
     }
 
@@ -2370,12 +2385,18 @@ export class NoticeFormDialogComponent implements OnInit, OnDestroy {
         }
       }
       let expDate = n.expiryDate ? n.expiryDate.slice(0, 10) : null;
+      const fallbackAudience = this.authService.hasCoachingModule()
+        ? 'SpecificBatch'
+        : (this.authService.hasSchoolModule() ? 'SpecificClass' : 'All');
+      const resolvedAudience = (!this.authService.hasCoachingModule() && n.targetAudience === 'SpecificBatch')
+        ? fallbackAudience
+        : (n.targetAudience || fallbackAudience);
 
       this.form.patchValue({
         title: n.title || '',
         category: n.category || 'Weekly Exam Test',
         priority: n.priority || 'Urgent',
-        targetAudience: n.targetAudience || 'SpecificBatch',
+        targetAudience: resolvedAudience,
         classId: n.classId || null,
         batchId: n.batchId || null,
         publishDate: pubDate || this.form.get('publishDate')?.value,
@@ -2493,7 +2514,9 @@ export class NoticeFormDialogComponent implements OnInit, OnDestroy {
       }
       this.form.patchValue({
         priority: 'Urgent',
-        targetAudience: 'SpecificBatch'
+        targetAudience: this.authService.hasCoachingModule()
+          ? 'SpecificBatch'
+          : (this.authService.hasSchoolModule() ? 'SpecificClass' : 'All')
       });
     }
   }
