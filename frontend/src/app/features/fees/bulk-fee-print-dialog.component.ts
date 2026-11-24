@@ -722,10 +722,28 @@ export interface BulkFeePrintDialogData {
                         <tr>
                           <td>{{ (pageIndex * pageSize) + i + 1 }}</td>
                           <td>
-                            <div class="st-name">{{ row.studentName }}</div>
+                            <div class="st-name">
+                              {{ row.studentName }}
+                              @if (row.siblingDiscountPercent && row.siblingDiscountPercent > 0) {
+                                <span class="bulk-sib-disc-pill">🎁 {{ row.siblingDiscountPercent }}% Sibling Concession</span>
+                              }
+                            </div>
                             <div class="st-meta">Roll: {{ row.rollNumber }}</div>
                             @if (row.parentPhone) {
                               <div class="st-phone">📞 {{ row.parentPhone }}</div>
+                            }
+                            @if (row.siblingsInfo && row.siblingsInfo.length > 0) {
+                              <div class="bulk-sibling-family-badge" style="cursor: default;">
+                                <span class="fam-txt">
+                                  👨‍👩‍👧‍👦 <strong>Sibling:</strong>
+                                  @for (sib of row.siblingsInfo; track sib.studentId; let isLast = $last) {
+                                    <strong>{{ sib.studentName }}</strong> ({{ sib.className || sib.batchName || 'Gen' }}: ₹{{ sib.balanceDue | number:'1.0-0' }}){{ !isLast ? ', ' : '' }}
+                                  }
+                                  @if (row.familyTotalDue && row.familyTotalDue > row.balanceDue) {
+                                    <span class="fam-tot-pill">• Family Total: ₹{{ row.familyTotalDue | number:'1.0-0' }}</span>
+                                  }
+                                </span>
+                              </div>
                             }
                           </td>
                           <td>
@@ -1959,7 +1977,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
       sectionId: new FormControl<string>(''),
       batchId: new FormControl<string>(''),
       includeArrears: new FormControl<boolean>(true),
-      groupSiblingsFirst: new FormControl<boolean>(false),
+      groupSiblingsFirst: new FormControl<boolean>(true),
       printLayout: new FormControl<'three_per_page' | 'four_per_page' | 'eight_per_page' | 'ten_per_page' | 'twelve_per_page' | 'two_per_page' | 'counterfoil'>('four_per_page'),
       searchTerm: new FormControl<string>('')
     });
@@ -3065,6 +3083,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
               <strong>₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
             </div>
           </div>
+          ${this.renderSiblingFamilyNoteHtml(slip, true)}
         </div>
 
         <div class="g10-footer">
@@ -3123,6 +3142,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
               <strong>₹${Number(slip.totalBalanceDue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
             </div>
           </div>
+          ${this.renderSiblingFamilyNoteHtml(slip, true)}
         </div>
 
         <div class="g12-footer">
@@ -4090,7 +4110,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             justify-content: flex-start;
             gap: 2.5mm;
             box-sizing: border-box;
-            height: 297mm;
+            height: auto;
             max-height: 297mm;
             padding: 4mm 6mm;
           }
@@ -4102,7 +4122,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             justify-content: flex-start;
             gap: 2.8mm;
             box-sizing: border-box;
-            height: 297mm;
+            height: auto;
             max-height: 297mm;
             padding: 4mm 6mm;
           }
@@ -4114,7 +4134,7 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             justify-content: flex-start;
             gap: 2.5mm;
             box-sizing: border-box;
-            height: 297mm;
+            height: auto;
             max-height: 297mm;
             padding: 4mm 6mm;
           }
@@ -4518,16 +4538,17 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             position: relative;
             border: 1px dashed #475569;
             border-radius: 4px;
-            padding: 3px 5px;
+            padding: 4px 6px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 3px;
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
             background: #ffffff;
-            height: 58mm;
-            max-height: 58mm;
+            height: auto;
+            max-height: 62mm;
             overflow: hidden;
           }
           .grid8-header {
@@ -4943,16 +4964,17 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
           .card-grid-10 {
             border: 1px dashed #475569;
             border-radius: 4px;
-            padding: 3px 6px;
+            padding: 3.5px 6px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 2.5px;
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
             background: #ffffff;
-            height: 53mm;
-            max-height: 53mm;
+            height: auto;
+            max-height: 54mm;
             overflow: hidden;
           }
           .g10-top {
@@ -5119,13 +5141,14 @@ export class BulkFeePrintDialogComponent implements OnInit, OnDestroy {
             padding: 3px 5px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 2px;
             box-sizing: border-box;
             page-break-inside: avoid;
             break-inside: avoid;
             background: #ffffff;
-            height: 44mm;
-            max-height: 44mm;
+            height: auto;
+            max-height: 46mm;
             overflow: hidden;
           }
           .g12-top {
