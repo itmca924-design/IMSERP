@@ -82,6 +82,11 @@ interface EditableInvoiceItem {
                 🎯 {{ data.invoice.batchName }}
               </span>
             }
+            @if (invoicePeriodLabel) {
+              <span class="badge-tag period">
+                📅 {{ invoicePeriodLabel }}
+              </span>
+            }
           </div>
         </div>
         <div class="banner-right">
@@ -119,13 +124,21 @@ interface EditableInvoiceItem {
                 <tr [class.is-new-row]="it.isNew">
                   <td class="idx-col">{{ idx + 1 }}</td>
                   <td>
-                    <div class="head-particulars">
-                      <strong>{{ it.headName }}</strong>
-                      @if (it.paidAmount > 0) {
-                        <span class="mini-paid-tag">Paid: ₹{{ it.paidAmount | number:'1.2-2' }}</span>
-                      }
-                      @if (it.isNew) {
-                        <span class="mini-new-tag">New</span>
+                    <div class="head-particulars-wrap">
+                      <div class="head-particulars">
+                        <strong>{{ it.headName }}</strong>
+                        @if (it.paidAmount > 0) {
+                          <span class="mini-paid-tag">Paid: ₹{{ it.paidAmount | number:'1.2-2' }}</span>
+                        }
+                        @if (it.isNew) {
+                          <span class="mini-new-tag">New</span>
+                        }
+                      </div>
+                      @if (getItemPeriodSubtext(it)) {
+                        <div class="head-period-sub">
+                          <mat-icon class="period-mini-ic">calendar_month</mat-icon>
+                          <span>{{ getItemPeriodSubtext(it) }}</span>
+                        </div>
                       }
                     </div>
                   </td>
@@ -405,6 +418,12 @@ interface EditableInvoiceItem {
               color: #6d28d9;
               border: 1px solid #ddd6fe;
             }
+
+            &.period {
+              background: #eff6ff;
+              color: #1d4ed8;
+              border: 1px solid #bfdbfe;
+            }
           }
 
           .badge-sep {
@@ -517,9 +536,16 @@ interface EditableInvoiceItem {
               font-weight: 600;
             }
 
+            .head-particulars-wrap {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            }
+
             .head-particulars {
               display: flex;
               align-items: center;
+              flex-wrap: wrap;
               gap: 8px;
 
               .mini-paid-tag {
@@ -537,6 +563,23 @@ interface EditableInvoiceItem {
                 padding: 1px 5px;
                 border-radius: 3px;
                 font-weight: 700;
+              }
+            }
+
+            .head-period-sub {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 0.71rem;
+              font-weight: 500;
+              color: #64748b;
+              line-height: 1.2;
+
+              .period-mini-ic {
+                font-size: 12px;
+                width: 12px;
+                height: 12px;
+                color: #3b82f6;
               }
             }
 
@@ -868,6 +911,8 @@ export class EditInvoiceDialogComponent implements OnInit {
   addForm: FormGroup;
   isCustomHead = false;
   saving = false;
+  invoicePeriodLabel = '';
+  invoiceMonthsCount = 1;
 
   get totalComputedAmount(): number {
     return this.items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
@@ -888,6 +933,8 @@ export class EditInvoiceDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.computeInvoicePeriodLabel();
+
     // Populate existing items from invoice
     if (this.data.invoice.items && this.data.invoice.items.length > 0) {
       this.items = this.data.invoice.items.map(it => ({
@@ -1049,6 +1096,62 @@ export class EditInvoiceDialogComponent implements OnInit {
         );
       }
     });
+  }
+
+  private computeInvoicePeriodLabel(): void {
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const invNo = (this.data.invoice?.invoiceNumber || '').trim();
+    const match = invNo.match(/INV-(\d{4})(\d{2})([QHY])?-/i);
+
+    if (match) {
+      const startYear = parseInt(match[1], 10);
+      const startMonth = parseInt(match[2], 10); // 1..12
+      const cycleCode = (match[3] || '').toUpperCase();
+      const monthsCount = cycleCode === 'Y' ? 12 : (cycleCode === 'H' ? 6 : (cycleCode === 'Q' ? 3 : 1));
+      this.invoiceMonthsCount = monthsCount;
+
+      if (startMonth >= 1 && startMonth <= 12) {
+        if (monthsCount === 1) {
+          this.invoicePeriodLabel = `${shortMonths[startMonth - 1]} ${startYear}`;
+          return;
+        }
+        const totalEndIdx = (startYear * 12 + (startMonth - 1)) + (monthsCount - 1);
+        const endYear = Math.floor(totalEndIdx / 12);
+        const endMonthIdx = totalEndIdx % 12;
+        this.invoicePeriodLabel = `${shortMonths[startMonth - 1]} ${startYear} – ${shortMonths[endMonthIdx]} ${endYear} (${monthsCount} Months)`;
+        return;
+      }
+    }
+
+    if (this.data.invoice?.title) {
+      this.invoicePeriodLabel = this.data.invoice.title;
+      return;
+    }
+
+    if (this.data.invoice?.dueDate) {
+      const d = new Date(this.data.invoice.dueDate);
+      if (!isNaN(d.getTime())) {
+        this.invoicePeriodLabel = d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: 'numeric' });
+      }
+    }
+  }
+
+  getItemPeriodSubtext(it: EditableInvoiceItem): string {
+    const basePeriod = this.invoicePeriodLabel;
+    if (!basePeriod) return '';
+    const matchedHead = this.availableFeeHeads.find(h =>
+      (it.feeHeadId && h.id === it.feeHeadId) ||
+      (h.name && it.headName && h.name.trim().toLowerCase() === it.headName.trim().toLowerCase())
+    );
+    const freq = matchedHead?.frequency;
+    if (freq && freq !== 'Monthly') {
+      return `${basePeriod} • ${freq}`;
+    }
+    if (freq === 'Monthly' && this.invoiceMonthsCount > 1 && it.amount > 0) {
+      const perMonth = Math.round((it.amount / this.invoiceMonthsCount) * 100) / 100;
+      return `${basePeriod} (₹${perMonth.toLocaleString('en-IN')}/mo)`;
+    }
+    return basePeriod;
   }
 
   onClose(): void {
