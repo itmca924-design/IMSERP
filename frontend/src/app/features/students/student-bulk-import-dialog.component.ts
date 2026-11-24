@@ -53,6 +53,7 @@ interface BulkImportExecuteResponse {
     phone: string;
     status: string;
     reason?: string;
+    admissionNumber?: string;
   }>;
 }
 
@@ -300,6 +301,7 @@ interface BulkImportExecuteResponse {
                   <thead>
                     <tr>
                       <th style="width: 60px;">Row #</th>
+                      <th>Generated Adm No</th>
                       <th>Student Name</th>
                       <th>Father's Name</th>
                       <th>Class / Sec</th>
@@ -311,6 +313,7 @@ interface BulkImportExecuteResponse {
                     @for (r of previewResult.rowResults; track r.rowNumber) {
                       <tr>
                         <td>{{ r.rowNumber }}</td>
+                        <td><code style="font-size:11px;font-weight:700;color:#1e40af;background:#eff6ff;padding:2px 6px;border-radius:4px;">{{ r.admissionNumber || '—' }}</code></td>
                         <td><strong>{{ r.studentName || '—' }}</strong></td>
                         <td>{{ r.parentName || '—' }}</td>
                         <td>{{ r.className }}{{ r.sectionName ? ' - ' + r.sectionName : '' }}</td>

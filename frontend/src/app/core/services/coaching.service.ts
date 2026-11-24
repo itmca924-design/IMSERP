@@ -124,8 +124,9 @@ export class CoachingService {
     });
   }
 
-  getNextAdmissionNumber(): Observable<{ admissionNumber: string }> {
-    return this.http.get<{ admissionNumber: string }>(`${this.BASE_URL}/students/next-admission-number`);
+  getNextAdmissionNumber(year?: number): Observable<{ admissionNumber: string }> {
+    const query = year && year >= 2000 && year <= 2100 ? `?year=${year}` : '';
+    return this.http.get<{ admissionNumber: string }>(`${this.BASE_URL}/students/next-admission-number${query}`);
   }
 
   getNextSchoolRollNumber(classId: string): Observable<{ schoolRollNumber: string }> {

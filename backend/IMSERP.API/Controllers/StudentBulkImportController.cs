@@ -45,7 +45,8 @@ public record BulkImportRowResultDto(
     string SectionName,
     string Phone,
     string Status, // "New" | "Duplicate" | "Updated" | "Inserted" | "Skipped" | "Error"
-    string? Reason
+    string? Reason,
+    string? AdmissionNumber = null
 );
 
 [ApiController]
@@ -255,17 +256,23 @@ public class StudentBulkImportController : ControllerBase
             }
         }
 
-        // Prepare sequential admission number counter for rows without admission numbers
-        var yearNow = DateTime.UtcNow.Year;
-        var admPrefix = $"ADM-{yearNow}-";
-        int nextAdmSeq = 1;
-        foreach (var es in existingStudents)
+        // Prepare Year-Wise DB Max admission number tracker (Option 1: ADM-{Year}-{Max+1})
+        var allTenantAdmNumbers = await _dbContext.Students
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.AdmissionNumber != null)
+            .Select(s => s.AdmissionNumber!)
+            .ToListAsync();
+
+        var maxAdmSeqByYear = new Dictionary<int, int>();
+        var admRegex = new Regex(@"^ADM-(\d{4})-(\d+)$", RegexOptions.IgnoreCase);
+        foreach (var existingCode in allTenantAdmNumbers)
         {
-            if (!string.IsNullOrWhiteSpace(es.AdmissionNumber) && es.AdmissionNumber.StartsWith(admPrefix, StringComparison.OrdinalIgnoreCase))
+            var m = admRegex.Match(existingCode.Trim());
+            if (m.Success && int.TryParse(m.Groups[1].Value, out var yr) && int.TryParse(m.Groups[2].Value, out var seq))
             {
-                var tail = es.AdmissionNumber.Substring(admPrefix.Length);
-                if (int.TryParse(tail, out var num) && num >= nextAdmSeq)
-                    nextAdmSeq = num + 1;
+                if (!maxAdmSeqByYear.TryGetValue(yr, out var cur) || seq > cur)
+                    maxAdmSeqByYear[yr] = seq;
             }
         }
 
@@ -514,9 +521,21 @@ public class StudentBulkImportController : ControllerBase
             }
 
             newCount++;
+            int admYear = parsedDoj?.Year ?? DateTime.UtcNow.Year;
+            string finalAdmNo;
+            if (!string.IsNullOrWhiteSpace(admNo))
+            {
+                finalAdmNo = admNo;
+            }
+            else
+            {
+                int nextSeqForYear = (maxAdmSeqByYear.TryGetValue(admYear, out var curMax) ? curMax : 0) + 1;
+                maxAdmSeqByYear[admYear] = nextSeqForYear;
+                finalAdmNo = $"ADM-{admYear}-{nextSeqForYear:D4}";
+            }
+
             if (!dto.DryRun)
             {
-                var finalAdmNo = !string.IsNullOrWhiteSpace(admNo) ? admNo : $"{admPrefix}{nextAdmSeq++:D4}";
                 string finalRollNo = rollNo;
                 if (string.IsNullOrWhiteSpace(finalRollNo) && resolvedClassId.HasValue)
                 {
@@ -565,7 +584,8 @@ public class StudentBulkImportController : ControllerBase
             rowResults.Add(new BulkImportRowResultDto(
                 excelRowNum, studentName, parentName, className, sectionName, formattedPrimaryPhone,
                 dto.DryRun ? "New" : "Inserted",
-                null));
+                null,
+                finalAdmNo));
         }
 
         if (!dto.DryRun)

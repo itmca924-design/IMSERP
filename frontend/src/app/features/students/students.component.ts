@@ -4563,8 +4563,14 @@ export class StudentsComponent implements OnInit, OnDestroy {
       ]
     });
 
-    this.studentForm.get('joiningDate')?.valueChanges.subscribe(() => {
+    this.studentForm.get('joiningDate')?.valueChanges.subscribe((val) => {
       this.studentForm.updateValueAndValidity({ emitEvent: false });
+      if (!this.isEditMode && this.showForm && this.studentForm.get('isSchoolStudent')?.value && val) {
+        const currentAdm = String(this.studentForm.get('admissionNumber')?.value || '').trim();
+        if (!currentAdm || /^ADM-\d{4}-\d+$/i.test(currentAdm)) {
+          this.generateAdmissionNumber(true);
+        }
+      }
     });
     this.studentForm.get('dateOfBirth')?.valueChanges.subscribe(() => {
       this.studentForm.updateValueAndValidity({ emitEvent: false });
@@ -5017,7 +5023,13 @@ export class StudentsComponent implements OnInit, OnDestroy {
 
   generateAdmissionNumber(force: boolean = false): void {
     if (!this.isEditMode || force) {
-      this.coachingService.getNextAdmissionNumber().subscribe({
+      const dojVal = this.studentForm.get('joiningDate')?.value;
+      let year: number | undefined;
+      if (dojVal) {
+        const d = new Date(dojVal);
+        if (!isNaN(d.getTime())) year = d.getFullYear();
+      }
+      this.coachingService.getNextAdmissionNumber(year).subscribe({
         next: (res) => this.studentForm.get('admissionNumber')?.setValue(res.admissionNumber),
         error: () => { }
       });

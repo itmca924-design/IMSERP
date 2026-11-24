@@ -580,14 +580,27 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("next-admission-number")]
-    public async Task<ActionResult<object>> GetNextAdmissionNumber()
+    public async Task<ActionResult<object>> GetNextAdmissionNumber([FromQuery] int? year = null)
     {
-        var year = DateTime.UtcNow.Year;
-        var count = await _dbContext.Students
+        var targetYear = (year.HasValue && year.Value >= 2000 && year.Value <= 2100)
+            ? year.Value
+            : DateTime.UtcNow.Year;
+        var prefix = $"ADM-{targetYear}-";
+        var existingAdmNos = await _dbContext.Students
+            .IgnoreQueryFilters()
             .AsNoTracking()
-            .CountAsync(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
-        var nextSeq = count + 1;
-        var admissionNumber = $"ADM-{year}-{nextSeq:D4}";
+            .Where(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith(prefix))
+            .Select(s => s.AdmissionNumber!)
+            .ToListAsync();
+
+        int maxSeq = 0;
+        foreach (var code in existingAdmNos)
+        {
+            var tail = code.Substring(prefix.Length);
+            if (int.TryParse(tail, out var num) && num > maxSeq) maxSeq = num;
+        }
+
+        var admissionNumber = $"{prefix}{(maxSeq + 1):D4}";
         return Ok(new { admissionNumber });
     }
 
@@ -2877,10 +2890,21 @@ public class StudentsController : ControllerBase
             string? admNo = !string.IsNullOrWhiteSpace(dto.AdmissionNumber) ? dto.AdmissionNumber.Trim() : null;
             if (string.IsNullOrWhiteSpace(admNo) && dto.IsSchoolStudent)
             {
-                var year = DateTime.UtcNow.Year;
-                var count = await _dbContext.Students.AsNoTracking()
-                    .CountAsync(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith($"ADM-{year}-"));
-                admNo = $"ADM-{year}-{(count + 1):D4}";
+                var year = (dto.JoiningDate ?? DateTime.UtcNow).Year;
+                var prefix = $"ADM-{year}-";
+                var existingAdmNos = await _dbContext.Students
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(s => s.TenantId == _currentUser.TenantId && s.AdmissionNumber != null && s.AdmissionNumber.StartsWith(prefix))
+                    .Select(s => s.AdmissionNumber!)
+                    .ToListAsync();
+                int maxSeq = 0;
+                foreach (var code in existingAdmNos)
+                {
+                    var tail = code.Substring(prefix.Length);
+                    if (int.TryParse(tail, out var num) && num > maxSeq) maxSeq = num;
+                }
+                admNo = $"{prefix}{(maxSeq + 1):D4}";
             }
 
             if (!string.IsNullOrWhiteSpace(admNo))
