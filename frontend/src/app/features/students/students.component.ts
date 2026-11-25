@@ -1325,13 +1325,15 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                           <td mat-cell *matCellDef="let s">
                             <div class="id-stack">
                               @if (s.joiningDate) {
-                                <div class="school-adm-date-pill">
-                                  <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                                <div class="school-adm-date-pill doj-pill" matTooltip="Date of Admission / Joining">
+                                  <span class="lbl">DOJ</span>
+                                  <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
                                 </div>
                               }
                               @if (s.createdAt) {
-                                <div class="school-adm-date-pill added-date-pill" matTooltip="Software Entry / Upload Date & Time (IST)">
-                                  <span class="lbl">Added:</span> <strong [appIstDatetime]="s.createdAt" format="datetime"></strong>
+                                <div class="school-adm-date-pill added-date-pill" matTooltip="Added in Software (IST)">
+                                  <span class="lbl">Added</span>
+                                  <strong [appIstDatetime]="s.createdAt" format="datetime"></strong>
                                 </div>
                               }
                               @if (s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent) {
@@ -3356,7 +3358,9 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
     .id-stack {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 5px;
+      min-width: 175px;
+      padding: 4px 0;
 
       .coaching-roll-pill {
         font-size: 0.82rem;
@@ -3378,23 +3382,40 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
         .lbl { font-size: 0.7rem; color: #94a3b8; }
       }
       .school-adm-date-pill {
-        font-size: 0.75rem;
+        font-size: 0.73rem;
         color: #475569;
         display: inline-flex;
         align-items: center;
-        gap: 3px;
-        .lbl { font-size: 0.7rem; color: #64748b; font-weight: 500; }
-        strong { font-weight: 600; color: #1e293b; }
+        gap: 6px;
+        white-space: nowrap;
+        width: fit-content;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        line-height: 1.35;
+        .lbl {
+          font-size: 0.66rem;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: #64748b;
+          font-weight: 700;
+        }
+        strong { font-weight: 600; color: #0f172a; }
 
         &.coaching-date-pill {
+          background: #fff7ed;
+          border-color: #fed7aa;
           color: #c2410c;
-          .lbl { color: #ea580c; font-weight: 600; }
+          .lbl { color: #ea580c; font-weight: 700; }
           strong { color: #9a3412; }
         }
         &.added-date-pill {
+          background: #f0fdfa;
+          border-color: #99f6e4;
           color: #0f766e;
-          font-size: 0.72rem;
-          .lbl { color: #0d9488; font-weight: 600; }
+          font-size: 0.71rem;
+          .lbl { color: #0d9488; font-weight: 700; }
           strong { color: #115e59; font-weight: 600; }
         }
       }
