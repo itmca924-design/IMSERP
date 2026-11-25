@@ -570,6 +570,230 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
         return Ok(BuildPaperResponse(paper, "Question paper unlocked to Draft status."));
     }
 
+    // ─── 8. Phase 2: Exam Hall / Room & Auto Seating Plan Endpoints ───────
+    [HttpGet("tests/{testId:guid}/seating")]
+    public async Task<IActionResult> GetTestSeating(Guid testId)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.View))
+            return Forbid();
+
+        var test = await _db.Tests
+            .AsNoTracking()
+            .Include(t => t.Batch)
+            .FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
+        if (test == null) return NotFound(new { message = "Coaching test not found." });
+
+        var rooms = await _db.Rooms
+            .AsNoTracking()
+            .Where(r => r.TenantId == _currentUser.TenantId && r.IsActive)
+            .OrderBy(r => r.RoomNumber)
+            .Select(r => new { r.Id, r.RoomNumber, r.Capacity, r.Floor, r.BranchId })
+            .ToListAsync();
+
+        var teachers = await _db.Teachers
+            .AsNoTracking()
+            .Where(t => t.TenantId == _currentUser.TenantId && t.IsActive)
+            .OrderBy(t => t.FullName)
+            .Select(t => new { t.Id, t.FullName, t.EmployeeCode })
+            .ToListAsync();
+
+        var halls = await _db.CoachingExamHallAllocations
+            .AsNoTracking()
+            .Where(h => h.TenantId == _currentUser.TenantId && h.TestId == testId)
+            .OrderBy(h => h.SortOrder)
+            .ToListAsync();
+
+        var seats = await _db.CoachingExamSeatAllocations
+            .AsNoTracking()
+            .Include(s => s.Student)
+            .Where(s => s.TenantId == _currentUser.TenantId && s.TestId == testId)
+            .OrderBy(s => s.RoomName)
+            .ThenBy(s => s.BenchNumber)
+            .ThenBy(s => s.SeatNumber)
+            .Select(s => new
+            {
+                s.Id,
+                s.HallAllocationId,
+                s.RoomId,
+                s.RoomName,
+                s.StudentId,
+                studentName = s.Student != null ? s.Student.StudentName : "",
+                rollNumber = s.Student != null ? (!string.IsNullOrWhiteSpace(s.Student.CoachingRollNumber) ? s.Student.CoachingRollNumber : s.Student.RollNumber) : "",
+                parentPhone = s.Student != null ? s.Student.ParentWhatsAppPhone : "",
+                s.SeatNumber,
+                s.BenchNumber,
+                s.AttendanceStatus
+            })
+            .ToListAsync();
+
+        int enrolledCount = test.BatchId.HasValue
+            ? await _db.Students.AsNoTracking().CountAsync(s => s.TenantId == _currentUser.TenantId && s.BatchId == test.BatchId && s.IsActive)
+            : 0;
+
+        return Ok(new
+        {
+            testId = test.Id,
+            testTitle = test.Title,
+            batchName = test.Batch?.Name ?? "",
+            enrolledCount,
+            rooms,
+            teachers,
+            halls,
+            seats
+        });
+    }
+
+    [HttpPost("tests/{testId:guid}/seating/auto-allocate")]
+    public async Task<IActionResult> AutoAllocateSeating(Guid testId, [FromBody] AutoAllocateSeatingRequest req)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.Edit) &&
+            !await HasCoachingTestPermissionAsync(MenuPermissionOperation.Create))
+            return Forbid();
+
+        var test = await _db.Tests
+            .FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
+        if (test == null) return NotFound(new { message = "Coaching test not found." });
+
+        if (req.Halls == null || req.Halls.Count == 0)
+            return BadRequest(new { message = "Please add at least one Exam Hall / Room." });
+
+        var studentsQuery = _db.Students
+            .AsNoTracking()
+            .Where(s => s.TenantId == _currentUser.TenantId && s.IsActive);
+
+        if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.BatchId == test.BatchId.Value);
+        else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
+            studentsQuery = studentsQuery.Where(s => s.ClassId == test.ClassId.Value);
+        else
+            return BadRequest(new { message = "Test has no linked Coaching Batch or Class." });
+
+        var students = await studentsQuery.ToListAsync();
+        if (students.Count == 0)
+            return BadRequest(new { message = "No active enrolled students found for this batch." });
+
+        students = string.Equals(req.OrderBy, "Name", StringComparison.OrdinalIgnoreCase)
+            ? students.OrderBy(s => s.StudentName).ToList()
+            : students.OrderBy(s => !string.IsNullOrWhiteSpace(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber)
+                      .ThenBy(s => s.StudentName)
+                      .ToList();
+
+        int totalCapacity = req.Halls.Sum(h => Math.Max(1, h.Capacity));
+        if (totalCapacity < students.Count)
+            return BadRequest(new { message = $"Total hall capacity ({totalCapacity}) is less than enrolled students ({students.Count}). Please add another room or increase capacity." });
+
+        // Remove previous allocations for this test
+        var oldSeats = await _db.CoachingExamSeatAllocations
+            .Where(s => s.TenantId == _currentUser.TenantId && s.TestId == testId)
+            .ToListAsync();
+        var oldHalls = await _db.CoachingExamHallAllocations
+            .Where(h => h.TenantId == _currentUser.TenantId && h.TestId == testId)
+            .ToListAsync();
+
+        _db.CoachingExamSeatAllocations.RemoveRange(oldSeats);
+        _db.CoachingExamHallAllocations.RemoveRange(oldHalls);
+
+        var newHalls = new List<CoachingExamHallAllocation>();
+        int sortOrder = 1;
+        foreach (var h in req.Halls)
+        {
+            var hallEntity = new CoachingExamHallAllocation
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = test.BranchId ?? _currentUser.BranchId,
+                TestId = testId,
+                RoomId = h.RoomId,
+                RoomName = string.IsNullOrWhiteSpace(h.RoomName) ? $"Hall {sortOrder}" : h.RoomName.Trim(),
+                Capacity = Math.Max(1, h.Capacity),
+                InvigilatorTeacherId = h.InvigilatorTeacherId,
+                InvigilatorName = h.InvigilatorName?.Trim(),
+                ExamStartTime = req.ExamStartTime,
+                ExamEndTime = req.ExamEndTime,
+                SortOrder = sortOrder++,
+                CreatedAt = DateTime.UtcNow
+            };
+            newHalls.Add(hallEntity);
+            _db.CoachingExamHallAllocations.Add(hallEntity);
+        }
+
+        // Distribute students sequentially across halls
+        int studentIdx = 0;
+        for (int hi = 0; hi < newHalls.Count && studentIdx < students.Count; hi++)
+        {
+            var hall = newHalls[hi];
+            string prefix = $"H{hi + 1}";
+            for (int seatInHall = 1; seatInHall <= hall.Capacity && studentIdx < students.Count; seatInHall++)
+            {
+                var st = students[studentIdx++];
+                _db.CoachingExamSeatAllocations.Add(new CoachingExamSeatAllocation
+                {
+                    TenantId = _currentUser.TenantId,
+                    BranchId = test.BranchId ?? _currentUser.BranchId,
+                    TestId = testId,
+                    HallAllocationId = hall.Id,
+                    RoomId = hall.RoomId,
+                    RoomName = hall.RoomName,
+                    StudentId = st.Id,
+                    SeatNumber = $"{prefix}-{seatInHall:D2}",
+                    BenchNumber = (seatInHall + 1) / 2,
+                    AttendanceStatus = "Scheduled",
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new
+        {
+            message = $"Allocated {students.Count} students across {newHalls.Count} exam hall(s). Admit Cards are now automatically synced!",
+            allocatedStudents = students.Count,
+            hallCount = newHalls.Count
+        });
+    }
+
+    [HttpPut("tests/{testId:guid}/seating/attendance")]
+    public async Task<IActionResult> UpdateExamHallAttendance(Guid testId, [FromBody] UpdateExamHallAttendanceRequest req)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.Edit) &&
+            !await HasCoachingTestPermissionAsync(MenuPermissionOperation.Create))
+            return Forbid();
+
+        var seats = await _db.CoachingExamSeatAllocations
+            .Where(s => s.TenantId == _currentUser.TenantId && s.TestId == testId)
+            .ToListAsync();
+
+        var map = seats.ToDictionary(s => s.StudentId);
+        foreach (var item in req.Items ?? new List<ExamHallAttendanceItem>())
+        {
+            if (map.TryGetValue(item.StudentId, out var seat))
+            {
+                seat.AttendanceStatus = string.IsNullOrWhiteSpace(item.AttendanceStatus) ? "Present" : item.AttendanceStatus.Trim();
+                seat.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        int presentCount = seats.Count(s => s.AttendanceStatus == "Present");
+
+        // Auto-sync Present copies count onto Test.TotalCopiesIssued if requested
+        if (req.SyncCopyBundleCount)
+        {
+            var test = await _db.Tests.FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
+            if (test != null && presentCount > 0)
+            {
+                test.TotalCopiesIssued = presentCount;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new
+        {
+            message = $"Exam Hall Attendance saved ({presentCount} Present / {seats.Count} Total).",
+            presentCount,
+            absentCount = seats.Count(s => s.AttendanceStatus == "Absent"),
+            totalCount = seats.Count
+        });
+    }
+
     // ─── Internal Helpers: Prompt, Gemini Multimodal Call, Critic ─────────
     private static string BuildAgenticGenerationPrompt(
         string classOrBatch, string subject, string chapterTitle, string language,
@@ -914,4 +1138,33 @@ public class AiExamQuestionItem
     public List<string> Options { get; set; } = new();
     public string CorrectAnswer { get; set; } = string.Empty;
     public string MarkingScheme { get; set; } = string.Empty;
+}
+
+public class ExamHallInputDto
+{
+    public Guid? RoomId { get; set; }
+    public string RoomName { get; set; } = string.Empty;
+    public int Capacity { get; set; } = 30;
+    public Guid? InvigilatorTeacherId { get; set; }
+    public string? InvigilatorName { get; set; }
+}
+
+public class AutoAllocateSeatingRequest
+{
+    public string? ExamStartTime { get; set; }
+    public string? ExamEndTime { get; set; }
+    public string? OrderBy { get; set; } = "RollNo";
+    public List<ExamHallInputDto> Halls { get; set; } = new();
+}
+
+public class ExamHallAttendanceItem
+{
+    public Guid StudentId { get; set; }
+    public string AttendanceStatus { get; set; } = "Present";
+}
+
+public class UpdateExamHallAttendanceRequest
+{
+    public bool SyncCopyBundleCount { get; set; } = true;
+    public List<ExamHallAttendanceItem> Items { get; set; } = new();
 }

@@ -34,6 +34,7 @@ import { RolesService } from '../../core/services/roles.service';
 import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
 import { ExamResultDialogComponent } from './exam-result-dialog.component';
 import { CoachingAiPaperDialogComponent } from '../coaching/coaching-ai-paper-dialog.component';
+import { CoachingExamSeatingDialogComponent } from '../coaching/coaching-exam-seating-dialog.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
@@ -1095,6 +1096,10 @@ import { environment } from '../../../environments/environment';
                         <button type="button" (click)="openAiPaperStudio(t)" mat-menu-item>
                           <mat-icon style="color: #2563eb;">auto_awesome</mat-icon>
                           <span>{{ getAiPaperMenuLabel(t.id) }}</span>
+                        </button>
+                        <button type="button" (click)="openSeatingStudio(t)" mat-menu-item>
+                          <mat-icon style="color: #0d9488;">event_seat</mat-icon>
+                          <span>Hall &amp; Seating Plan</span>
                         </button>
                       }
                       @if (canEditTest && !t.isMarksLocked) {
@@ -5219,6 +5224,29 @@ export class TestsComponent implements OnInit, OnDestroy {
     ref.afterClosed().subscribe(res => {
       if (res?.changed) {
         this.loadAiPaperStatusMap();
+      }
+    });
+  }
+
+  openSeatingStudio(test: any): void {
+    const ref = this.dialog.open(CoachingExamSeatingDialogComponent, {
+      width: 'min(1150px, 96vw)',
+      maxWidth: '96vw',
+      height: '90vh',
+      maxHeight: '90vh',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        testId: test.id,
+        title: test.title,
+        subject: test.subject || '',
+        batchName: test.batchName || '',
+        testDate: test.testDate,
+        canEdit: this.canEditTest || this.canCreateTest
+      }
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res?.changed) {
+        this.loadTests();
       }
     });
   }

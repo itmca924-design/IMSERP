@@ -7225,21 +7225,34 @@ public class TestsController : ControllerBase
                 ? (test.Section != null ? $"{test.Class.Name} ({test.Section.Name})" : test.Class.Name)
                 : "General");
 
+        var seatMap = await _dbContext.CoachingExamSeatAllocations
+            .AsNoTracking()
+            .Where(x => x.TestId == testId)
+            .ToDictionaryAsync(x => x.StudentId, x => x);
+
         var studentCards = students.Select(s =>
         {
             var due = duesMap.TryGetValue(s.Id, out var d) ? d : 0m;
             var isFeeCleared = due <= 0;
-            var displayRoll = !string.IsNullOrWhiteSpace(s.SchoolRollNumber)
-                ? s.SchoolRollNumber
-                : (!string.IsNullOrWhiteSpace(s.RollNumber)
-                    ? s.RollNumber
-                    : (!string.IsNullOrWhiteSpace(s.AdmissionNumber) ? s.AdmissionNumber : "001"));
+            bool isCoachingBatchTest = test.BatchId.HasValue && test.BatchId.Value != Guid.Empty;
+            var displayRoll = isCoachingBatchTest && !string.IsNullOrWhiteSpace(s.CoachingRollNumber)
+                ? s.CoachingRollNumber
+                : (!string.IsNullOrWhiteSpace(s.SchoolRollNumber)
+                    ? s.SchoolRollNumber
+                    : (!string.IsNullOrWhiteSpace(s.RollNumber)
+                        ? s.RollNumber
+                        : (!string.IsNullOrWhiteSpace(s.AdmissionNumber) ? s.AdmissionNumber : "001")));
             var examRoll = $"EXAM-{displayRoll}";
 
             string studentGroupName = s.Batch?.Name ??
                 (s.Class != null
                     ? (s.Section != null ? $"{s.Class.Name} - {s.Section.Name}" : s.Class.Name)
                     : targetGroupName);
+
+            seatMap.TryGetValue(s.Id, out var seat);
+            var centerDisplay = seat != null && !string.IsNullOrWhiteSpace(seat.RoomName)
+                ? $"{branchName} • {seat.RoomName} (Seat: {seat.SeatNumber})"
+                : branchName;
 
             return new StudentAdmitCardItemDto(
                 s.Id,
@@ -7252,9 +7265,11 @@ public class TestsController : ControllerBase
                 due,
                 isFeeCleared,
                 examRoll,
-                branchName,
+                centerDisplay,
                 reportingTime,
-                "1 Hour 30 Mins"
+                "1 Hour 30 Mins",
+                seat?.RoomName,
+                seat?.SeatNumber
             );
         }).ToList();
 

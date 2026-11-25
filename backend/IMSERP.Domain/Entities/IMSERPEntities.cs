@@ -830,6 +830,48 @@ public class TenantAiConfig
     public Branch? Branch { get; set; }
 }
 
+public class CoachingExamHallAllocation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TestId { get; set; }
+    public Guid? RoomId { get; set; }
+    public string RoomName { get; set; } = string.Empty;
+    public int Capacity { get; set; } = 30;
+    public Guid? InvigilatorTeacherId { get; set; }
+    public string? InvigilatorName { get; set; }
+    public string? ExamStartTime { get; set; }
+    public string? ExamEndTime { get; set; }
+    public int SortOrder { get; set; } = 1;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+}
+
+public class CoachingExamSeatAllocation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TestId { get; set; }
+    public Guid HallAllocationId { get; set; }
+    public Guid? RoomId { get; set; }
+    public string RoomName { get; set; } = string.Empty;
+    public Guid StudentId { get; set; }
+    public string SeatNumber { get; set; } = string.Empty;
+    public int BenchNumber { get; set; } = 1;
+    public string AttendanceStatus { get; set; } = "Scheduled"; // Scheduled, Present, Absent
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("StudentId")]
+    public Student? Student { get; set; }
+}
+
 public class WhatsAppLog
 {
     public Guid Id { get; set; } = Guid.NewGuid();

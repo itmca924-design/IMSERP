@@ -26,6 +26,10 @@ public interface IIMSERPDbContext
     DbSet<FeePayment> FeePayments { get; }
     DbSet<Test> Tests { get; }
     DbSet<TestMarks> TestMarks { get; }
+    DbSet<CoachingQuestionPaper> CoachingQuestionPapers { get; }
+    DbSet<TenantAiConfig> TenantAiConfigs { get; }
+    DbSet<CoachingExamHallAllocation> CoachingExamHallAllocations { get; }
+    DbSet<CoachingExamSeatAllocation> CoachingExamSeatAllocations { get; }
     DbSet<WhatsAppLog> WhatsAppLogs { get; }
     DbSet<Teacher> Teachers { get; }
     DbSet<TeacherBatchAssignment> TeacherBatchAssignments { get; }

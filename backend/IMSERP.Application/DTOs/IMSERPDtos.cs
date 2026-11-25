@@ -1468,7 +1468,9 @@ public record StudentAdmitCardItemDto(
     string ExamRollNumber,
     string CenterName,
     string ReportingTime,
-    string ExamDuration
+    string ExamDuration,
+    string? HallName = null,
+    string? SeatNumber = null
 );
 
 public record MonthlyRevenueTrendItemDto(

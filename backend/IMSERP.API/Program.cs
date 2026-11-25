@@ -411,6 +411,43 @@ using (var scope = app.Services.CreateScope())
                         UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
                     );
                     CREATE UNIQUE INDEX IX_TenantAiConfigs_TenantId ON TenantAiConfigs (TenantId);
+                END
+                IF OBJECT_ID('CoachingExamHallAllocations') IS NULL
+                BEGIN
+                    CREATE TABLE CoachingExamHallAllocations (
+                        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+                        TenantId UNIQUEIDENTIFIER NOT NULL,
+                        BranchId UNIQUEIDENTIFIER NULL,
+                        TestId UNIQUEIDENTIFIER NOT NULL,
+                        RoomId UNIQUEIDENTIFIER NULL,
+                        RoomName NVARCHAR(150) NOT NULL DEFAULT '',
+                        Capacity INT NOT NULL DEFAULT 30,
+                        InvigilatorTeacherId UNIQUEIDENTIFIER NULL,
+                        InvigilatorName NVARCHAR(200) NULL,
+                        ExamStartTime NVARCHAR(30) NULL,
+                        ExamEndTime NVARCHAR(30) NULL,
+                        SortOrder INT NOT NULL DEFAULT 1,
+                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE INDEX IX_CoachingExamHallAllocations_Tenant_Test ON CoachingExamHallAllocations (TenantId, TestId);
+                END
+                IF OBJECT_ID('CoachingExamSeatAllocations') IS NULL
+                BEGIN
+                    CREATE TABLE CoachingExamSeatAllocations (
+                        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+                        TenantId UNIQUEIDENTIFIER NOT NULL,
+                        BranchId UNIQUEIDENTIFIER NULL,
+                        TestId UNIQUEIDENTIFIER NOT NULL,
+                        HallAllocationId UNIQUEIDENTIFIER NOT NULL,
+                        RoomId UNIQUEIDENTIFIER NULL,
+                        RoomName NVARCHAR(150) NOT NULL DEFAULT '',
+                        StudentId UNIQUEIDENTIFIER NOT NULL,
+                        SeatNumber NVARCHAR(40) NOT NULL DEFAULT '',
+                        BenchNumber INT NOT NULL DEFAULT 1,
+                        AttendanceStatus NVARCHAR(30) NOT NULL DEFAULT 'Scheduled',
+                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE UNIQUE INDEX IX_CoachingExamSeatAllocations_Test_Student ON CoachingExamSeatAllocations (TestId, StudentId);
                 END");
         }
         catch (Exception ex)
