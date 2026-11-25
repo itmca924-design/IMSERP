@@ -53,7 +53,9 @@ public class CoachingAiExamController : ControllerBase
     {
         if (await _menuPermissions.HasPermissionAsync(CoachingTestsRoute, op))
             return true;
-        return await _menuPermissions.HasPermissionAsync("/tests", op);
+        if (await _menuPermissions.HasPermissionAsync("/tests", op))
+            return true;
+        return await _menuPermissions.HasPermissionAsync("/school/exams", op);
     }
 
     private async Task<(string? ApiKey, string ModelName, string Source)> ResolveGeminiConfigAsync()
@@ -580,8 +582,12 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
         var test = await _db.Tests
             .AsNoTracking()
             .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
             .FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
-        if (test == null) return NotFound(new { message = "Coaching test not found." });
+        if (test == null) return NotFound(new { message = "Exam / Test not found." });
+
+        bool isSchoolTest = (!test.BatchId.HasValue || test.BatchId.Value == Guid.Empty) && test.ClassId.HasValue;
 
         var rooms = await _db.Rooms
             .AsNoTracking()
@@ -618,7 +624,11 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
                 s.RoomName,
                 s.StudentId,
                 studentName = s.Student != null ? s.Student.StudentName : "",
-                rollNumber = s.Student != null ? (!string.IsNullOrWhiteSpace(s.Student.CoachingRollNumber) ? s.Student.CoachingRollNumber : s.Student.RollNumber) : "",
+                rollNumber = s.Student != null
+                    ? (isSchoolTest
+                        ? (!string.IsNullOrWhiteSpace(s.Student.SchoolRollNumber) ? s.Student.SchoolRollNumber : (!string.IsNullOrWhiteSpace(s.Student.AdmissionNumber) ? s.Student.AdmissionNumber : s.Student.RollNumber))
+                        : (!string.IsNullOrWhiteSpace(s.Student.CoachingRollNumber) ? s.Student.CoachingRollNumber : s.Student.RollNumber))
+                    : "",
                 parentPhone = s.Student != null ? s.Student.ParentWhatsAppPhone : "",
                 s.SeatNumber,
                 s.BenchNumber,
@@ -626,15 +636,31 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             })
             .ToListAsync();
 
-        int enrolledCount = test.BatchId.HasValue
-            ? await _db.Students.AsNoTracking().CountAsync(s => s.TenantId == _currentUser.TenantId && s.BatchId == test.BatchId && s.IsActive)
-            : 0;
+        int enrolledCount = 0;
+        if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
+        {
+            enrolledCount = await _db.Students.AsNoTracking()
+                .CountAsync(s => s.TenantId == _currentUser.TenantId && s.BatchId == test.BatchId && s.IsActive);
+        }
+        else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
+        {
+            var sq = _db.Students.AsNoTracking()
+                .Where(s => s.TenantId == _currentUser.TenantId && s.ClassId == test.ClassId && s.IsActive && s.IsSchoolStudent);
+            if (test.SectionId.HasValue && test.SectionId.Value != Guid.Empty)
+                sq = sq.Where(s => s.SectionId == test.SectionId);
+            enrolledCount = await sq.CountAsync();
+        }
+
+        string groupLabel = isSchoolTest
+            ? (test.Class != null ? (test.Section != null ? $"{test.Class.Name} - Sec {test.Section.Name}" : test.Class.Name) : "School Class")
+            : (test.Batch?.Name ?? "");
 
         return Ok(new
         {
             testId = test.Id,
             testTitle = test.Title,
-            batchName = test.Batch?.Name ?? "",
+            batchName = groupLabel,
+            isSchoolTest,
             enrolledCount,
             rooms,
             teachers,
@@ -661,22 +687,28 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             .AsNoTracking()
             .Where(s => s.TenantId == _currentUser.TenantId && s.IsActive);
 
+        bool isSchoolTest = (!test.BatchId.HasValue || test.BatchId.Value == Guid.Empty) && test.ClassId.HasValue;
+
         if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
             studentsQuery = studentsQuery.Where(s => s.BatchId == test.BatchId.Value);
         else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
-            studentsQuery = studentsQuery.Where(s => s.ClassId == test.ClassId.Value);
+        {
+            studentsQuery = studentsQuery.Where(s => s.ClassId == test.ClassId.Value && s.IsSchoolStudent);
+            if (test.SectionId.HasValue && test.SectionId.Value != Guid.Empty)
+                studentsQuery = studentsQuery.Where(s => s.SectionId == test.SectionId.Value);
+        }
         else
-            return BadRequest(new { message = "Test has no linked Coaching Batch or Class." });
+            return BadRequest(new { message = "Test has no linked Coaching Batch or School Class." });
 
         var students = await studentsQuery.ToListAsync();
         if (students.Count == 0)
-            return BadRequest(new { message = "No active enrolled students found for this batch." });
+            return BadRequest(new { message = "No active enrolled students found for this exam." });
 
         students = string.Equals(req.OrderBy, "Name", StringComparison.OrdinalIgnoreCase)
             ? students.OrderBy(s => s.StudentName).ToList()
-            : students.OrderBy(s => !string.IsNullOrWhiteSpace(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber)
-                      .ThenBy(s => s.StudentName)
-                      .ToList();
+            : (isSchoolTest
+                ? students.OrderBy(s => !string.IsNullOrWhiteSpace(s.SchoolRollNumber) ? s.SchoolRollNumber : s.AdmissionNumber).ThenBy(s => s.StudentName).ToList()
+                : students.OrderBy(s => !string.IsNullOrWhiteSpace(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber).ThenBy(s => s.StudentName).ToList());
 
         int totalCapacity = req.Halls.Sum(h => Math.Max(1, h.Capacity));
         if (totalCapacity < students.Count)
@@ -792,6 +824,228 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             absentCount = seats.Count(s => s.AttendanceStatus == "Absent"),
             totalCount = seats.Count
         });
+    }
+
+    // ─── 9. Phase 3: Coaching Weekly Marksheet, Rank & AI Remarks ─────────
+    [HttpGet("tests/{testId:guid}/weekly-marksheet")]
+    public async Task<IActionResult> GetWeeklyMarksheet(Guid testId)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.View))
+            return Forbid();
+
+        var test = await _db.Tests
+            .AsNoTracking()
+            .Include(t => t.Batch)
+            .Include(t => t.Class)
+            .Include(t => t.Section)
+            .Include(t => t.Branch)
+            .FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
+
+        if (test == null) return NotFound(new { message = "Exam / Test not found." });
+
+        bool isSchoolTest = (!test.BatchId.HasValue || test.BatchId.Value == Guid.Empty) && test.ClassId.HasValue;
+
+        var paper = await _db.CoachingQuestionPapers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId && p.TestId == testId);
+
+        var marksList = await _db.TestMarks
+            .AsNoTracking()
+            .Include(m => m.Student)
+            .Where(m => m.TenantId == _currentUser.TenantId && m.TestId == testId)
+            .ToListAsync();
+
+        var maxMarks = test.MaxMarks > 0 ? test.MaxMarks : (paper?.TotalMarks ?? 100m);
+        var passingMarks = test.PassingMarks > 0 ? test.PassingMarks : Math.Round(maxMarks * 0.33m, 1);
+        var chapterTitle = !string.IsNullOrWhiteSpace(paper?.ChapterTitle) ? paper.ChapterTitle : test.Title;
+
+        var presentMarks = marksList.Where(m => !m.IsAbsent).OrderByDescending(m => m.MarksObtained).ToList();
+        decimal highest = presentMarks.Count > 0 ? presentMarks.Max(m => m.MarksObtained) : 0m;
+        decimal lowest = presentMarks.Count > 0 ? presentMarks.Min(m => m.MarksObtained) : 0m;
+        decimal average = presentMarks.Count > 0 ? Math.Round(presentMarks.Average(m => m.MarksObtained), 2) : 0m;
+
+        // Dense-aware standard competition ranking (ties get same rank)
+        var rankMap = new Dictionary<Guid, int>();
+        int currentRank = 0;
+        decimal? lastScore = null;
+        for (int i = 0; i < presentMarks.Count; i++)
+        {
+            var m = presentMarks[i];
+            if (!lastScore.HasValue || m.MarksObtained != lastScore.Value)
+            {
+                currentRank = i + 1;
+                lastScore = m.MarksObtained;
+            }
+            rankMap[m.StudentId] = currentRank;
+        }
+
+        static string ComputeGrade(decimal pct, bool isAbsent)
+        {
+            if (isAbsent) return "AB";
+            if (pct >= 90) return "A+";
+            if (pct >= 80) return "A";
+            if (pct >= 70) return "B+";
+            if (pct >= 60) return "B";
+            if (pct >= 45) return "C";
+            if (pct >= 33) return "D";
+            return "E";
+        }
+
+        static string DefaultSmartRemark(decimal pct, bool isAbsent, string subject, string chapter)
+        {
+            if (isAbsent) return $"Student was absent for {subject} ({chapter}). Please ensure regular attendance in weekly tests.";
+            if (pct >= 90) return $"Outstanding mastery in {subject} ({chapter})! Consistent topper-level performance.";
+            if (pct >= 75) return $"Very good grasp of {chapter}. Minor practice on application problems will push to 90%+.";
+            if (pct >= 60) return $"Good effort in {subject}. Revise core concepts of {chapter} to boost speed and accuracy.";
+            if (pct >= 33) return $"Satisfactory performance in {chapter}. Needs structured daily practice and doubt clearing.";
+            return $"Needs immediate academic attention in {subject} ({chapter}). Recommend 1-on-1 revision with faculty.";
+        }
+
+        var rows = marksList
+            .OrderBy(m => m.IsAbsent ? 1 : 0)
+            .ThenByDescending(m => m.MarksObtained)
+            .ThenBy(m => m.Student?.StudentName)
+            .Select(m =>
+            {
+                var pct = (!m.IsAbsent && maxMarks > 0) ? Math.Round((m.MarksObtained / maxMarks) * 100m, 1) : 0m;
+                var passed = !m.IsAbsent && m.MarksObtained >= passingMarks;
+                var grade = ComputeGrade(pct, m.IsAbsent);
+                var rank = (!m.IsAbsent && rankMap.TryGetValue(m.StudentId, out var r)) ? r : 0;
+                var roll = isSchoolTest
+                    ? (!string.IsNullOrWhiteSpace(m.Student?.SchoolRollNumber)
+                        ? m.Student!.SchoolRollNumber
+                        : (!string.IsNullOrWhiteSpace(m.Student?.AdmissionNumber) ? m.Student!.AdmissionNumber : (m.Student?.RollNumber ?? "—")))
+                    : (!string.IsNullOrWhiteSpace(m.Student?.CoachingRollNumber)
+                        ? m.Student!.CoachingRollNumber
+                        : (m.Student?.RollNumber ?? m.Student?.AdmissionNumber ?? "—"));
+
+                return new
+                {
+                    studentId = m.StudentId,
+                    studentName = m.Student?.StudentName ?? "Student",
+                    rollNumber = roll,
+                    parentName = m.Student?.ParentName ?? "",
+                    parentWhatsAppPhone = m.Student?.ParentWhatsAppPhone ?? "",
+                    profilePhoto = m.Student?.ProfilePhoto,
+                    marksObtained = m.MarksObtained,
+                    maxMarks,
+                    passingMarks,
+                    percentage = pct,
+                    grade,
+                    rank,
+                    isAbsent = m.IsAbsent,
+                    isPassed = passed,
+                    remarks = !string.IsNullOrWhiteSpace(m.Remarks) ? m.Remarks : DefaultSmartRemark(pct, m.IsAbsent, test.Subject ?? "Subject", chapterTitle)
+                };
+            })
+            .ToList();
+
+        int passedCount = rows.Count(r => r.isPassed);
+        int appearedCount = rows.Count(r => !r.isAbsent);
+        decimal passRate = appearedCount > 0 ? Math.Round((passedCount * 100m) / appearedCount, 1) : 0m;
+        var topper = rows.FirstOrDefault(r => !r.isAbsent && r.rank == 1);
+
+        return Ok(new
+        {
+            testId = test.Id,
+            title = test.Title,
+            subject = test.Subject ?? "General",
+            chapterTitle,
+            batchName = isSchoolTest
+                ? (test.Class != null ? (test.Section != null ? $"{test.Class.Name} - Sec {test.Section.Name}" : test.Class.Name) : "School Class")
+                : (test.Batch?.Name ?? test.Class?.Name ?? "Coaching Batch"),
+            isSchoolTest,
+            branchName = test.Branch?.Name ?? "",
+            testDate = DateTime.SpecifyKind(test.TestDate, DateTimeKind.Utc),
+            maxMarks,
+            passingMarks,
+            isMarksLocked = test.IsMarksLocked,
+            evaluationStatus = test.EvaluationStatus,
+            summary = new
+            {
+                totalStudents = rows.Count,
+                appearedCount,
+                absentCount = rows.Count - appearedCount,
+                passedCount,
+                passRate,
+                highest,
+                average,
+                lowest,
+                topperName = topper?.studentName ?? "—",
+                topperScore = topper?.marksObtained ?? 0m
+            },
+            rows
+        });
+    }
+
+    [HttpPost("tests/{testId:guid}/ai-remarks")]
+    public async Task<IActionResult> GenerateAiRemarksForTest(Guid testId)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.Edit) &&
+            !await HasCoachingTestPermissionAsync(MenuPermissionOperation.Create))
+            return Forbid();
+
+        var test = await _db.Tests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == testId && t.TenantId == _currentUser.TenantId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        var marksList = await _db.TestMarks
+            .Include(m => m.Student)
+            .Where(m => m.TenantId == _currentUser.TenantId && m.TestId == testId && !m.IsAbsent)
+            .ToListAsync();
+
+        if (marksList.Count == 0)
+            return BadRequest(new { message = "No present student marks found to generate AI remarks." });
+
+        var (apiKey, modelName, _) = await ResolveGeminiConfigAsync();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return UnprocessableEntity(new { requiresApiKey = true, message = "Gemini API Key is not configured." });
+
+        var paper = await _db.CoachingQuestionPapers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == _currentUser.TenantId && p.TestId == testId);
+        var chapter = !string.IsNullOrWhiteSpace(paper?.ChapterTitle) ? paper.ChapterTitle : test.Title;
+        var maxMarks = test.MaxMarks > 0 ? test.MaxMarks : 100m;
+
+        var studentSummaryLines = string.Join("\n", marksList.Take(60).Select(m =>
+            $"- id={m.StudentId}, name={m.Student?.StudentName}, score={m.MarksObtained}/{maxMarks}"));
+
+        var prompt = $@"You are an encouraging Indian Coaching Academic Mentor writing short 1-sentence personalized weekly exam feedback for parents.
+Subject: {test.Subject} | Chapter: {chapter} | Max Marks: {maxMarks}
+Students:
+{studentSummaryLines}
+
+Return STRICT JSON ONLY (no markdown fences):
+{{
+  ""generalInstructions"": """",
+  ""verificationSummary"": ""Generated personalized remarks"",
+  ""questions"": [
+    {{ ""qNo"": 1, ""topic"": ""<studentId>"", ""questionText"": ""<1 concise encouraging sentence specific to their score & chapter>"" }}
+  ]
+}}";
+
+        var (aiPayload, _, err) = await CallGeminiMultimodalAsync(apiKey, modelName, prompt, null);
+        if (aiPayload?.Questions == null || aiPayload.Questions.Count == 0)
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = err ?? "Could not generate AI remarks right now." });
+
+        var remarkByStudentId = aiPayload.Questions
+            .Where(q => Guid.TryParse(q.Topic, out _))
+            .GroupBy(q => Guid.Parse(q.Topic))
+            .ToDictionary(g => g.Key, g => g.First().QuestionText);
+
+        int updated = 0;
+        foreach (var m in marksList)
+        {
+            if (remarkByStudentId.TryGetValue(m.StudentId, out var aiRem) && !string.IsNullOrWhiteSpace(aiRem))
+            {
+                m.Remarks = aiRem.Trim();
+                updated++;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Generated personalized Gemini AI remarks for {updated} student(s).", updated });
     }
 
     // ─── Internal Helpers: Prompt, Gemini Multimodal Call, Critic ─────────

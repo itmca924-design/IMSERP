@@ -21,6 +21,7 @@ export interface CoachingExamSeatingDialogData {
   batchName?: string;
   testDate?: string;
   canEdit: boolean;
+  divisionMode?: 'school' | 'coaching';
 }
 
 interface SeatRow {
@@ -80,8 +81,8 @@ interface HallRow {
               }
             </div>
             <p class="dialog-subtitle">
-              Test: <strong>{{ data.title }}</strong>
-              @if (data.batchName) { &bull; Batch: <strong>{{ data.batchName }}</strong> }
+              Exam: <strong>{{ data.title }}</strong>
+              @if (data.batchName) { &bull; {{ data.divisionMode === 'school' ? 'Class' : 'Batch' }}: <strong>{{ data.batchName }}</strong> }
               &bull; Enrolled Students: <strong>{{ enrolledCount }}</strong>
             </p>
           </div>
@@ -151,7 +152,7 @@ interface HallRow {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Seat Allocation Order</mat-label>
                 <mat-select formControlName="orderBy">
-                  <mat-option value="RollNo">Coaching Roll No Order (Recommended)</mat-option>
+                  <mat-option value="RollNo">{{ data.divisionMode === 'school' ? 'School Roll No Order (Recommended)' : 'Coaching Roll No Order (Recommended)' }}</mat-option>
                   <mat-option value="Name">Alphabetical (Student Name)</mat-option>
                 </mat-select>
               </mat-form-field>
@@ -257,7 +258,7 @@ interface HallRow {
                       <tr>
                         <th>Seat No</th>
                         <th>Bench</th>
-                        <th>Coaching Roll</th>
+                        <th>{{ data.divisionMode === 'school' ? 'Roll / Adm No' : 'Coaching Roll' }}</th>
                         <th>Student Name</th>
                         <th>Exam Attendance</th>
                       </tr>

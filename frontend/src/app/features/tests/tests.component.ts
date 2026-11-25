@@ -35,6 +35,7 @@ import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component
 import { ExamResultDialogComponent } from './exam-result-dialog.component';
 import { CoachingAiPaperDialogComponent } from '../coaching/coaching-ai-paper-dialog.component';
 import { CoachingExamSeatingDialogComponent } from '../coaching/coaching-exam-seating-dialog.component';
+import { CoachingWeeklyMarksheetDialogComponent } from '../coaching/coaching-weekly-marksheet-dialog.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
@@ -679,10 +680,16 @@ import { environment } from '../../../environments/environment';
                       <div class="marks-input-cell">
                         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="marks-mat-field">
                           <input matInput type="number" [(ngModel)]="item.marksObtained"
+                            data-marks-input="true"
                             [disabled]="item.isAbsent || selectedTest.isMarksLocked"
                             [max]="selectedTest.maxMarks" min="0"
                             placeholder="0"
                             class="marks-input-left"
+                            (focus)="onMarksInputFocus(item, $event)"
+                            (blur)="onMarksInputBlur(item)"
+                            (keydown.enter)="focusAdjacentMarksInput($event, 1)"
+                            (keydown.arrowdown)="focusAdjacentMarksInput($event, 1)"
+                            (keydown.arrowup)="focusAdjacentMarksInput($event, -1)"
                             [class.over-limit]="!item.isAbsent && item.marksObtained > selectedTest.maxMarks">
                           <span matSuffix class="marks-suffix-tag">/&nbsp;{{ selectedTest.maxMarks }}</span>
                         </mat-form-field>
@@ -1092,16 +1099,18 @@ import { environment } from '../../../environments/environment';
                         <mat-icon>more_vert</mat-icon>
                       </button>
                       <mat-menu #testActionsMenu="matMenu">
-                      @if (isCoachingMode) {
-                        <button type="button" (click)="openAiPaperStudio(t)" mat-menu-item>
-                          <mat-icon style="color: #2563eb;">auto_awesome</mat-icon>
-                          <span>{{ getAiPaperMenuLabel(t.id) }}</span>
-                        </button>
-                        <button type="button" (click)="openSeatingStudio(t)" mat-menu-item>
-                          <mat-icon style="color: #0d9488;">event_seat</mat-icon>
-                          <span>Hall &amp; Seating Plan</span>
-                        </button>
-                      }
+                      <button type="button" (click)="openAiPaperStudio(t)" mat-menu-item>
+                        <mat-icon style="color: #2563eb;">auto_awesome</mat-icon>
+                        <span>{{ getAiPaperMenuLabel(t.id) }}</span>
+                      </button>
+                      <button type="button" (click)="openSeatingStudio(t)" mat-menu-item>
+                        <mat-icon style="color: #0d9488;">event_seat</mat-icon>
+                        <span>Hall &amp; Seating Plan</span>
+                      </button>
+                      <button type="button" (click)="openWeeklyMarksheetStudio(t)" mat-menu-item>
+                        <mat-icon style="color: #d97706;">workspace_premium</mat-icon>
+                        <span>{{ isCoachingMode ? 'Weekly Marksheet & Rank Card' : 'Exam Marksheet & Rank Card' }}</span>
+                      </button>
                       @if (canEditTest && !t.isMarksLocked) {
                         <button type="button" (click)="openBundleModal(t)" mat-menu-item>
                           <mat-icon>inventory_2</mat-icon><span>{{ t.evaluatorTeacherId ? 'Track Bundle' : 'Assign Bundle' }}</span>
@@ -5203,6 +5212,7 @@ export class TestsComponent implements OnInit, OnDestroy {
   }
 
   openAiPaperStudio(test: any): void {
+    const classSection = test.className ? (test.sectionName ? `${test.className} - Sec ${test.sectionName}` : test.className) : '';
     const ref = this.dialog.open(CoachingAiPaperDialogComponent, {
       width: 'min(1200px, 96vw)',
       maxWidth: '96vw',
@@ -5213,12 +5223,13 @@ export class TestsComponent implements OnInit, OnDestroy {
         testId: test.id,
         title: test.title,
         subject: test.subject || '',
-        batchName: test.batchName || '',
-        className: test.className || '',
+        batchName: test.batchName || classSection,
+        className: classSection,
         maxMarks: test.maxMarks || 20,
         testDate: test.testDate,
         canCreate: this.canCreateTest,
-        canEdit: this.canEditTest
+        canEdit: this.canEditTest,
+        divisionMode: this.isCoachingMode ? 'coaching' : 'school'
       }
     });
     ref.afterClosed().subscribe(res => {
@@ -5229,6 +5240,7 @@ export class TestsComponent implements OnInit, OnDestroy {
   }
 
   openSeatingStudio(test: any): void {
+    const classSection = test.className ? (test.sectionName ? `${test.className} - Sec ${test.sectionName}` : test.className) : '';
     const ref = this.dialog.open(CoachingExamSeatingDialogComponent, {
       width: 'min(1150px, 96vw)',
       maxWidth: '96vw',
@@ -5239,9 +5251,10 @@ export class TestsComponent implements OnInit, OnDestroy {
         testId: test.id,
         title: test.title,
         subject: test.subject || '',
-        batchName: test.batchName || '',
+        batchName: this.isCoachingMode ? (test.batchName || '') : classSection,
         testDate: test.testDate,
-        canEdit: this.canEditTest || this.canCreateTest
+        canEdit: this.canEditTest || this.canCreateTest,
+        divisionMode: this.isCoachingMode ? 'coaching' : 'school'
       }
     });
     ref.afterClosed().subscribe(res => {
@@ -5249,6 +5262,59 @@ export class TestsComponent implements OnInit, OnDestroy {
         this.loadTests();
       }
     });
+  }
+
+  openWeeklyMarksheetStudio(test: any): void {
+    const classSection = test.className ? (test.sectionName ? `${test.className} - Sec ${test.sectionName}` : test.className) : '';
+    this.dialog.open(CoachingWeeklyMarksheetDialogComponent, {
+      width: 'min(1220px, 96vw)',
+      maxWidth: '96vw',
+      height: '92vh',
+      maxHeight: '92vh',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        testId: test.id,
+        title: test.title,
+        subject: test.subject || '',
+        batchName: this.isCoachingMode ? (test.batchName || '') : classSection,
+        canEdit: this.canEditTest || this.canCreateTest,
+        divisionMode: this.isCoachingMode ? 'coaching' : 'school'
+      }
+    });
+  }
+
+  onMarksInputFocus(item: any, event: FocusEvent): void {
+    if (!item || item.isAbsent || this.selectedTest?.isMarksLocked) return;
+    const input = event.target as HTMLInputElement | null;
+    if (item.marksObtained === 0 || item.marksObtained === '0') {
+      item.marksObtained = null;
+      if (input) input.value = '';
+    } else if (input) {
+      setTimeout(() => input.select(), 0);
+    }
+  }
+
+  onMarksInputBlur(item: any): void {
+    if (!item) return;
+    if (item.marksObtained === null || item.marksObtained === undefined || item.marksObtained === '') {
+      item.marksObtained = 0;
+    }
+  }
+
+  focusAdjacentMarksInput(event: Event, delta: number): void {
+    event.preventDefault();
+    const current = event.target as HTMLInputElement | null;
+    if (!current) return;
+    const allInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('input[data-marks-input="true"]:not(:disabled)')
+    );
+    const currentIdx = allInputs.indexOf(current);
+    if (currentIdx === -1) return;
+    const nextInput = allInputs[currentIdx + delta];
+    if (nextInput) {
+      nextInput.focus();
+      nextInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   ngOnInit(): void {
@@ -5293,8 +5359,8 @@ export class TestsComponent implements OnInit, OnDestroy {
     this.loadSchoolClasses();
     if (this.isCoachingMode && this.hasCoaching) {
       this.loadBatches();
-      this.loadAiPaperStatusMap();
     }
+    this.loadAiPaperStatusMap();
     if (!this.isCoachingMode && this.hasSchool) {
       this.loadSchoolRoutines();
     }

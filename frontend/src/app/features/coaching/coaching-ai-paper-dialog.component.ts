@@ -27,6 +27,7 @@ export interface CoachingAiPaperDialogData {
   testDate?: string;
   canCreate: boolean;
   canEdit: boolean;
+  divisionMode?: 'school' | 'coaching';
 }
 
 export interface AiExamQuestion {
@@ -86,9 +87,9 @@ interface UploadedChapterFile {
               }
             </div>
             <p class="dialog-subtitle">
-              Test: <strong>{{ data.title }}</strong>
+              Exam: <strong>{{ data.title }}</strong>
               &bull; Subject: <strong>{{ data.subject || 'General' }}</strong>
-              @if (data.batchName) { &bull; Batch: <strong>{{ data.batchName }}</strong> }
+              @if (groupDisplayValue) { &bull; {{ groupDisplayLabel }}: <strong>{{ groupDisplayValue }}</strong> }
               &bull; Max Marks: <strong>{{ computedPaperMarks || data.maxMarks }}</strong>
             </p>
           </div>
@@ -574,7 +575,7 @@ interface UploadedChapterFile {
 
             <div class="sheet-meta-bar">
               <span><strong>Subject:</strong> {{ generatorForm.get('subject')?.value || data.subject }}</span>
-              @if (data.batchName) { <span><strong>Batch:</strong> {{ data.batchName }}</span> }
+              @if (groupDisplayValue) { <span><strong>{{ groupDisplayLabel }}:</strong> {{ groupDisplayValue }}</span> }
               <span><strong>Chapter:</strong> {{ generatorForm.get('chapterTitle')?.value }}</span>
               <span><strong>Time:</strong> {{ generatorForm.get('durationMinutes')?.value || 60 }} Mins</span>
               <span><strong>Max Marks:</strong> {{ computedPaperMarks }}</span>
@@ -582,7 +583,7 @@ interface UploadedChapterFile {
 
             <div class="sheet-student-strip">
               <span>Student Name: ______________________________</span>
-              <span>Coaching Roll No: _________________</span>
+              <span>{{ isSchoolMode ? 'Roll No' : 'Coaching Roll No' }}: _________________</span>
               <span>Date: ____________</span>
             </div>
 
@@ -1338,6 +1339,18 @@ export class CoachingAiPaperDialogComponent implements OnInit {
     this.loadExistingPaper();
   }
 
+  get isSchoolMode(): boolean {
+    return this.data.divisionMode === 'school';
+  }
+
+  get groupDisplayLabel(): string {
+    return this.isSchoolMode ? 'Class / Section' : 'Batch';
+  }
+
+  get groupDisplayValue(): string {
+    return this.isSchoolMode ? (this.data.className || this.data.batchName || '') : (this.data.batchName || this.data.className || '');
+  }
+
   get instituteName(): string {
     return this.authService.getInstituteName() || 'Institute Examination Board';
   }
@@ -1879,7 +1892,7 @@ export class CoachingAiPaperDialogComponent implements OnInit {
         </div>
         <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12.5px;padding:7px 10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;margin-bottom:10px;">
           <span><strong>Subject:</strong> ${this.escapeHtml(subject)}</span>
-          ${this.data.batchName ? `<span><strong>Batch:</strong> ${this.escapeHtml(this.data.batchName)}</span>` : ''}
+          ${this.groupDisplayValue ? `<span><strong>${this.groupDisplayLabel}:</strong> ${this.escapeHtml(this.groupDisplayValue)}</span>` : ''}
           <span><strong>Chapter:</strong> ${this.escapeHtml(chapter)}</span>
           <span><strong>Time:</strong> ${duration} Mins</span>
           <span><strong>Max Marks:</strong> ${this.computedPaperMarks}</span>

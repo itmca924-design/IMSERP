@@ -40,6 +40,8 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { AuthService } from '../../core/services/auth.service';
 import { SchoolReportCardDialogComponent } from './school-report-card-dialog.component';
 import { SchoolClassMarksMatrixDialogComponent, SchoolClassMarksMatrixDialogData } from './school-class-marks-matrix-dialog.component';
+import { CoachingAiPaperDialogComponent } from '../coaching/coaching-ai-paper-dialog.component';
+import { CoachingExamSeatingDialogComponent } from '../coaching/coaching-exam-seating-dialog.component';
 
 @Component({
   selector: 'app-school-exams',
@@ -665,6 +667,53 @@ export class SchoolExamsComponent implements OnInit {
       error: (err) => {
         this.savingSchedule = false;
         this.confirmDialog.alert('Scheduling Failed', err?.error?.message || 'Failed to schedule exams.', 'danger');
+      }
+    });
+  }
+
+  // ─── Agentic AI Question Paper & Hall Seating Studios ──────────────
+
+  openAiPaperStudio(exam: SchoolExamDto): void {
+    const classSection = exam.className ? (exam.sectionName ? `${exam.className} - Sec ${exam.sectionName}` : exam.className) : '';
+    const isAdminOrEditor = !this.isTeacher || this.authService.isSuperAdmin();
+    this.dialog.open(CoachingAiPaperDialogComponent, {
+      width: 'min(1200px, 96vw)',
+      maxWidth: '96vw',
+      height: '92vh',
+      maxHeight: '92vh',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        testId: exam.id,
+        title: exam.title,
+        subject: exam.subject || '',
+        batchName: classSection,
+        className: classSection,
+        maxMarks: exam.maxMarks || 100,
+        testDate: exam.testDate,
+        canCreate: true,
+        canEdit: isAdminOrEditor,
+        divisionMode: 'school'
+      }
+    });
+  }
+
+  openSeatingStudio(exam: SchoolExamDto): void {
+    const classSection = exam.className ? (exam.sectionName ? `${exam.className} - Sec ${exam.sectionName}` : exam.className) : '';
+    const isAdminOrEditor = !this.isTeacher || this.authService.isSuperAdmin();
+    this.dialog.open(CoachingExamSeatingDialogComponent, {
+      width: 'min(1150px, 96vw)',
+      maxWidth: '96vw',
+      height: '90vh',
+      maxHeight: '90vh',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        testId: exam.id,
+        title: exam.title,
+        subject: exam.subject || '',
+        batchName: classSection,
+        testDate: exam.testDate,
+        canEdit: isAdminOrEditor,
+        divisionMode: 'school'
       }
     });
   }

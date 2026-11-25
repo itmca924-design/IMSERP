@@ -345,6 +345,26 @@
                   </div>
                   <!-- Secondary Utility Action Row -->
                   <div class="card-action-row-secondary">
+                    <button
+                      type="button"
+                      class="bypass-link-btn"
+                      style="color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe;"
+                      (click)="openAiPaperStudio(exam)"
+                      matTooltip="Generate, Approve & Print Set A/B/C Question Paper & Answer Key with Agentic AI"
+                      matButton="filled">
+                      <mat-icon style="font-size: 15px; width: 15px; height: 15px; margin-right: 4px;">auto_awesome</mat-icon>
+                      <span>AI Question Paper</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="bypass-link-btn"
+                      style="color: #0f766e; background: #f0fdfa; border: 1px solid #99f6e4;"
+                      (click)="openSeatingStudio(exam)"
+                      matTooltip="Allocate Exam Halls, Invigilators, Auto Seats & Print Attendance Sheets"
+                      matButton="filled">
+                      <mat-icon style="font-size: 15px; width: 15px; height: 15px; margin-right: 4px;">event_seat</mat-icon>
+                      <span>Hall &amp; Seating</span>
+                    </button>
                     <!-- For unassigned exams: allow direct oral entry link -->
                     @if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {
                       <button
