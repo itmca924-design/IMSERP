@@ -990,7 +990,9 @@ export class AttendanceReportsComponent implements OnInit, OnDestroy {
         const checkOut = rec.checkOutTime || rec.CheckOutTime || undefined;
         const duration = this.calculateDuration(checkIn, checkOut);
 
-        const sl = rec.captureSource === 'ManualBulk' ? 'Coaching' : (rec.captureSource?.startsWith('ManualSchool') ? 'School' : (rec.captureSource || ''));
+        const sl = rec.captureSource === 'ManualBulk'
+          ? (this.reportType === 'teacher' ? 'Manual' : (this.authService.hasCoachingModule() ? 'Coaching' : 'Manual'))
+          : (rec.captureSource?.startsWith('ManualSchool') ? 'School' : (rec.captureSource || ''));
         const sourceStr = sl ? ` • ${sl}` : '';
         const inTimeStr = checkIn ? ` • In: ${this.formatDisplayTime(checkIn)}` : '';
         const outTimeStr = checkOut ? ` • Out: ${this.formatDisplayTime(checkOut)}` : '';

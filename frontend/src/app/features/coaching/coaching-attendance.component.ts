@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -20,6 +20,8 @@ import { HttpClient } from '@angular/common/http';
 import { BatchesService, BatchDto } from '../../core/services/batches.service';
 import { SchoolService } from '../../core/services/school.service';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { RolesService } from '../../core/services/roles.service';
+import { AuthService } from '../../core/services/auth.service';
 import { AttendanceShiftSettingsDialogComponent } from '../../shared/components/attendance-shift-settings-dialog.component';
 import { CoachingAttendanceCalendarDialogComponent } from './coaching-attendance-calendar-dialog.component';
 import { CoachingMultiDateDialogComponent } from './coaching-multi-date-dialog.component';
@@ -44,6 +46,7 @@ export interface AttendanceStudentRow {
   status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave';
   checkInTime?: string;
   checkOutTime?: string;
+  captureSource?: string;
   remarks?: string;
   hasPendingRegularization?: boolean;
   pendingRegularizationReason?: string;
@@ -86,10 +89,12 @@ export interface AttendanceStudentRow {
           </div>
         </div>
         <div class="header-actions">
-          <button mat-stroked-button class="smart-btn settings-smart-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Policies for Coaching Batches and Faculty">
-            <mat-icon class="btn-ic">schedule</mat-icon>
-            <span class="btn-lbl">Batch Shift Settings</span>
-          </button>
+          @if (canEditAttendance) {
+            <button mat-stroked-button class="smart-btn settings-smart-btn" (click)="openShiftSettingsDialog()" matTooltip="Configure Shift Timings & Policies for Coaching Batches and Faculty">
+              <mat-icon class="btn-ic">schedule</mat-icon>
+              <span class="btn-lbl">Batch Shift Settings</span>
+            </button>
+          }
         </div>
       </div>
 
@@ -98,30 +103,50 @@ export interface AttendanceStudentRow {
         <mat-progress-bar mode="indeterminate" class="global-loader"></mat-progress-bar>
       }
 
-      <!-- Cascading Filter Deck (Class ➔ Batches ➔ Date) -->
+      <!-- Cascading Filter Deck (Batch Scope ➔ Class ➔ Batches ➔ Date) -->
       <mat-card class="filter-card mat-elevation-z1">
+        <!-- Batch Grouping Scope Switcher (All / Single Class / Multi-Class Combined) -->
+        <div class="batch-scope-bar">
+          <span class="scope-label"><mat-icon>hub</mat-icon> Batch Grouping:</span>
+          <div class="scope-pills">
+            <button type="button" class="scope-pill" [class.active]="batchScope === 'all'" (click)="setBatchScope('all')">
+              <mat-icon>apps</mat-icon> All Batches <span class="scope-count">{{ allBatches.length }}</span>
+            </button>
+            <button type="button" class="scope-pill" [class.active]="batchScope === 'single'" (click)="setBatchScope('single')">
+              <mat-icon>class</mat-icon> Single Class <span class="scope-count">{{ singleClassBatchCount }}</span>
+            </button>
+            <button type="button" class="scope-pill combined-pill" [class.active]="batchScope === 'combined'" (click)="setBatchScope('combined')">
+              <mat-icon>layers</mat-icon> Multi-Class Combined <span class="scope-count">{{ combinedBatchCount }}</span>
+            </button>
+          </div>
+        </div>
+
         <form [formGroup]="filterForm" class="filter-form">
-          <!-- Step 1: Class Selector -->
-          <mat-form-field appearance="outline" class="filter-control">
-            <mat-label>Academic Class (कक्षा)</mat-label>
-            <mat-select formControlName="classId" (selectionChange)="onClassChange($event.value)">
-              <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
-              @for (c of classes; track c.id) {
-                <mat-option [value]="c.id">{{ c.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <!-- Step 1: Class Selector (Shown for All & Single Class scopes) -->
+          @if (batchScope !== 'combined') {
+            <mat-form-field appearance="outline" class="filter-control">
+              <mat-label>Academic Class (कक्षा)</mat-label>
+              <mat-select formControlName="classId" (selectionChange)="onClassChange($event.value)">
+                <mat-option value="">-- All Classes (सभी कक्षाएं) --</mat-option>
+                @for (c of classes; track c.id) {
+                  <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
 
           <!-- Step 2: Cascading Batch Selector -->
           <mat-form-field appearance="outline" class="filter-control highlight-control">
             <mat-label>Coaching Batch (बैच चयन) *</mat-label>
             <mat-select formControlName="batchId" (selectionChange)="onBatchChange($event.value)">
               @if (filteredBatches.length === 0) {
-                <mat-option disabled>No batches available for selected class</mat-option>
+                <mat-option disabled>No batches available for selected filter</mat-option>
               }
               @for (b of filteredBatches; track b.id) {
                 <mat-option [value]="b.id">
-                  <strong>{{ b.name }}</strong> ({{ b.subject || 'All Subjects' }} • {{ b.studentCount || 0 }} Students)
+                  <strong>{{ b.name }}</strong>
+                  @if (isCombinedBatch(b)) { [Combined] }
+                  ({{ b.subject || 'All Subjects' }} • {{ b.studentCount || 0 }} Students)
                 </mat-option>
               }
             </mat-select>
@@ -140,6 +165,10 @@ export interface AttendanceStudentRow {
             <div class="meta-pill">
               <mat-icon>class</mat-icon>
               <span>Batch: <strong>{{ selectedBatch.name }}</strong></span>
+            </div>
+            <div class="meta-pill" [class.combined-meta-pill]="isCombinedBatch(selectedBatch)">
+              <mat-icon>{{ isCombinedBatch(selectedBatch) ? 'layers' : 'school' }}</mat-icon>
+              <span>Type: <strong>{{ isCombinedBatch(selectedBatch) ? 'Multi-Class Combined' : 'Single Class' }}</strong></span>
             </div>
             <div class="meta-pill">
               <mat-icon>schedule</mat-icon>
@@ -211,27 +240,31 @@ export interface AttendanceStudentRow {
         <mat-card class="attendance-card mat-elevation-z1">
           <div class="attendance-toolbar">
             <div class="quick-btn-group">
-              <button mat-flat-button class="quick-btn mark-present" (click)="markAll('Present')">
-                <mat-icon>done_all</mat-icon> Mark All Present
+              @if (canMarkAttendance) {
+                <button mat-flat-button class="quick-btn mark-present" (click)="markAll('Present')">
+                  <mat-icon>done_all</mat-icon> Mark All Present
+                </button>
+                <button mat-button class="quick-btn mark-absent" (click)="markAll('Absent')">
+                  <mat-icon>close</mat-icon> Mark All Absent
+                </button>
+              }
+              <button mat-stroked-button class="quick-btn cal-tool-btn" (click)="openAttendanceCalendar()" matTooltip="Open Individual Coaching Student Register & Monthly Calendar">
+                <mat-icon>calendar_month</mat-icon> Individual &amp; Monthly Register
               </button>
-              <button mat-button class="quick-btn mark-absent" (click)="markAll('Absent')">
-                <mat-icon>close</mat-icon> Mark All Absent
-              </button>
-              <button mat-stroked-button class="quick-btn cal-tool-btn" (click)="openAttendanceCalendar()">
-                <mat-icon>calendar_month</mat-icon> Monthly Calendar
-              </button>
-              <button mat-stroked-button class="quick-btn multi-date-tool-btn" (click)="openMultiDateDialog()">
-                <mat-icon>date_range</mat-icon> Multi-Date Bulk Entry
-              </button>
-              <button mat-stroked-button class="quick-btn leave-tool-btn" (click)="openStudentLeaves()" matTooltip="Apply or review student leave applications for this batch">
-                <mat-icon>beach_access</mat-icon> Student Leaves
-              </button>
-              <button mat-stroked-button class="quick-btn reg-tool-btn" (click)="openApplyRegularization()" matTooltip="Submit attendance regularization or correction request for this batch">
-                <mat-icon>history_toggle_off</mat-icon> Regularize
-              </button>
-              <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
-                <mat-icon>save</mat-icon> Save
-              </button>
+              @if (canMarkAttendance) {
+                <button mat-stroked-button class="quick-btn multi-date-tool-btn" (click)="openMultiDateDialog()">
+                  <mat-icon>date_range</mat-icon> Multi-Date Bulk Entry
+                </button>
+                <button mat-stroked-button class="quick-btn leave-tool-btn" (click)="openStudentLeaves()" matTooltip="Apply or review student leave applications for this batch">
+                  <mat-icon>beach_access</mat-icon> Student Leaves
+                </button>
+                <button mat-stroked-button class="quick-btn reg-tool-btn" (click)="openApplyRegularization()" matTooltip="Submit attendance regularization or correction request for this batch">
+                  <mat-icon>history_toggle_off</mat-icon> Regularize
+                </button>
+                <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
+                  <mat-icon>save</mat-icon> Save
+                </button>
+              }
             </div>
           </div>
 
@@ -240,7 +273,7 @@ export interface AttendanceStudentRow {
             <mat-form-field appearance="outline" class="table-search-field">
               <mat-label>Search student (Name / Roll / Phone)</mat-label>
               <mat-icon matPrefix class="search-ic">search</mat-icon>
-              <input matInput [(ngModel)]="searchTerm" (ngModelChange)="applyLocalFilters()" placeholder="Type to filter..." />
+              <input matInput [formControl]="searchControl" placeholder="Type to filter..." />
               @if (searchTerm) {
                 <button matSuffix mat-icon-button type="button" (click)="clearSearch()">
                   <mat-icon>close</mat-icon>
@@ -302,6 +335,21 @@ export interface AttendanceStudentRow {
                     <div class="info-texts">
                       <span class="name-text">{{ s.studentName }}</span>
                       <span class="sub-text">WhatsApp: {{ s.parentWhatsAppPhone || 'N/A' }}</span>
+                      @if (s.checkInTime || s.checkOutTime) {
+                        <div class="punch-time-row">
+                          @if (s.captureSource === 'Biometric') {
+                            <span class="bio-chip" matTooltip="Captured via Biometric Device">
+                              <mat-icon>fingerprint</mat-icon> Bio
+                            </span>
+                          }
+                          @if (s.checkInTime) {
+                            <span class="punch-in-chip">In: {{ formatTime12h(s.checkInTime) }}</span>
+                          }
+                          @if (s.checkOutTime) {
+                            <span class="punch-out-chip">Out: {{ formatTime12h(s.checkOutTime) }}</span>
+                          }
+                        </div>
+                      }
                     </div>
                   </div>
                 </td>
@@ -316,11 +364,11 @@ export interface AttendanceStudentRow {
                 <td mat-cell *matCellDef="let s" class="text-center">
                   <div class="status-cell-wrap">
                     <div class="status-toggle-wrapper">
-                      <button type="button" class="status-btn" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
-                      <button type="button" class="status-btn" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
-                      <button type="button" class="status-btn" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
-                      <button type="button" class="status-btn" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
-                      <button type="button" class="status-btn" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
                     </div>
                     @if (s.hasPendingRegularization) {
                       <div class="status-pending-tag" [matTooltip]="'Regularization Pending Review: ' + (s.pendingRegularizationReason || 'Awaiting Review')">
@@ -339,7 +387,7 @@ export interface AttendanceStudentRow {
                   <div class="col-resizer" (mousedown)="startResize($event, 'remarks')"></div>
                 </th>
                 <td mat-cell *matCellDef="let s">
-                  <input type="text" class="remarks-input" placeholder="Optional notes..." [(ngModel)]="s.remarks" />
+                  <input type="text" class="remarks-input" placeholder="Optional notes..." [(ngModel)]="s.remarks" [disabled]="!canMarkAttendance" />
                 </td>
               </ng-container>
 
@@ -385,9 +433,11 @@ export interface AttendanceStudentRow {
 
           <div class="attendance-footer">
             <span class="footer-hint">All records will be synchronized in Indian Standard Time (IST). Showing {{ filteredStudents.length }} of {{ students.length }} students.</span>
-            <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
-              <mat-icon>save</mat-icon> Save
-            </button>
+            @if (canMarkAttendance) {
+              <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
+                <mat-icon>save</mat-icon> Save
+              </button>
+            }
           </div>
         </mat-card>
       } @else if (selectedBatchId && !loading && students.length === 0) {
@@ -509,6 +559,128 @@ export interface AttendanceStudentRow {
       border-radius: 12px;
       border: 1px solid #e2e8f0;
       background: #ffffff;
+    }
+
+    .batch-scope-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+
+    .scope-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      mat-icon { font-size: 17px; width: 17px; height: 17px; color: #2563eb; }
+    }
+
+    .scope-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .scope-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; }
+      .scope-count {
+        background: #e2e8f0;
+        color: #334155;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+      &:hover {
+        background: #eff6ff;
+        border-color: #93c5fd;
+        color: #1d4ed8;
+      }
+      &.active {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        border-color: #1d4ed8;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+        mat-icon { color: #ffffff; }
+        .scope-count {
+          background: rgba(255, 255, 255, 0.22);
+          color: #ffffff;
+        }
+      }
+      &.combined-pill.active {
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        border-color: #6d28d9;
+        box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+      }
+    }
+
+    .combined-meta-pill {
+      background: #f5f3ff !important;
+      border-color: #ddd6fe !important;
+      color: #5b21b6 !important;
+      mat-icon { color: #7c3aed !important; }
+    }
+
+    .punch-time-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 3px;
+    }
+
+    .bio-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      color: #0e7490;
+      font-size: 0.7rem;
+      font-weight: 700;
+      mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    }
+
+    .punch-in-chip {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    .punch-out-chip {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #1d4ed8;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 1px 6px;
+      border-radius: 6px;
     }
 
     .filter-form {
@@ -1092,7 +1264,15 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   pagedStudents: AttendanceStudentRow[] = [];
   columns: string[] = ['rollNo', 'studentName', 'status', 'remarks', 'calendar'];
 
+  // Dynamic Role-Based Permissions (loaded from RolePermissions)
+  canMarkAttendance = false;
+  canEditAttendance = false;
+
+  // Batch Grouping Scope ('all' | 'single' | 'combined')
+  batchScope: 'all' | 'single' | 'combined' = 'all';
+
   // Search & Filter state
+  searchControl = new FormControl('');
   searchTerm: string = '';
   selectedStatusFilter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'ALL';
 
@@ -1125,6 +1305,8 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     private batchesService: BatchesService,
     private schoolService: SchoolService,
     private confirmDialog: ConfirmDialogService,
+    private rolesService: RolesService,
+    private authService: AuthService,
     private dialog: MatDialog,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -1138,8 +1320,73 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadPermissions();
+    this.searchControl.valueChanges.subscribe(val => {
+      this.searchTerm = val || '';
+      this.pageIndex = 0;
+      this.applyLocalFilters();
+    });
     this.loadClasses();
     this.loadBatches();
+  }
+
+  private loadPermissions(): void {
+    const isSuper = this.authService.isSuperAdmin();
+    this.canMarkAttendance = isSuper;
+    this.canEditAttendance = isSuper;
+
+    const currentRoute = (this.router.url || '/coaching/attendance').split('?')[0];
+    this.rolesService.getMyPermissions().subscribe({
+      next: perms => {
+        const p = perms?.[currentRoute] || perms?.['/coaching/attendance'];
+        if (p) {
+          this.canMarkAttendance = isSuper || !!p.canCreate || !!p.canEdit;
+          this.canEditAttendance = isSuper || !!p.canEdit;
+        } else {
+          this.canMarkAttendance = isSuper;
+          this.canEditAttendance = isSuper;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  isCombinedBatch(b: any): boolean {
+    if (!b) return false;
+    if (!b.classId) return true;
+    return !!(b.name && (
+      /class\s*\d+.*(?:to|-).*\d+/i.test(b.name) ||
+      b.name.toLowerCase().includes('combined') ||
+      b.name.toLowerCase().includes('foundation')
+    ));
+  }
+
+  get singleClassBatchCount(): number {
+    return (this.allBatches || []).filter(b => !this.isCombinedBatch(b)).length;
+  }
+
+  get combinedBatchCount(): number {
+    return (this.allBatches || []).filter(b => this.isCombinedBatch(b)).length;
+  }
+
+  setBatchScope(scope: 'all' | 'single' | 'combined'): void {
+    if (this.batchScope === scope) return;
+    this.batchScope = scope;
+    if (scope === 'combined') {
+      this.filterForm.patchValue({ classId: '', batchId: '' }, { emitEvent: false });
+    } else {
+      this.filterForm.patchValue({ batchId: '' }, { emitEvent: false });
+    }
+    this.selectedBatchId = '';
+    this.selectedBatch = null;
+    this.students = [];
+    this.filteredStudents = [];
+    this.pagedStudents = [];
+    this.filterBatchesByClass();
+    this.cdr.markForCheck();
   }
 
   ngOnDestroy(): void {
@@ -1326,12 +1573,18 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   }
 
   filterBatchesByClass(): void {
-    const selectedClassId = this.filterForm.get('classId')?.value;
-    if (!selectedClassId) {
-      this.filteredBatches = [...this.allBatches];
-    } else {
-      this.filteredBatches = this.allBatches.filter(b => b.classId === selectedClassId || !b.classId);
+    let list = [...this.allBatches];
+    if (this.batchScope === 'single') {
+      list = list.filter(b => !this.isCombinedBatch(b));
+    } else if (this.batchScope === 'combined') {
+      list = list.filter(b => this.isCombinedBatch(b));
     }
+
+    const selectedClassId = this.filterForm.get('classId')?.value;
+    if (selectedClassId && this.batchScope !== 'combined') {
+      list = list.filter(b => b.classId === selectedClassId || (this.batchScope === 'all' && !b.classId));
+    }
+    this.filteredBatches = list;
   }
 
   onBatchChange(batchId: string): void {
@@ -1364,8 +1617,9 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
           profilePhoto: r.profilePhoto,
           parentWhatsAppPhone: r.parentWhatsAppPhone,
           status: (r.status as any) || 'Present',
-          checkInTime: r.checkInTime || this.selectedBatch?.startTime || '08:30',
+          checkInTime: r.checkInTime || '',
           checkOutTime: r.checkOutTime || '',
+          captureSource: r.captureSource || '',
           remarks: r.remarks || '',
           hasPendingRegularization: !!r.hasPendingRegularization,
           pendingRegularizationReason: r.pendingRegularizationReason
@@ -1384,7 +1638,22 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   // Searching & Status Filtering
   clearSearch(): void {
     this.searchTerm = '';
+    this.searchControl.setValue('', { emitEvent: false });
     this.applyLocalFilters();
+  }
+
+  formatTime12h(timeStr?: string | null): string {
+    if (!timeStr) return '';
+    const cleaned = timeStr.trim();
+    if (cleaned.toUpperCase().includes('AM') || cleaned.toUpperCase().includes('PM')) return cleaned;
+    const parts = cleaned.split(':');
+    if (parts.length < 2) return cleaned;
+    let h = parseInt(parts[0], 10);
+    const m = parts[1].substring(0, 2);
+    if (isNaN(h)) return cleaned;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
   }
 
   onSearchChange(): void {
@@ -1487,11 +1756,13 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
 
   // Status updates
   setStatus(s: AttendanceStudentRow, status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave'): void {
+    if (!this.canMarkAttendance) return;
     s.status = status;
     this.cdr.markForCheck();
   }
 
   markAll(status: 'Present' | 'Absent'): void {
+    if (!this.canMarkAttendance) return;
     this.students.forEach(s => s.status = status);
     this.applyLocalFilters();
     this.cdr.markForCheck();
@@ -1524,7 +1795,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   }
 
   saveAttendance(): void {
-    if (!this.selectedBatchId || this.students.length === 0) return;
+    if (!this.canMarkAttendance || !this.selectedBatchId || this.students.length === 0) return;
 
     const date = this.filterForm.get('date')?.value;
     const payload = {
@@ -1533,7 +1804,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
       items: this.students.map(s => ({
         studentId: s.studentId,
         status: s.status,
-        checkInTime: s.checkInTime || this.selectedBatch?.startTime || '08:30',
+        checkInTime: s.checkInTime || (s.status !== 'Absent' && s.status !== 'Leave' ? (this.selectedBatch?.startTime || '08:30') : null),
         checkOutTime: s.checkOutTime || null,
         remarks: s.remarks || ''
       }))

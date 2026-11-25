@@ -776,21 +776,9 @@ interface CalendarDay {
             <div>
               <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
                 <strong>{{ selectedStudent.studentName }}</strong>
-                @if (isSingleStudentCombined) {
-                  <span class="student-type-pill combined" matTooltip="Dual-Enrolled: Attends both School & Coaching">
-                    <mat-icon>hub</mat-icon> Combined (School + Coaching)
-                  </span>
-                }
-                @if (isSingleStudentCoachingOnly) {
-                  <span class="student-type-pill coaching" matTooltip="Coaching Student">
-                    <mat-icon>menu_book</mat-icon> Coaching Student
-                  </span>
-                }
-                @if (isSingleStudentSchoolOnly) {
-                  <span class="student-type-pill school" matTooltip="School Student">
-                    <mat-icon>school</mat-icon> School Student
-                  </span>
-                }
+                <span class="student-type-pill school" matTooltip="School Student">
+                  <mat-icon>school</mat-icon> School Student
+                </span>
               </div>
               <small>{{ getStudentDisplayRoll(selectedStudent) }} {{ getStudentDisplayGroup(selectedStudent) }}</small>
             </div>
@@ -4188,7 +4176,7 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
   students: StudentItem[] = [];
   selectedStudentId = '';
   selectedStudent?: StudentItem;
-  singleStreamFilter: 'all' | 'school' | 'coaching' = 'all';
+  singleStreamFilter: 'all' | 'school' | 'coaching' = 'school';
   singleSelectedClassId = '';
   singleSelectedSectionId = '';
   singleClassSections: SchoolSectionDto[] = [];
@@ -5419,35 +5407,25 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
           joiningDate: s.joiningDate || s.JoiningDate || ''
         }));
         const requestedStudentId = this.route.snapshot.queryParamMap.get('studentId');
-        if (requestedStudentId && this.students.some(s => s.id === requestedStudentId)) {
+        this.singleStreamFilter = 'school';
+        if (requestedStudentId && this.students.some(s => s.id === requestedStudentId && s.isSchoolStudent)) {
           this.activeTab = 'single';
           this.selectedStudentId = requestedStudentId;
           const found = this.students.find(s => s.id === requestedStudentId);
-          if (found?.isSchoolStudent && found.classId) {
-            this.singleStreamFilter = 'school';
+          if (found?.classId) {
             this.singleSelectedClassId = found.classId;
             const cls = this.schoolClasses.find(c => c.id === found.classId);
             this.singleClassSections = cls?.sections || [];
             this.singleSelectedSectionId = found.sectionId || '';
-          } else if (found?.isCoachingStudent && found.batchId) {
-            this.singleStreamFilter = 'coaching';
-            this.singleSelectedBatchId = found.batchId;
           }
           this.onStudentChanged();
         } else {
           if (this.isTeacher && this.teacherClassSection?.isClassTeacher && this.teacherClassSection.classId) {
-            this.singleStreamFilter = 'school';
             this.singleSelectedClassId = this.teacherClassSection.classId;
             const singleClass = this.schoolClasses.find(c => c.id === this.singleSelectedClassId);
             this.singleClassSections = singleClass?.sections || [];
             if (this.teacherClassSection.sectionId) {
               this.singleSelectedSectionId = this.teacherClassSection.sectionId;
-            }
-          } else {
-            if (!this.hasSchool && this.hasCoaching) {
-              this.singleStreamFilter = 'coaching';
-            } else if (this.hasSchool && !this.hasCoaching) {
-              this.singleStreamFilter = 'school';
             }
           }
           this.selectedStudentId = this.filteredSingleStudents[0]?.id || '';
@@ -5542,50 +5520,35 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
     if (!q) return list;
     return list.filter(s => {
       const name = (s.studentName || '').toLowerCase();
-      const roll = (s.rollNumber || '').toLowerCase();
       const sRoll = (s.schoolRollNumber || '').toLowerCase();
       const adm = (s.admissionNumber || '').toLowerCase();
       const cName = (s.className || '').toLowerCase();
-      const bName = (s.batchName || '').toLowerCase();
-      return name.includes(q) || roll.includes(q) || sRoll.includes(q) || adm.includes(q) || cName.includes(q) || bName.includes(q);
+      const roll = (!/^ch\d{4}-/i.test(s.rollNumber || '') ? (s.rollNumber || '') : '').toLowerCase();
+      return name.includes(q) || roll.includes(q) || sRoll.includes(q) || adm.includes(q) || cName.includes(q);
     });
   }
 
   get filteredSingleStudents(): StudentItem[] {
-    let list = this.students;
-    if (this.hasSchool) {
-      list = list.filter(s => s.isSchoolStudent);
-      if (this.singleSelectedClassId) {
-        list = list.filter(s => s.classId === this.singleSelectedClassId);
-      }
-      if (this.singleSelectedSectionId) {
-        list = list.filter(s => s.sectionId === this.singleSelectedSectionId);
-      }
-    } else {
-      list = list.filter(s => s.isCoachingStudent);
-      if (this.singleSelectedBatchId) {
-        list = list.filter(s => s.batchId === this.singleSelectedBatchId);
-      }
+    let list = this.students.filter(s => s.isSchoolStudent);
+    if (this.singleSelectedClassId) {
+      list = list.filter(s => s.classId === this.singleSelectedClassId);
+    }
+    if (this.singleSelectedSectionId) {
+      list = list.filter(s => s.sectionId === this.singleSelectedSectionId);
     }
     return list;
   }
 
   getStudentDisplayRoll(student: StudentItem): string {
     if (student.schoolRollNumber) return `Roll #${student.schoolRollNumber}`;
-    if (student.rollNumber) return student.rollNumber;
     if (student.admissionNumber) return `Adm: ${student.admissionNumber}`;
+    if (student.rollNumber && !/^CH\d{4}-/i.test(student.rollNumber)) return student.rollNumber;
     return '—';
   }
 
   getStudentDisplayGroup(student: StudentItem): string {
-    if (student.className && student.batchName) {
-      return `(${student.className}${student.sectionName ? ' - Sec ' + student.sectionName : ''} • 📚 ${student.batchName})`;
-    }
     if (student.className) {
       return `(${student.className}${student.sectionName ? ' - Sec ' + student.sectionName : ''})`;
-    }
-    if (student.batchName) {
-      return `(${student.batchName})`;
     }
     return '';
   }
