@@ -13,7 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, finalize, timeout } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -97,31 +97,18 @@ interface BiometricMappingPagedResult {
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
   }
 
-  <!-- Hikvision DS-K1A802AEF Live Adapter Banner -->
+  <!-- Hikvision DS-K1A802AEF Live Sync Banner -->
   <mat-card class="hikvision-banner">
     <div class="banner-top">
       <div class="badge-title">
         <span class="status-indicator"></span>
         <mat-icon class="verified-icon">verified_user</mat-icon>
         <div>
-          <h3>Hikvision DS-K1A802AEF Live Push Adapter Active</h3>
-          <p>Real-time Biometric Fingerprint & EM-125kHz RFID punches are automatically captured in Indian Standard Time (IST).</p>
+          <h3>Hikvision DS-K1A802AEF Live Sync Active</h3>
+          <p>Real-time Biometric Fingerprint &amp; EM-125kHz RFID punches are automatically synced via the 1-Click Local Sync Bridge in Indian Standard Time (IST).</p>
         </div>
       </div>
-      <span class="protocol-chip">ISAPI / HTTP Push Ready</span>
-    </div>
-
-    <div class="webhook-container">
-      <div class="webhook-label">
-        <mat-icon>cloud_upload</mat-icon>
-        <span>Live Webhook / HTTP Listening URL (Enter in Hikvision Terminal):</span>
-      </div>
-      <div class="webhook-code-row">
-        <code>{{ webhookUrl }}</code>
-        <button color="primary" (click)="copyWebhookUrl()" matTooltip="Copy Webhook URL" matButton="filled">
-          <mat-icon>content_copy</mat-icon> Copy URL
-        </button>
-      </div>
+      <span class="protocol-chip">1-Click Sync Bridge Ready</span>
     </div>
 
     <div class="guidelines-grid">
@@ -2301,6 +2288,8 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   loading = false;
   eventsLoading = false;
+  private eventsRequestInFlight = false;
+  private eventsSub?: Subscription;
   simulating = false;
   isLiveSync = true;
   private liveSyncTimer?: any;
@@ -2379,6 +2368,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.filterSubscription?.unsubscribe();
+    this.eventsSub?.unsubscribe();
     if (this.liveSyncTimer) {
       clearInterval(this.liveSyncTimer);
     }
@@ -2398,9 +2388,9 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     if (this.liveSyncTimer) {
       clearInterval(this.liveSyncTimer);
     }
-    // Polls / hits every 5 seconds for instant real-time punch discovery
+    // Polls every 5 seconds for real-time punch discovery (skips if tab hidden or previous poll still in flight)
     this.liveSyncTimer = setInterval(() => {
-      if (this.isLiveSync) {
+      if (this.isLiveSync && !this.eventsRequestInFlight && (typeof document === 'undefined' || !document.hidden)) {
         this.loadEvents(true);
       }
     }, 5000);
@@ -2431,22 +2421,35 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
 
   loadDevices(): void {
     this.loading = true;
-    this.http.get<Device[]>(`${this.api}/biometric-devices`).subscribe({
+    this.http.get<Device[]>(`${this.api}/biometric-devices`, { headers: { 'X-Skip-Loader': 'true' } }).subscribe({
       next: data => { this.devices = data || []; this.loading = false; },
       error: () => this.loading = false
     });
   }
 
   loadEvents(silent = false): void {
-    if (!silent) this.eventsLoading = true;
-    this.http.get<EventLog[]>(`${this.api}/biometric-devices/events`).subscribe({
+    if (silent && this.eventsRequestInFlight) {
+      return;
+    }
+    if (!silent) {
+      this.eventsSub?.unsubscribe();
+      this.eventsLoading = true;
+    }
+    this.eventsRequestInFlight = true;
+    this.eventsSub = this.http.get<EventLog[]>(`${this.api}/biometric-devices/events`, {
+      headers: { 'X-Skip-Loader': 'true' }
+    }).pipe(
+      timeout(15000),
+      finalize(() => {
+        this.eventsRequestInFlight = false;
+        if (!silent) this.eventsLoading = false;
+      })
+    ).subscribe({
       next: data => {
         this.events = data || [];
-        if (!silent) this.eventsLoading = false;
       },
       error: err => {
         if (!silent) {
-          this.eventsLoading = false;
           const message = err?.error?.message || 'Could not refresh biometric events.';
           this.message = message;
           this.confirmDialog.alert('Refresh Events Failed', message, 'danger');
@@ -2533,7 +2536,10 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
     if (searchGroup?.trim()) params = params.set('searchGroup', searchGroup.trim());
     if (mappingStatus && mappingStatus !== 'all') params = params.set('mappingStatus', mappingStatus);
 
-    this.http.get<BiometricMappingPagedResult>(`${this.api}/attendance/mappings/paged`, { params }).subscribe({
+    this.http.get<BiometricMappingPagedResult>(`${this.api}/attendance/mappings/paged`, {
+      params,
+      headers: { 'X-Skip-Loader': 'true' }
+    }).subscribe({
       next: res => {
         this.pagedPeople = res.items || [];
         this.totalRecords = res.totalCount || 0;
@@ -2777,7 +2783,7 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   }
 
   loadMappings(): void {
-    this.http.get<MappingPerson[]>(`${this.api}/attendance/mappings`).subscribe({
+    this.http.get<MappingPerson[]>(`${this.api}/attendance/mappings`, { headers: { 'X-Skip-Loader': 'true' } }).subscribe({
       next: data => this.people = data || [],
       error: err => this.confirmDialog.alert('Mapping Load Failed', err?.error?.message || 'Could not load students and teachers.', 'danger')
     });

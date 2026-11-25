@@ -21,6 +21,7 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
     req.url.includes('/api/school/period-slots') ||
     req.url.includes('/api/events/dashboard-summary') ||
     req.url.includes('/api/dashboard/urgent-fee-reminders') ||
+    req.url.includes('/api/biometric-devices/events') ||
     (req.method === 'GET' && req.url.includes('/api/holidays') && req.url.includes('activeOnly=true')) ||
     req.headers.has('X-Skip-Loader');
 
@@ -42,13 +43,15 @@ export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
     msg = 'Loading Student Records...';
   } else if (req.url.includes('/fees')) {
     msg = 'Loading Fee & Financial Data...';
+  } else if (req.url.includes('/biometric-devices')) {
+    msg = 'Loading Biometric Devices...';
   } else if (req.url.includes('/attendance')) {
     msg = 'Loading Attendance Records...';
   } else if (req.url.includes('/exams')) {
     msg = 'Loading Examination Data...';
   } else if (req.url.includes('/subjects')) {
     msg = 'Loading Subject Catalog & Curriculum...';
-  } else if (req.url.includes('/events')) {
+  } else if (req.url.includes('/api/events')) {
     msg = 'Loading Events & Activities...';
   }
 

@@ -109,6 +109,14 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ? await _permissions.HasPermissionAsync(route, operations[0], cancellationToken)
             : await _permissions.HasAnyPermissionAsync(route, cancellationToken, operations);
 
+        if (!permitted && action.ControllerName.Equals("Tests", StringComparison.OrdinalIgnoreCase))
+        {
+            const string coachingTestsRoute = "/coaching/tests";
+            permitted = operations.Length == 1
+                ? await _permissions.HasPermissionAsync(coachingTestsRoute, operations[0], cancellationToken)
+                : await _permissions.HasAnyPermissionAsync(coachingTestsRoute, cancellationToken, operations);
+        }
+
         if (!permitted)
         {
             var operationName = operations.Length == 1 ? operations[0].ToString() : "Access";

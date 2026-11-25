@@ -5355,12 +5355,10 @@ public class TeachersController : ControllerBase
                 }
 
                 int diff = calculatedOut - inMin.Value;
-                if (diff > 0)
+                if (diff >= 15)
                 {
-                    if (diff < halfDayMinThreshold)
-                    {
-                        return TeacherAttendanceStatus.Absent;
-                    }
+                    // A physically checked-in staff member with an early checkout should never be downgraded to Absent.
+                    // Short duration (< fullDayMinThreshold) is treated as HalfDay; < 15 min is ignored as accidental double-punch.
                     if (diff < fullDayMinThreshold)
                     {
                         return TeacherAttendanceStatus.HalfDay;

@@ -1365,7 +1365,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
           parentWhatsAppPhone: r.parentWhatsAppPhone,
           status: (r.status as any) || 'Present',
           checkInTime: r.checkInTime || this.selectedBatch?.startTime || '08:30',
-          checkOutTime: r.checkOutTime || this.selectedBatch?.endTime || '12:30',
+          checkOutTime: r.checkOutTime || '',
           remarks: r.remarks || '',
           hasPendingRegularization: !!r.hasPendingRegularization,
           pendingRegularizationReason: r.pendingRegularizationReason
@@ -1534,7 +1534,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
         studentId: s.studentId,
         status: s.status,
         checkInTime: s.checkInTime || this.selectedBatch?.startTime || '08:30',
-        checkOutTime: s.checkOutTime || this.selectedBatch?.endTime || '12:30',
+        checkOutTime: s.checkOutTime || null,
         remarks: s.remarks || ''
       }))
     };

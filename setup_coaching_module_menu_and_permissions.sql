@@ -45,7 +45,7 @@ INSERT INTO @Children (Title, RouteUrl, Icon, SortOrder, Module) VALUES
 ('Batches & Courses', '/batches', 'category', 1, 'Coaching'),
 ('Student Batch Allocation', '/coaching/batch-allocation', 'group_add', 2, 'Coaching'),
 ('Batch Daily Attendance', '/coaching/attendance', 'fact_check', 3, 'Coaching'),
-('Tests & Test Series', '/tests', 'quiz', 4, 'Coaching'),
+('Tests & Test Series', '/coaching/tests', 'quiz', 4, 'Coaching'),
 ('DPP & Study Material', '/study-materials', 'auto_stories', 5, 'Coaching'),
 ('Batch Timetable & Routine', '/coaching/timetable', 'calendar_view_week', 6, 'Coaching'),
 ('Coaching Student ID Cards', '/coaching/id-cards', 'badge', 7, 'Coaching'),

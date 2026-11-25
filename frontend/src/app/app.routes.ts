@@ -120,6 +120,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/coaching/coaching-attendance.component').then(m => m.CoachingAttendanceComponent)
       },
       {
+        path: 'coaching/tests',
+        canActivate: [adminExamDeskGuard],
+        data: { divisionMode: 'coaching' },
+        loadComponent: () => import('./features/tests/tests.component').then(m => m.TestsComponent)
+      },
+      {
         path: 'coaching/timetable',
         loadComponent: () => import('./features/coaching/coaching-timetable.component').then(m => m.CoachingTimetableComponent)
       },
@@ -327,6 +333,8 @@ export const routes: Routes = [
       },
       {
         path: 'tests',
+        canActivate: [adminExamDeskGuard],
+        data: { divisionMode: 'school' },
         loadComponent: () => import('./features/tests/tests.component').then(m => m.TestsComponent)
       },
       {

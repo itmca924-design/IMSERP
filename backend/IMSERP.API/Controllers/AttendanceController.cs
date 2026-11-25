@@ -1458,9 +1458,24 @@ public class AttendanceController : ControllerBase
                 incomingDeviceEventId ??= GetVal(root, "deviceEventId");
 
                 var rawTimeStr = GetVal(root, "dateTime") ?? GetVal(root, "eventTime");
-                if (!string.IsNullOrWhiteSpace(rawTimeStr) && DateTimeOffset.TryParse(rawTimeStr, out var parsedDto))
+                if (!string.IsNullOrWhiteSpace(rawTimeStr))
                 {
-                    eventTime = parsedDto.UtcDateTime;
+                    // Hikvision terminals ship with China factory timezone (+08:00) while Indian schools set local IST wall-clock time on the screen.
+                    // Preserve the wall-clock IST time when +08:00 is sent so punches show exact Indian time instead of 2.5h behind.
+                    if (rawTimeStr.TrimEnd().EndsWith("+08:00", StringComparison.OrdinalIgnoreCase) &&
+                        DateTime.TryParseExact(
+                            rawTimeStr.Trim()[..^6],
+                            ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss.fff"],
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var wallClockIst))
+                    {
+                        eventTime = new DateTimeOffset(wallClockIst, TimeSpan.FromHours(5.5)).UtcDateTime;
+                    }
+                    else if (DateTimeOffset.TryParse(rawTimeStr, out var parsedDto))
+                    {
+                        eventTime = parsedDto.UtcDateTime;
+                    }
                 }
                 else if (root.TryGetProperty("dateTime", out var dt) && dt.TryGetDateTime(out var parsedDt))
                 {
@@ -1681,7 +1696,7 @@ public class AttendanceController : ControllerBase
                     AttendanceDate = istDate,
                     CheckInTime = indiaTime.ToString("HH:mm"),
                     Status = TeacherAttendanceStatus.Present,
-                    CaptureSource = "Hikvision DS-K1A802AEF",
+                    CaptureSource = "Biometric",
                     MarkedBy = "biometric-hikvision",
                     CapturedAt = eventTime
                 };
@@ -1696,9 +1711,19 @@ public class AttendanceController : ControllerBase
                 }
                 else
                 {
-                    record.CheckOutTime = indiaTime.ToString("HH:mm");
+                    // Ignore accidental double-tap within 5 minutes of Check-In so it doesn't prematurely register Check-Out
+                    var punchMin = indiaTime.Hour * 60 + indiaTime.Minute;
+                    var inParts = record.CheckInTime.Split(':');
+                    bool isDuplicateScan = inParts.Length >= 2 &&
+                                           int.TryParse(inParts[0], out var inH) &&
+                                           int.TryParse(inParts[1], out var inM) &&
+                                           Math.Abs(punchMin - (inH * 60 + inM)) < 5;
+                    if (!isDuplicateScan)
+                    {
+                        record.CheckOutTime = indiaTime.ToString("HH:mm");
+                    }
                 }
-                record.CaptureSource = "Hikvision DS-K1A802AEF";
+                record.CaptureSource = "Biometric";
                 record.CapturedAt = eventTime;
             }
 

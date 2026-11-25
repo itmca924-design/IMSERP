@@ -3681,6 +3681,7 @@ export class LayoutComponent implements OnInit {
     { title: 'School Examinations & Marks', route: '/school/exams', icon: 'assignment' },
     { title: 'Student Promotion', route: '/students/promotion', icon: 'trending_up' },
     { title: 'Test Exams & Marks Entry', route: '/tests', icon: 'quiz' },
+    { title: 'Coaching Tests & Test Series', route: '/coaching/tests', icon: 'quiz' },
     { title: 'Library Books Catalog', route: '/library/books', icon: 'local_library' },
     { title: 'Book Issue & Return Desk', route: '/library/circulation', icon: 'sync_alt' },
     { title: 'Library Shifts & Plans', route: '/library/plans', icon: 'schedule' },
@@ -4472,7 +4473,7 @@ export class LayoutComponent implements OnInit {
       if (!hasCoaching && (lower === '/batches' || lower.includes('/coaching/'))) {
         return false;
       }
-      if (!hasSchool && !hasCoaching && lower === '/tests') {
+      if (!hasSchool && lower === '/tests') {
         return false;
       }
       if (!hasHostel && lower.includes('/hostel')) {

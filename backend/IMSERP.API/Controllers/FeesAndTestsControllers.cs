@@ -6605,33 +6605,44 @@ public class TestsController : ControllerBase
             query = query.Where(t => t.SectionId == sectionId);
         }
 
-        // Scope by linked teacher record (DB relationship, not role string)
-        var teacherScopeUser = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-            t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser != null && teacherScopeUser.Email != null && t.Email == teacherScopeUser.Email) || (teacherScopeUser != null && teacherScopeUser.FullName != null && t.FullName == teacherScopeUser.FullName)));
+        // Scope by linked teacher record ONLY for non-admin/faculty users (Admins enrolled as teachers for biometric punch must see all tests)
+        var isCoachingListQuery = batchId.HasValue && !classId.HasValue;
+        var canViewAllTests1 = await HasTestPermissionAsync(isCoachingListQuery, MenuPermissionOperation.Delete) ||
+            await HasTestPermissionAsync(!isCoachingListQuery, MenuPermissionOperation.Delete) ||
+            (!string.IsNullOrWhiteSpace(_currentUser.UserRole) &&
+             (_currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+              _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+              _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase)));
 
-        if (linkedTeacher != null)
+        if (!canViewAllTests1)
         {
-            var assignedBatchIds = await _dbContext.TeacherBatchAssignments
-                .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
-                .Select(a => a.BatchId!.Value)
-                .ToListAsync();
+            var teacherScopeUser = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var linkedTeacher = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser != null && teacherScopeUser.Email != null && t.Email == teacherScopeUser.Email) || (teacherScopeUser != null && teacherScopeUser.FullName != null && t.FullName == teacherScopeUser.FullName)));
 
-            var assignedClassIds = await _dbContext.TeacherBatchAssignments
-                .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
-                .Select(a => a.ClassId!.Value)
-                .ToListAsync();
+            if (linkedTeacher != null)
+            {
+                var assignedBatchIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
+                    .Select(a => a.BatchId!.Value)
+                    .ToListAsync();
 
-            var classTeacherSectionClassIds = await _dbContext.SchoolSections
-                .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
-                .Select(s => s.ClassId)
-                .ToListAsync();
+                var assignedClassIds = await _dbContext.TeacherBatchAssignments
+                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
+                    .Select(a => a.ClassId!.Value)
+                    .ToListAsync();
 
-            var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+                var classTeacherSectionClassIds = await _dbContext.SchoolSections
+                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                    .Select(s => s.ClassId)
+                    .ToListAsync();
 
-            query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
-                                     (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
-                                     (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+                var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+
+                query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
+                                         (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
+                                         (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+            }
         }
 
         var rawList = await query.Select(t => new
@@ -6751,37 +6762,50 @@ public class TestsController : ControllerBase
         if (sectionId.HasValue && sectionId != Guid.Empty)
             query = query.Where(t => t.SectionId == sectionId);
 
-        // Scope by linked teacher record (DB relationship, not role string)
-        var teacherScopeUser2 = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
-        var linkedTeacher2 = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
-            t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser2 != null && teacherScopeUser2.Email != null && t.Email == teacherScopeUser2.Email) || (teacherScopeUser2 != null && teacherScopeUser2.FullName != null && t.FullName == teacherScopeUser2.FullName)));
+        // Scope by linked teacher record ONLY for non-admin/faculty users (Admins enrolled as teachers for biometric punch must see all tests)
+        var isCoachingPagedQuery = string.Equals(category, "coaching", StringComparison.OrdinalIgnoreCase);
+        var canViewAllTests2 = await HasTestPermissionAsync(isCoachingPagedQuery, MenuPermissionOperation.Delete) ||
+            (string.IsNullOrWhiteSpace(category) || string.Equals(category, "all", StringComparison.OrdinalIgnoreCase)
+                ? await HasTestPermissionAsync(!isCoachingPagedQuery, MenuPermissionOperation.Delete)
+                : false) ||
+            (!string.IsNullOrWhiteSpace(_currentUser.UserRole) &&
+             (_currentUser.UserRole.Contains("Admin", StringComparison.OrdinalIgnoreCase) ||
+              _currentUser.UserRole.Contains("Principal", StringComparison.OrdinalIgnoreCase) ||
+              _currentUser.UserRole.Contains("Director", StringComparison.OrdinalIgnoreCase)));
 
-        if (linkedTeacher2 != null)
+        if (!canViewAllTests2)
         {
-            var linkedTeacher = linkedTeacher2;
+            var teacherScopeUser2 = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
+            var linkedTeacher2 = await _dbContext.Teachers.AsNoTracking().FirstOrDefaultAsync(t =>
+                t.TenantId == _currentUser.TenantId && (t.UserId == _currentUser.UserId || (teacherScopeUser2 != null && teacherScopeUser2.Email != null && t.Email == teacherScopeUser2.Email) || (teacherScopeUser2 != null && teacherScopeUser2.FullName != null && t.FullName == teacherScopeUser2.FullName)));
 
-            if (linkedTeacher != null)
+            if (linkedTeacher2 != null)
             {
-                var assignedBatchIds = await _dbContext.TeacherBatchAssignments
-                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
-                    .Select(a => a.BatchId!.Value)
-                    .ToListAsync();
+                var linkedTeacher = linkedTeacher2;
 
-                var assignedClassIds = await _dbContext.TeacherBatchAssignments
-                    .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
-                    .Select(a => a.ClassId!.Value)
-                    .ToListAsync();
+                if (linkedTeacher != null)
+                {
+                    var assignedBatchIds = await _dbContext.TeacherBatchAssignments
+                        .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.BatchId.HasValue)
+                        .Select(a => a.BatchId!.Value)
+                        .ToListAsync();
 
-                var classTeacherSectionClassIds = await _dbContext.SchoolSections
-                    .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
-                    .Select(s => s.ClassId)
-                    .ToListAsync();
+                    var assignedClassIds = await _dbContext.TeacherBatchAssignments
+                        .Where(a => a.TeacherId == linkedTeacher.Id && a.IsActive && a.ClassId.HasValue)
+                        .Select(a => a.ClassId!.Value)
+                        .ToListAsync();
 
-                var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+                    var classTeacherSectionClassIds = await _dbContext.SchoolSections
+                        .Where(s => s.ClassTeacherId == linkedTeacher.Id && s.IsActive)
+                        .Select(s => s.ClassId)
+                        .ToListAsync();
 
-                query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
-                                         (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
-                                         (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+                    var combinedClassIds = assignedClassIds.Concat(classTeacherSectionClassIds).Distinct().ToList();
+
+                    query = query.Where(t => t.EvaluatorTeacherId == linkedTeacher.Id ||
+                                             (t.BatchId.HasValue && assignedBatchIds.Contains(t.BatchId.Value)) ||
+                                             (t.ClassId.HasValue && combinedClassIds.Contains(t.ClassId.Value)));
+                }
             }
         }
 
@@ -6867,10 +6891,22 @@ public class TestsController : ControllerBase
         return Ok(new PagedResultDto<TestDto>(items, totalCount, pageNumber, pageSize));
     }
 
+    private Task<bool> HasTestPermissionAsync(bool isCoachingTest, MenuPermissionOperation operation)
+    {
+        var route = isCoachingTest ? "/coaching/tests" : "/tests";
+        return _menuPermissions.HasPermissionAsync(route, operation);
+    }
+
+    private Task<bool> HasAnyTestPermissionAsync(bool isCoachingTest, params MenuPermissionOperation[] operations)
+    {
+        var route = isCoachingTest ? "/coaching/tests" : "/tests";
+        return _menuPermissions.HasAnyPermissionAsync(route, operations: operations);
+    }
+
     [HttpPost]
     public async Task<ActionResult<TestDto>> CreateTest([FromBody] CreateTestDto dto)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Create))
+        if (!await HasTestPermissionAsync(dto.BatchId.HasValue, MenuPermissionOperation.Create))
             return Forbid();
 
         var batch = await _dbContext.Batches.FindAsync(dto.BatchId);
@@ -6897,11 +6933,14 @@ public class TestsController : ControllerBase
     [HttpPost("bulk")]
     public async Task<ActionResult<List<TestDto>>> CreateBulkTests([FromBody] List<CreateTestDto> dtos)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Create))
-            return Forbid();
-
         if (dtos == null || dtos.Count == 0)
             return BadRequest(new { message = "No exams provided." });
+
+        bool hasCoaching = dtos.Any(d => d.BatchId.HasValue);
+        bool hasSchool = dtos.Any(d => !d.BatchId.HasValue);
+        if ((hasCoaching && !await HasTestPermissionAsync(true, MenuPermissionOperation.Create)) ||
+            (hasSchool && !await HasTestPermissionAsync(false, MenuPermissionOperation.Create)))
+            return Forbid();
 
         if (dtos.Count > 20)
             return BadRequest(new { message = "Maximum 20 exams can be scheduled at once." });
@@ -7012,13 +7051,13 @@ public class TestsController : ControllerBase
     [HttpDelete("{testId}")]
     public async Task<ActionResult> DeleteTest(Guid testId)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Delete))
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound("Test not found");
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Delete))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound("Test not found");
 
         if (test.IsMarksLocked)
         {
@@ -7234,17 +7273,18 @@ public class TestsController : ControllerBase
     [HttpPost("bulk-marks")]
     public async Task<ActionResult> SaveBulkMarks([FromBody] BulkSaveMarksDto dto)
     {
-        var canEnterExamMarks = await _menuPermissions.HasAnyPermissionAsync(
-            "/tests",
-            operations: [MenuPermissionOperation.Create, MenuPermissionOperation.Edit]);
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == dto.TestId);
+        if (test == null) return NotFound("Test not found");
+
+        var isCoachingTest = test.BatchId.HasValue;
+        var canEnterExamMarks = await HasAnyTestPermissionAsync(
+            isCoachingTest,
+            MenuPermissionOperation.Create, MenuPermissionOperation.Edit);
         if (!canEnterExamMarks)
         {
             return Forbid();
         }
-        var canManageExamMarks = await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit);
-
-        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == dto.TestId);
-        if (test == null) return NotFound("Test not found");
+        var canManageExamMarks = await HasTestPermissionAsync(isCoachingTest, MenuPermissionOperation.Edit);
 
         if (test.IsMarksLocked && !canManageExamMarks)
         {
@@ -7382,13 +7422,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/evaluation-workflow")]
     public async Task<ActionResult<object>> UpdateEvaluationWorkflow(Guid testId, [FromBody] UpdateTestEvaluationWorkflowDto dto)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound(new { message = "Test not found." });
 
         if (test.IsMarksLocked)
         {
@@ -7460,13 +7500,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/submit-for-approval")]
     public async Task<ActionResult<object>> SubmitForApproval(Guid testId)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound(new { message = "Test not found." });
 
         if (test.MarksList.Count == 0)
         {
@@ -7491,13 +7531,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/approve-and-lock")]
     public async Task<ActionResult<object>> ApproveAndLockMarks(Guid testId, [FromBody] ApproveAndLockTestMarksDto dto)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.Include(t => t.MarksList).FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound(new { message = "Test not found." });
 
         if (test.MarksList.Count == 0)
         {
@@ -7531,13 +7571,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/unlock-marks")]
     public async Task<ActionResult<object>> UnlockMarks(Guid testId, [FromBody] RejectTestMarksDto dto)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound(new { message = "Test not found." });
 
         test.IsMarksLocked = false;
         test.EvaluationStatus = "NeedsRevision";
@@ -7564,13 +7604,13 @@ public class TestsController : ControllerBase
     [HttpPut("{testId}/reject-revision")]
     public async Task<ActionResult<object>> RejectForRevision(Guid testId, [FromBody] RejectTestMarksDto dto)
     {
-        if (!await _menuPermissions.HasPermissionAsync("/tests", MenuPermissionOperation.Edit))
+        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
+        if (test == null) return NotFound(new { message = "Test not found." });
+
+        if (!await HasTestPermissionAsync(test.BatchId.HasValue, MenuPermissionOperation.Edit))
         {
             return Forbid();
         }
-
-        var test = await _dbContext.Tests.FirstOrDefaultAsync(t => t.Id == testId);
-        if (test == null) return NotFound(new { message = "Test not found." });
 
         test.EvaluationStatus = "NeedsRevision";
         test.IsMarksLocked = false;

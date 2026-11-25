@@ -4714,7 +4714,6 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
         student.checkOutTime = null;
       } else {
         if (!student.checkInTime) student.checkInTime = this.bulkCheckInTime;
-        if (!student.checkOutTime) student.checkOutTime = this.bulkCheckOutTime;
       }
     }
   }
@@ -4914,7 +4913,6 @@ export class StudentAttendanceComponent implements OnInit, OnDestroy {
       this.formData.checkOutTime = '';
     } else {
       if (!this.formData.checkInTime) this.formData.checkInTime = this.bulkCheckInTime || '08:00';
-      if (!this.formData.checkOutTime) this.formData.checkOutTime = this.bulkCheckOutTime || '14:00';
       this.formData.status = this.getStudentSmartStatus(this.formData.status, this.formData.checkInTime, this.formData.checkOutTime);
     }
   }

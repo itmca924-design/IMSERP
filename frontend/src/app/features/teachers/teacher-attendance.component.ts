@@ -1786,7 +1786,7 @@ export class TeacherAttendanceComponent implements OnInit {
     attendanceDate: TeacherAttendanceComponent.getTodayIstDateParts().str,
     status: 'Present',
     checkInTime: '08:00',
-    checkOutTime: '17:00',
+    checkOutTime: '',
     remarks: ''
   };
 
@@ -1799,7 +1799,7 @@ export class TeacherAttendanceComponent implements OnInit {
   batchTargetStatus: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'Present';
   activeShiftType: 'school' | 'coaching_morning' | 'coaching_evening' = 'school';
   batchTargetCheckIn = '08:00';
-  batchTargetCheckOut = '17:00';
+  batchTargetCheckOut = '';
   batchTargetRemarks = '';
   batchSavingDates = false;
 
@@ -1861,14 +1861,12 @@ export class TeacherAttendanceComponent implements OnInit {
     this.activeShiftType = shift;
     if (shift === 'coaching_morning') {
       this.batchTargetCheckIn = this.attendanceSettings?.coachingMorningStartTime || '07:00';
-      this.batchTargetCheckOut = this.attendanceSettings?.coachingMorningEndTime || '10:00';
     } else if (shift === 'coaching_evening') {
       this.batchTargetCheckIn = this.attendanceSettings?.coachingEveningStartTime || '16:00';
-      this.batchTargetCheckOut = this.attendanceSettings?.coachingEveningEndTime || '19:00';
     } else {
       this.batchTargetCheckIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
-      this.batchTargetCheckOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
     }
+    this.batchTargetCheckOut = '';
   }
 
   // ================= UNIFIED MULTI-DATE SELECTION METHODS =================
@@ -1923,8 +1921,7 @@ export class TeacherAttendanceComponent implements OnInit {
         }
         if (d.record?.checkInTime) this.batchTargetCheckIn = d.record.checkInTime;
         else this.batchTargetCheckIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
-        if (d.record?.checkOutTime) this.batchTargetCheckOut = d.record.checkOutTime;
-        else this.batchTargetCheckOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
+        this.batchTargetCheckOut = d.record?.checkOutTime || '';
         if (d.record?.remarks) this.batchTargetRemarks = d.record.remarks;
       }
     }
@@ -2195,10 +2192,6 @@ export class TeacherAttendanceComponent implements OnInit {
           this.batchTargetCheckIn = settings.teacherShiftStartTime;
           this.markData.checkInTime = settings.teacherShiftStartTime;
         }
-        if (settings.teacherShiftEndTime) {
-          this.batchTargetCheckOut = settings.teacherShiftEndTime;
-          this.markData.checkOutTime = settings.teacherShiftEndTime;
-        }
       },
       error: () => { this.attendanceMode = 'Both'; }
     });
@@ -2222,10 +2215,6 @@ export class TeacherAttendanceComponent implements OnInit {
         if (res.settings.teacherShiftStartTime) {
           this.batchTargetCheckIn = res.settings.teacherShiftStartTime;
           this.markData.checkInTime = res.settings.teacherShiftStartTime;
-        }
-        if (res.settings.teacherShiftEndTime) {
-          this.batchTargetCheckOut = res.settings.teacherShiftEndTime;
-          this.markData.checkOutTime = res.settings.teacherShiftEndTime;
         }
         this.loadAttendance();
         this.confirmDialog.alert('Settings Saved', 'Attendance shift timings and policies updated successfully.', 'success');
@@ -2732,8 +2721,7 @@ export class TeacherAttendanceComponent implements OnInit {
       halfDayMinThreshold = Math.round(fullDayMinThreshold / 2);
     }
 
-    if (diff !== null && diff > 0) {
-      if (diff < halfDayMinThreshold) return 'Absent';
+    if (diff !== null && diff >= 15) {
       if (diff < fullDayMinThreshold) return 'HalfDay';
     }
 
@@ -2802,11 +2790,8 @@ export class TeacherAttendanceComponent implements OnInit {
       halfDayMin = Math.round(fullDayMin / 2);
     }
 
-    if (diff < halfDayMin) {
-      return `Work Duration: ${durStr} (< 35% of session) — Auto-detected as Absent`;
-    }
-    if (diff < fullDayMin) {
-      return `Work Duration: ${durStr} (35%–69% of session) — Auto-detected as Half Day`;
+    if (diff >= 15 && diff < fullDayMin) {
+      return `Work Duration: ${durStr} (< Full-Day threshold) — Auto-detected as Half Day`;
     }
     if (inMin > lateCutoff) {
       return `Punch-in: ${this.markData.checkInTime} (After ${cutoffFormatted} grace cutoff) — Auto-detected as Late Mark (${durStr} duration)`;
@@ -2832,7 +2817,7 @@ export class TeacherAttendanceComponent implements OnInit {
     this.markData.attendanceDate = todayStr;
     this.markData.status = 'Present';
     this.markData.checkInTime = this.attendanceSettings?.teacherShiftStartTime || '08:00';
-    this.markData.checkOutTime = this.attendanceSettings?.teacherShiftEndTime || '17:00';
+    this.markData.checkOutTime = '';
     this.markData.remarks = 'Marked via Quick Present';
     this.saveAttendance();
   }
@@ -2960,7 +2945,7 @@ export class TeacherAttendanceComponent implements OnInit {
     this.selectedMatrixDates = new Set([date]);
     this.batchTargetStatus = this.getEffectiveStatus(record) as any;
     this.batchTargetCheckIn = record.checkInTime || this.attendanceSettings?.teacherShiftStartTime || '08:00';
-    this.batchTargetCheckOut = record.checkOutTime || this.attendanceSettings?.teacherShiftEndTime || '17:00';
+    this.batchTargetCheckOut = record.checkOutTime || '';
     this.batchTargetRemarks = record.remarks || '';
     const calEl = document.querySelector('.calendar-card');
     if (calEl) {

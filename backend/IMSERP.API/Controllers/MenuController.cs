@@ -99,6 +99,7 @@ public class MenuController : ControllerBase
                 disabledModules.Add("School");
                 disabledRoutes.Add("/school/classes");
                 disabledRoutes.Add("/school/exams");
+                disabledRoutes.Add("/tests");
                 disabledRoutes.Add("/students/promotion");
                 disabledRoutes.Add("/fee-heads");
             }
@@ -108,15 +109,12 @@ public class MenuController : ControllerBase
                 disabledRoutes.Add("/batches");
                 disabledRoutes.Add("/coaching/batch-allocation");
                 disabledRoutes.Add("/coaching/attendance");
+                disabledRoutes.Add("/coaching/tests");
                 disabledRoutes.Add("/coaching/timetable");
                 disabledRoutes.Add("/coaching/id-cards");
                 disabledRoutes.Add("/coaching/fee-vouchers");
                 disabledRoutes.Add("/coaching/analytics");
                 disabledRoutes.Add("/study-materials");
-            }
-            if (!tenantModules.HasSchoolModule && !tenantModules.HasCoachingModule)
-            {
-                disabledRoutes.Add("/tests");
             }
             if (!tenantModules.HasHostelModule)
             {
@@ -839,7 +837,7 @@ public class MenuController : ControllerBase
                 ("Batches & Courses", "/batches", "category", 1),
                 ("Student Batch Allocation", "/coaching/batch-allocation", "group_add", 2),
                 ("Batch Daily Attendance", "/coaching/attendance", "fact_check", 3),
-                ("Tests & Test Series", "/tests", "quiz", 4),
+                ("Tests & Test Series", "/coaching/tests", "quiz", 4),
                 ("DPP & Study Material", "/study-materials", "auto_stories", 5),
                 ("Batch Timetable & Routine", "/coaching/timetable", "calendar_view_week", 6),
                 ("Coaching Student ID Cards", "/coaching/id-cards", "badge", 7),

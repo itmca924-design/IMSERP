@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import {
   FormsModule, ReactiveFormsModule, FormBuilder,
   FormGroup, FormArray, Validators, AbstractControl
@@ -29,6 +30,7 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { SubjectsService, SubjectDto, ClassSubjectDto } from '../../core/services/subjects.service';
 import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { AuthService } from '../../core/services/auth.service';
+import { RolesService } from '../../core/services/roles.service';
 import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
 import { ExamResultDialogComponent } from './exam-result-dialog.component';
 
@@ -64,17 +66,17 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
       <!-- Page Header -->
       <div class="header-actions no-print">
         <div class="header-text-group">
-          <h2>Test Exams &amp; Marks Entry</h2>
-          <p>Bulk-schedule exams with date &amp; time, enter marks, and send WhatsApp report cards.</p>
+          <h2>{{ isCoachingMode ? 'Coaching Tests &amp; Test Series' : 'Test Exams &amp; Marks Entry' }}</h2>
+          <p>{{ isCoachingMode ? 'Bulk-schedule coaching batch tests, manage single &amp; multi-class test series, enter marks, and send WhatsApp report cards.' : 'Bulk-schedule school class exams with date &amp; time, enter marks, and send WhatsApp report cards.' }}</p>
         </div>
         <div class="header-buttons-row">
           <button class="print-schedule-btn" (click)="printSchedule()" matTooltip="Print Exam Schedule Timetable" matButton="filled">
             <mat-icon>print</mat-icon> Print Schedule
           </button>
-          @if (isUserAdmin) {
+          @if (canCreateTest) {
             <button color="primary" class="add-btn" (click)="toggleBulkPlanner()" matButton="filled">
               <mat-icon>{{ showBulkPlanner ? 'close' : 'add_circle' }}</mat-icon>
-              {{ showBulkPlanner ? 'Close Scheduler' : 'Schedule Exam Session' }}
+              {{ showBulkPlanner ? 'Close Scheduler' : (isCoachingMode ? 'Schedule Coaching Test' : 'Schedule Exam Session') }}
             </button>
           }
         </div>
@@ -96,17 +98,6 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 </div>
               </div>
               <div class="planner-header-actions">
-                <!-- Type Switcher (Visible only for Hybrid Institutes) -->
-                @if (isHybridInstitute) {
-                  <div class="planner-type-switcher">
-                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'school'" (click)="setPlannerCategory('school')" matButton="filled">
-                      <mat-icon>school</mat-icon> <span>School Class Exam</span>
-                    </button>
-                    <button type="button" class="type-pill-btn" [class.active]="plannerCategory === 'coaching'" (click)="setPlannerCategory('coaching')" matButton="filled">
-                      <mat-icon>groups</mat-icon> <span>Coaching Batch Test</span>
-                    </button>
-                  </div>
-                }
                 <span class="row-count-badge">{{ examRows.length }} Exam{{ examRows.length !== 1 ? 's' : '' }} Planned</span>
               </div>
             </div>
@@ -551,7 +542,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                   </span>
                 </div>
               </div>
-              @if (isUserAdmin) {
+              @if (canEditTest) {
                 <button color="warn" class="unlock-btn" (click)="unlockMarks(selectedTest)" matButton="filled">
                   <mat-icon>lock_open</mat-icon> Unlock Marks (Admin Override)
                 </button>
@@ -874,57 +865,8 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
         <mat-card class="table-card mat-elevation-z2">
           <!-- Search and Filter Bar -->
           <div class="filter-toolbar no-print">
-            <!-- Hybrid Module Category Tabs (Only if institute has both School & Coaching) -->
-            @if (isHybridInstitute) {
-              <div class="category-tabs-bar">
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'all'" (click)="setCategoryFilter('all')">
-                  <div class="tab-icon-box">
-                    <mat-icon>hub</mat-icon>
-                  </div>
-                  <div class="tab-content-box">
-                    <div class="tab-title-line">
-                      <strong class="tab-title">All Exams (सभी परीक्षा)</strong>
-                      @if (selectedCategory === 'all') {
-                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
-                      }
-                    </div>
-                    <span class="tab-subtitle">Consolidated School &amp; Coaching</span>
-                  </div>
-                </button>
-
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'school'" (click)="setCategoryFilter('school')">
-                  <div class="tab-icon-box">
-                    <mat-icon>school</mat-icon>
-                  </div>
-                  <div class="tab-content-box">
-                    <div class="tab-title-line">
-                      <strong class="tab-title">School Classes (स्कूल)</strong>
-                      @if (selectedCategory === 'school') {
-                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
-                      }
-                    </div>
-                    <span class="tab-subtitle">Class &amp; Section Term Exams</span>
-                  </div>
-                </button>
-
-                <button type="button" class="cat-tab-btn" [class.active]="selectedCategory === 'coaching'" (click)="setCategoryFilter('coaching')">
-                  <div class="tab-icon-box">
-                    <mat-icon>groups</mat-icon>
-                  </div>
-                  <div class="tab-content-box">
-                    <div class="tab-title-line">
-                      <strong class="tab-title">Coaching Batches (कोचिंग)</strong>
-                      @if (selectedCategory === 'coaching') {
-                        <span class="active-badge"><mat-icon>check_circle</mat-icon> Active</span>
-                      }
-                    </div>
-                    <span class="tab-subtitle">Batch &amp; Subject-Wise Tests</span>
-                  </div>
-                </button>
-              </div>
-            }
-            <!-- Coaching Batch Scope Toggle (Single vs Multi-Class Combined vs All) -->
-            @if (hasCoaching && (selectedCategory === 'coaching' || selectedCategory === 'all')) {
+            <!-- Coaching Batch Scope Toggle (Strictly inside Coaching Operations -> /coaching/tests) -->
+            @if (isCoachingMode && hasCoaching) {
               <div class="scope-filter-toolbar-row">
                 <div class="scope-label-wrapper">
                   <div class="scope-indicator-icon">
@@ -1066,7 +1008,7 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                 <!-- Target Group (Class / Batch) Column -->
                 <ng-container matColumnDef="batchName">
                   <th mat-header-cell *matHeaderCellDef mat-sort-header="batchName">
-                    {{ isHybridInstitute ? 'Class / Batch' : (hasSchool ? 'Class & Section' : 'Coaching Batch') }}
+                    {{ isCoachingMode ? 'Coaching Batch' : 'Class & Section' }}
                   </th>
                   <td mat-cell *matCellDef="let t">
                     <!-- Combined Multi-Class Coaching Batch -->
@@ -1146,14 +1088,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                         <mat-icon>more_vert</mat-icon>
                       </button>
                       <mat-menu #testActionsMenu="matMenu">
-                      <!-- Admin Only: Bundle Handover / Tracking -->
-                      @if (isUserAdmin && !t.isMarksLocked) {
+                      @if (canEditTest && !t.isMarksLocked) {
                         <button type="button" (click)="openBundleModal(t)" mat-menu-item>
                           <mat-icon>inventory_2</mat-icon><span>{{ t.evaluatorTeacherId ? 'Track Bundle' : 'Assign Bundle' }}</span>
                         </button>
                       }
-                      <!-- Marking Foil / Award Sheet: Admin OR Assigned Teacher (Only before exam is officially locked) -->
-                      @if ((isUserAdmin || isMyBundle(t)) && !t.isMarksLocked) {
+                      <!-- Marking Foil / Award Sheet: Permitted Editor OR Assigned Teacher (Only before exam is officially locked) -->
+                      @if ((canEditTest || isMyBundle(t)) && !t.isMarksLocked) {
                         <button type="button" (click)="openAwardSheetModal(t)" mat-menu-item>
                           <mat-icon>receipt_long</mat-icon><span>Print Marking Foil</span>
                         </button>
@@ -1166,13 +1107,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                         </button>
                       }
                       <!-- If Teacher but bundle is not assigned yet and exam is not locked -->
-                      @if (!isUserAdmin && !canEnterMarks(t) && !t.isMarksLocked) {
+                      @if (!canEditTest && !canEnterMarks(t) && !t.isMarksLocked) {
                         <button type="button" disabled mat-menu-item>
                           <mat-icon>lock</mat-icon><span>Enter Marks (Not Assigned)</span>
                         </button>
                       }
-                      <!-- Quick Unlock for Admin if locked -->
-                      @if (isUserAdmin && t.isMarksLocked) {
+                      <!-- Quick Unlock for Permitted Editor if locked -->
+                      @if (canEditTest && t.isMarksLocked) {
                         <button type="button" (click)="unlockMarks(t)" mat-menu-item>
                           <mat-icon>lock_open</mat-icon><span>Unlock Marks</span>
                         </button>
@@ -1183,13 +1124,13 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                           <mat-icon>emoji_events</mat-icon><span>View Results</span>
                         </button>
                       }
-                      <!-- Admin Only Actions: Admit Cards and Delete (Hidden when exam results are officially locked) -->
-                      @if (isUserAdmin && !t.isMarksLocked) {
+                      <!-- Admit Cards and Delete (Driven dynamically by RolePermissions) -->
+                      @if (canEditTest && !t.isMarksLocked) {
                         <button type="button" (click)="openAdmitCards(t)" mat-menu-item>
                           <mat-icon>confirmation_number</mat-icon><span>Generate Admit Cards</span>
                         </button>
                       }
-                      @if (isUserAdmin && !t.isMarksLocked) {
+                      @if (canDeleteTest && !t.isMarksLocked) {
                         <button type="button" (click)="deleteTest(t)" mat-menu-item>
                           <mat-icon>delete_outline</mat-icon><span>Delete Test</span>
                         </button>
@@ -4979,8 +4920,18 @@ export class TestsComponent implements OnInit, OnDestroy {
     return this.authService.getDigitalSignatureUrl();
   }
 
+  // Route-driven division mode: 'school' (/tests under Academic Operations) vs 'coaching' (/coaching/tests under Coaching Operations)
+  divisionMode: 'school' | 'coaching' = 'school';
+  canCreateTest = false;
+  canEditTest = false;
+  canDeleteTest = false;
+
+  get isCoachingMode(): boolean {
+    return this.divisionMode === 'coaching';
+  }
+
   // Category filter: 'all' | 'school' | 'coaching'
-  selectedCategory: 'all' | 'school' | 'coaching' = 'all';
+  selectedCategory: 'all' | 'school' | 'coaching' = 'school';
 
   // School Classes & Sections state
   schoolClasses: SchoolClassDto[] = [];
@@ -5063,7 +5014,9 @@ export class TestsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private dialog: MatDialog,
     public authService: AuthService,
-    private aiCopilotService: AiErpCopilotService
+    private aiCopilotService: AiErpCopilotService,
+    private route: ActivatedRoute,
+    private rolesService: RolesService
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
     this.bundleForm = this.fb.group({
@@ -5125,7 +5078,7 @@ export class TestsComponent implements OnInit, OnDestroy {
 
   canEnterMarks(test: any): boolean {
     if (!test) return false;
-    if (this.isUserAdmin) return true;
+    if (this.canEditTest) return true;
     return this.isMyBundle(test) && !!test.evaluatorTeacherId;
   }
 
@@ -5213,23 +5166,49 @@ export class TestsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (this.hasSchool && !this.hasCoaching) {
-      this.selectedCategory = 'school';
-      this.plannerCategory = 'school';
+    const routeMode = this.route.snapshot.data?.['divisionMode'];
+    if (routeMode === 'coaching' || routeMode === 'school') {
+      this.divisionMode = routeMode;
     } else if (!this.hasSchool && this.hasCoaching) {
-      this.selectedCategory = 'coaching';
-      this.plannerCategory = 'coaching';
+      this.divisionMode = 'coaching';
     } else {
-      this.selectedCategory = 'all';
-      this.plannerCategory = 'school';
+      this.divisionMode = 'school';
     }
+
+    this.selectedCategory = this.divisionMode;
+    this.plannerCategory = this.divisionMode;
+
+    // Load dynamic RolePermissions for the active route (/tests vs /coaching/tests)
+    const activeRoute = this.isCoachingMode ? '/coaching/tests' : '/tests';
+    const isSuper = this.authService.isSuperAdmin();
+    this.canCreateTest = isSuper || this.isUserAdmin;
+    this.canEditTest = isSuper || this.isUserAdmin;
+    this.canDeleteTest = isSuper || this.isUserAdmin;
+
+    this.rolesService.getMyPermissions().subscribe({
+      next: perms => {
+        const p = perms?.[activeRoute];
+        if (p) {
+          this.canCreateTest = isSuper || !!p.canCreate;
+          this.canEditTest = isSuper || !!p.canEdit;
+          this.canDeleteTest = isSuper || !!p.canDelete;
+        } else if (!isSuper) {
+          this.canCreateTest = false;
+          this.canEditTest = false;
+          this.canDeleteTest = false;
+        }
+      },
+      error: () => {
+        // Keep safe fallback if permission lookup fails temporarily
+      }
+    });
 
     this.loadCurrentTeacher();
     this.loadSchoolClasses();
-    if (this.hasCoaching) {
+    if (this.isCoachingMode && this.hasCoaching) {
       this.loadBatches();
     }
-    if (this.hasSchool) {
+    if (!this.isCoachingMode && this.hasSchool) {
       this.loadSchoolRoutines();
     }
     this.loadTests();

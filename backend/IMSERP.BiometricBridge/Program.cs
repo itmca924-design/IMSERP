@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -120,30 +122,84 @@ public static class Program
         using var erpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         using var deviceClient = CreateDeviceHttpClient(config);
 
+        var localIps = GetLocalIPv4Addresses();
         LogInfo($"ERP Cloud Endpoint : {config.ErpWebhookUrl}");
+        LogInfo($"This PC Local IP   : {(localIps.Count > 0 ? string.Join(", ", localIps) : "Not detected")}");
         LogInfo($"Hikvision Terminal : http://{config.DeviceIp}:{config.DevicePort} (Serial: {config.DeviceSerialNumber})");
         LogInfo($"Sync Interval      : Every {Math.Max(3, config.PollIntervalSeconds)} seconds");
         Console.WriteLine("------------------------------------------------------------------");
 
-        // Verify device info over LAN ISAPI
-        await VerifyHikvisionDeviceAsync(deviceClient, config, cts.Token);
+        // Verify device info over LAN ISAPI; if unreachable, auto-discover on local LAN subnet
+        bool deviceReachable = await VerifyHikvisionDeviceAsync(deviceClient, config, cts.Token);
+        if (!deviceReachable)
+        {
+            var discoveredIp = await AutoDiscoverHikvisionOnLanAsync(deviceClient, config, localIps, cts.Token);
+            if (!string.IsNullOrWhiteSpace(discoveredIp))
+            {
+                config.DeviceIp = discoveredIp;
+                SaveConfig(config);
+                LogOk($"Auto-updated bridge-config.json with discovered IP: {config.DeviceIp}");
+                deviceReachable = await VerifyHikvisionDeviceAsync(deviceClient, config, cts.Token);
+            }
+        }
 
-        // Send initial heartbeat to ERP so device status becomes Online immediately
-        await SendHeartbeatAsync(erpClient, config, cts.Token);
+        // Send initial heartbeat to ERP only if local Hikvision terminal is reachable
+        if (deviceReachable)
+        {
+            await SendHeartbeatAsync(erpClient, config, cts.Token);
+        }
+        else
+        {
+            LogWarn($"Local Hikvision machine ({config.DeviceIp}:{config.DevicePort}) is NOT reachable from this PC yet.");
+            LogWarn("Check on Hikvision screen: Menu -> Comm. -> Ethernet -> IP Address (must be in same subnet as this PC).");
+            LogWarn("Will automatically keep scanning & retrying every 30 seconds...");
+        }
 
         var lastHeartbeatUtc = DateTime.UtcNow;
+        var lastDiscoveryUtc = DateTime.UtcNow;
         var pollDelay = TimeSpan.FromSeconds(Math.Clamp(config.PollIntervalSeconds, 3, 60));
 
         while (!cts.IsCancellationRequested)
         {
             try
             {
-                await PollAndSyncEventsAsync(deviceClient, erpClient, config, state, cts.Token);
-
-                if ((DateTime.UtcNow - lastHeartbeatUtc).TotalSeconds >= 60)
+                if (!deviceReachable)
                 {
-                    await SendHeartbeatAsync(erpClient, config, cts.Token);
-                    lastHeartbeatUtc = DateTime.UtcNow;
+                    if ((DateTime.UtcNow - lastDiscoveryUtc).TotalSeconds >= 30)
+                    {
+                        lastDiscoveryUtc = DateTime.UtcNow;
+                        deviceReachable = await VerifyHikvisionDeviceAsync(deviceClient, config, cts.Token);
+                        if (!deviceReachable)
+                        {
+                            var discoveredIp = await AutoDiscoverHikvisionOnLanAsync(deviceClient, config, GetLocalIPv4Addresses(), cts.Token);
+                            if (!string.IsNullOrWhiteSpace(discoveredIp))
+                            {
+                                config.DeviceIp = discoveredIp;
+                                SaveConfig(config);
+                                LogOk($"Auto-updated bridge-config.json with discovered IP: {config.DeviceIp}");
+                                deviceReachable = await VerifyHikvisionDeviceAsync(deviceClient, config, cts.Token);
+                            }
+                        }
+                        if (deviceReachable)
+                        {
+                            await SendHeartbeatAsync(erpClient, config, cts.Token);
+                            lastHeartbeatUtc = DateTime.UtcNow;
+                        }
+                    }
+                }
+                else
+                {
+                    bool pollOk = await PollAndSyncEventsAsync(deviceClient, erpClient, config, state, cts.Token);
+                    if (!pollOk)
+                    {
+                        deviceReachable = false;
+                        lastDiscoveryUtc = DateTime.UtcNow;
+                    }
+                    else if ((DateTime.UtcNow - lastHeartbeatUtc).TotalSeconds >= 60)
+                    {
+                        await SendHeartbeatAsync(erpClient, config, cts.Token);
+                        lastHeartbeatUtc = DateTime.UtcNow;
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -176,10 +232,131 @@ public static class Program
             PreAuthenticate = false,
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true
         };
-        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
     }
 
-    private static async Task VerifyHikvisionDeviceAsync(HttpClient deviceClient, BridgeConfig config, CancellationToken ct)
+    private static List<string> GetLocalIPv4Addresses()
+    {
+        var result = new List<string>();
+        try
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                    ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+                var props = ni.GetIPProperties();
+                foreach (var ua in props.UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    var ip = ua.Address.ToString();
+                    if (ip.StartsWith("127.") || ip.StartsWith("169.254.")) continue;
+                    result.Add(ip);
+                }
+            }
+        }
+        catch { }
+        return result.Distinct().ToList();
+    }
+
+    private static async Task<string?> AutoDiscoverHikvisionOnLanAsync(
+        HttpClient deviceClient,
+        BridgeConfig config,
+        List<string> localIps,
+        CancellationToken ct)
+    {
+        if (localIps.Count == 0) return null;
+
+        var prefixes = localIps
+            .Select(ip => ip.Split('.'))
+            .Where(parts => parts.Length == 4)
+            .Select(parts => $"{parts[0]}.{parts[1]}.{parts[2]}")
+            .Distinct()
+            .ToList();
+
+        if (prefixes.Count == 0) return null;
+
+        LogInfo($"Auto-scanning local LAN subnet(s) [{string.Join(", ", prefixes.Select(p => p + ".x"))}] on port {config.DevicePort} for Hikvision terminal...");
+
+        var candidates = new List<string>();
+        using var sem = new SemaphoreSlim(64);
+        var tasks = new List<Task>();
+
+        foreach (var prefix in prefixes)
+        {
+            for (int host = 1; host <= 254; host++)
+            {
+                var ip = $"{prefix}.{host}";
+                if (localIps.Contains(ip)) continue;
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    await sem.WaitAsync(ct);
+                    try
+                    {
+                        using var tcp = new TcpClient();
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        timeoutCts.CancelAfter(600);
+                        await tcp.ConnectAsync(ip, config.DevicePort, timeoutCts.Token);
+                        if (tcp.Connected)
+                        {
+                            lock (candidates) { candidates.Add(ip); }
+                        }
+                    }
+                    catch { }
+                    finally { sem.Release(); }
+                }, ct));
+            }
+        }
+
+        try { await Task.WhenAll(tasks); } catch { }
+
+        if (candidates.Count == 0)
+        {
+            LogWarn($"No device responded on port {config.DevicePort} in PC subnet(s).");
+            return null;
+        }
+
+        string? fallbackHikvisionIp = null;
+        foreach (var ip in candidates)
+        {
+            try
+            {
+                using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                probeCts.CancelAfter(2500);
+                using var resp = await deviceClient.GetAsync($"http://{ip}:{config.DevicePort}/ISAPI/System/deviceInfo", probeCts.Token);
+                var body = await resp.Content.ReadAsStringAsync(probeCts.Token);
+
+                if (resp.IsSuccessStatusCode && (body.Contains("<DeviceInfo", StringComparison.OrdinalIgnoreCase) || body.Contains("<serialNumber>", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var serial = ExtractXmlTag(body, "serialNumber") ?? "";
+                    var model = ExtractXmlTag(body, "model") ?? "Hikvision";
+                    LogOk($"Found Hikvision terminal at {ip}:{config.DevicePort} ({model}, Serial: {serial})");
+
+                    if (!string.IsNullOrWhiteSpace(config.DeviceSerialNumber) &&
+                        serial.Contains(config.DeviceSerialNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ip;
+                    }
+                    fallbackHikvisionIp ??= ip;
+                }
+                else if (resp.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    var wwwAuth = resp.Headers.WwwAuthenticate.ToString();
+                    if (wwwAuth.Contains("Digest", StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogWarn($"Found ISAPI device at {ip}:{config.DevicePort} but password was rejected (401).");
+                        fallbackHikvisionIp ??= ip;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        return fallbackHikvisionIp;
+    }
+
+    private static async Task<bool> VerifyHikvisionDeviceAsync(HttpClient deviceClient, BridgeConfig config, CancellationToken ct)
     {
         var url = $"http://{config.DeviceIp}:{config.DevicePort}/ISAPI/System/deviceInfo";
         try
@@ -189,32 +366,52 @@ public static class Program
 
             if (resp.StatusCode == HttpStatusCode.Unauthorized)
             {
-                LogError("Hikvision rejected username/password (401 Unauthorized).");
+                LogError($"Hikvision at {config.DeviceIp}:{config.DevicePort} rejected username/password (401 Unauthorized).");
                 LogWarn("Please edit bridge-config.json -> clear DevicePassword -> restart this bridge to re-enter password.");
-                return;
+                return false;
             }
 
             if (resp.IsSuccessStatusCode)
             {
                 var model = ExtractXmlTag(body, "model") ?? "Hikvision Terminal";
                 var serial = ExtractXmlTag(body, "serialNumber");
-                LogOk($"Connected to local Hikvision machine: {model} (Serial: {serial ?? config.DeviceSerialNumber})");
+                LogOk($"Connected to local Hikvision machine: {model} at {config.DeviceIp}:{config.DevicePort} (Serial: {serial ?? config.DeviceSerialNumber})");
 
                 if (string.IsNullOrWhiteSpace(config.DeviceSerialNumber) && !string.IsNullOrWhiteSpace(serial))
                 {
                     config.DeviceSerialNumber = serial;
                     SaveConfig(config);
                 }
+                return true;
             }
             else
             {
-                LogWarn($"Device info returned HTTP {(int)resp.StatusCode}. Will keep polling ISAPI events.");
+                LogWarn($"Device info at {config.DeviceIp}:{config.DevicePort} returned HTTP {(int)resp.StatusCode}. Will keep polling ISAPI events.");
+                return true;
             }
         }
         catch (Exception ex)
         {
-            LogWarn($"Could not reach {config.DeviceIp}:{config.DevicePort} right now ({ex.Message}). Make sure this PC and the biometric machine are on the same Wi-Fi/LAN. Will keep retrying...");
+            LogWarn($"Could not reach {config.DeviceIp}:{config.DevicePort} right now ({ex.Message}).");
+            return false;
         }
+    }
+
+    private static async Task<DateTimeOffset?> TryGetDeviceTimeAsync(HttpClient deviceClient, BridgeConfig config, CancellationToken ct)
+    {
+        try
+        {
+            using var resp = await deviceClient.GetAsync($"http://{config.DeviceIp}:{config.DevicePort}/ISAPI/System/time", ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            var xml = await resp.Content.ReadAsStringAsync(ct);
+            var localTimeStr = ExtractXmlTag(xml, "localTime");
+            if (!string.IsNullOrWhiteSpace(localTimeStr) && DateTimeOffset.TryParse(localTimeStr, out var dto))
+            {
+                return dto;
+            }
+        }
+        catch { }
+        return null;
     }
 
     private static async Task SendHeartbeatAsync(HttpClient erpClient, BridgeConfig config, CancellationToken ct)
@@ -251,7 +448,7 @@ public static class Program
         }
     }
 
-    private static async Task PollAndSyncEventsAsync(
+    private static async Task<bool> PollAndSyncEventsAsync(
         HttpClient deviceClient,
         HttpClient erpClient,
         BridgeConfig config,
@@ -259,13 +456,14 @@ public static class Program
         CancellationToken ct)
     {
         var istOffset = TimeSpan.FromHours(5.5);
-        var nowIst = DateTimeOffset.UtcNow.ToOffset(istOffset);
+        var deviceTime = await TryGetDeviceTimeAsync(deviceClient, config, ct);
+        var nowIst = deviceTime ?? DateTimeOffset.UtcNow.ToOffset(istOffset);
         var lookback = Math.Clamp(config.LookbackDays, 1, 14);
-        var startIst = new DateTimeOffset(nowIst.Date.AddDays(-lookback + 1), istOffset);
-        var endIst = nowIst.AddMinutes(5);
+        var startIst = new DateTimeOffset(nowIst.Date.AddDays(-lookback + 1), nowIst.Offset);
+        var endIst = nowIst.AddMinutes(10);
 
-        string startStr = startIst.ToString("yyyy-MM-ddTHH:mm:ss+05:30");
-        string endStr = endIst.ToString("yyyy-MM-ddTHH:mm:ss+05:30");
+        string startStr = startIst.ToString("yyyy-MM-ddTHH:mm:sszzz");
+        string endStr = endIst.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
         int position = 0;
         const int pageSize = 30;
@@ -294,79 +492,97 @@ public static class Program
                 Content = new StringContent(searchPayload, Encoding.UTF8, "application/json")
             };
 
-            using var resp = await deviceClient.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode)
+            HttpResponseMessage resp;
+            try
             {
-                if (resp.StatusCode == HttpStatusCode.Unauthorized)
+                resp = await deviceClient.SendAsync(req, ct);
+            }
+            catch (Exception ex)
+            {
+                LogWarn($"Lost connection to Hikvision at {config.DeviceIp}:{config.DevicePort} ({ex.Message}). Will re-discover...");
+                return false;
+            }
+
+            using (resp)
+            {
+                if (!resp.IsSuccessStatusCode)
                 {
-                    LogError("Hikvision 401 Unauthorized while polling events. Verify DevicePassword in bridge-config.json.");
+                    if (resp.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        LogError("Hikvision 401 Unauthorized while polling events. Verify DevicePassword in bridge-config.json.");
+                    }
+                    else
+                    {
+                        var errBody = await resp.Content.ReadAsStringAsync(ct);
+                        LogWarn($"Hikvision AcsEvent HTTP {(int)resp.StatusCode}: {(errBody.Length > 200 ? errBody[..200] : errBody)}");
+                    }
+                    return true;
                 }
-                return;
-            }
 
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(json);
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(json);
 
-            if (!doc.RootElement.TryGetProperty("AcsEvent", out var acsEvent))
-            {
-                return;
-            }
-
-            int numOfMatches = acsEvent.TryGetProperty("numOfMatches", out var nm) && nm.TryGetInt32(out var n) ? n : 0;
-            string statusStr = acsEvent.TryGetProperty("responseStatusStrg", out var rs) ? (rs.GetString() ?? "") : "";
-
-            if (acsEvent.TryGetProperty("InfoList", out var infoList) && infoList.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var evt in infoList.EnumerateArray())
+                if (!doc.RootElement.TryGetProperty("AcsEvent", out var acsEvent))
                 {
-                    string empNo = GetJsonString(evt, "employeeNoString") ?? GetJsonString(evt, "employeeNo") ?? "";
-                    string cardNo = GetJsonString(evt, "cardNo") ?? "";
-                    if (string.IsNullOrWhiteSpace(empNo) && string.IsNullOrWhiteSpace(cardNo))
+                    return true;
+                }
+
+                int numOfMatches = acsEvent.TryGetProperty("numOfMatches", out var nm) && nm.TryGetInt32(out var n) ? n : 0;
+                string statusStr = acsEvent.TryGetProperty("responseStatusStrg", out var rs) ? (rs.GetString() ?? "") : "";
+
+                if (acsEvent.TryGetProperty("InfoList", out var infoList) && infoList.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var evt in infoList.EnumerateArray())
                     {
-                        continue; // Non-user event (e.g. door sensor or unrecognized scan)
-                    }
-
-                    long evtSerial = evt.TryGetProperty("serialNo", out var sn) && sn.TryGetInt64(out var s) ? s : 0;
-                    string evtTime = GetJsonString(evt, "time") ?? nowIst.ToString("yyyy-MM-ddTHH:mm:ss+05:30");
-                    string name = GetJsonString(evt, "name") ?? "";
-
-                    string uniqueEventId = evtSerial > 0
-                        ? $"HIK-{config.DeviceSerialNumber}-{evtSerial}"
-                        : $"HIK-{config.DeviceSerialNumber}-{empNo}-{cardNo}-{evtTime}";
-
-                    if (state.RecentEventIds.Contains(uniqueEventId))
-                    {
-                        continue;
-                    }
-
-                    bool pushed = await PushPunchToErpAsync(erpClient, config, empNo, cardNo, evtTime, uniqueEventId, name, ct);
-                    if (pushed)
-                    {
-                        state.RecentEventIds.Add(uniqueEventId);
-                        if (evtSerial > state.LastHikvisionSerialNo)
+                        string empNo = GetJsonString(evt, "employeeNoString") ?? GetJsonString(evt, "employeeNo") ?? "";
+                        string cardNo = GetJsonString(evt, "cardNo") ?? "";
+                        if (string.IsNullOrWhiteSpace(empNo) && string.IsNullOrWhiteSpace(cardNo))
                         {
-                            state.LastHikvisionSerialNo = evtSerial;
+                            continue; // Non-user event (e.g. door sensor or unrecognized scan)
                         }
-                        state.LastSyncedDateIso = DateTime.UtcNow.ToString("O");
-                        syncedInCycle++;
 
-                        // Keep state set bounded to latest 5000 IDs
-                        if (state.RecentEventIds.Count > 5000)
+                        long evtSerial = evt.TryGetProperty("serialNo", out var sn) && sn.TryGetInt64(out var s) ? s : 0;
+                        string evtTime = GetJsonString(evt, "time") ?? nowIst.ToString("yyyy-MM-ddTHH:mm:ss+05:30");
+                        string name = GetJsonString(evt, "name") ?? "";
+
+                        string uniqueEventId = evtSerial > 0
+                            ? $"HIK-{config.DeviceSerialNumber}-{evtSerial}"
+                            : $"HIK-{config.DeviceSerialNumber}-{empNo}-{cardNo}-{evtTime}";
+
+                        if (state.RecentEventIds.Contains(uniqueEventId))
                         {
-                            state.RecentEventIds = state.RecentEventIds.TakeLast(3000).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                            continue;
                         }
-                        SaveState(state);
+
+                        bool pushed = await PushPunchToErpAsync(erpClient, config, empNo, cardNo, evtTime, uniqueEventId, name, ct);
+                        if (pushed)
+                        {
+                            state.RecentEventIds.Add(uniqueEventId);
+                            if (evtSerial > state.LastHikvisionSerialNo)
+                            {
+                                state.LastHikvisionSerialNo = evtSerial;
+                            }
+                            state.LastSyncedDateIso = DateTime.UtcNow.ToString("O");
+                            syncedInCycle++;
+
+                            // Keep state set bounded to latest 5000 IDs
+                            if (state.RecentEventIds.Count > 5000)
+                            {
+                                state.RecentEventIds = state.RecentEventIds.TakeLast(3000).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                            }
+                            SaveState(state);
+                        }
                     }
                 }
-            }
 
-            if (string.Equals(statusStr, "MORE", StringComparison.OrdinalIgnoreCase) && numOfMatches > 0)
-            {
-                position += numOfMatches;
-            }
-            else
-            {
-                break;
+                if (string.Equals(statusStr, "MORE", StringComparison.OrdinalIgnoreCase) && numOfMatches > 0)
+                {
+                    position += numOfMatches;
+                }
+                else
+                {
+                    break;
+                }
             }
         }
 
@@ -374,6 +590,7 @@ public static class Program
         {
             LogOk($"Synced {syncedInCycle} new attendance punch(es) to Cloud ERP.");
         }
+        return true;
     }
 
     private static async Task<bool> PushPunchToErpAsync(
