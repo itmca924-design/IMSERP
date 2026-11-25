@@ -964,7 +964,8 @@ public record AttendanceReportRowDto(
     int ElapsedWorkingDays = 0,
     string? JoiningDate = null,
     string? PhotoUrl = null,
-    int UnmarkedDays = 0
+    int UnmarkedDays = 0,
+    string? BiometricUserId = null
 );
 
 

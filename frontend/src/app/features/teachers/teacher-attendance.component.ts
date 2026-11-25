@@ -2001,7 +2001,7 @@ export class TeacherAttendanceComponent implements OnInit {
             month: this.attMonth,
             year: this.attYear,
             defaultCheckInTime: inNorm || '08:00',
-            defaultCheckOutTime: outNorm || '17:00',
+            defaultCheckOutTime: outNorm || null,
             days: dates.map(d => ({
               date: d,
               isPresent: this.batchTargetStatus !== 'Absent',
@@ -2062,21 +2062,20 @@ export class TeacherAttendanceComponent implements OnInit {
 
       this.batchSavingDates = true;
       const defaultIn = this.attendanceSettings?.teacherShiftStartTime || '08:00';
-      const defaultOut = this.attendanceSettings?.teacherShiftEndTime || '17:00';
 
       const payload = {
         month: this.attMonth,
         year: this.attYear,
         defaultCheckInTime: defaultIn,
-        defaultCheckOutTime: defaultOut,
+        defaultCheckOutTime: null,
         days: selectableDays.map(d => {
           const isPresent = hasSelection ? this.selectedMatrixDates.has(d.dateStr) : (d.record ? d.record.status !== 'Absent' : true);
           return {
             date: d.dateStr,
             isPresent,
-            checkInTime: isPresent ? defaultIn : null,
-            checkOutTime: isPresent ? defaultOut : null,
-            remarks: isPresent ? 'Monthly Register (Present)' : 'Monthly Register (Absent)'
+            checkInTime: isPresent ? (d.record?.checkInTime || defaultIn) : null,
+            checkOutTime: isPresent ? (d.record?.checkOutTime || null) : null,
+            remarks: isPresent ? (d.record?.remarks || 'Monthly Register (Present)') : 'Monthly Register (Absent)'
           };
         })
       };

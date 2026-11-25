@@ -1867,7 +1867,8 @@ public class TeachersController : ControllerBase
                 elapsedWorkingDays,
                 teacher.JoiningDate != default ? teacher.JoiningDate.ToString("yyyy-MM-dd") : null,
                 teacher.PhotoUrl,
-                pastUnmarkedWorkingDays
+                pastUnmarkedWorkingDays,
+                teacher.BiometricUserId
             );
         }).ToList();
 
@@ -2398,8 +2399,8 @@ public class TeachersController : ControllerBase
             if (leaveDates.Contains(date)) continue;
 
             var status = day.IsPresent ? TeacherAttendanceStatus.Present : TeacherAttendanceStatus.Absent;
-            string? inTime = day.IsPresent ? (day.CheckInTime ?? dto.DefaultCheckInTime ?? "08:30") : null;
-            string? outTime = day.IsPresent ? (day.CheckOutTime ?? dto.DefaultCheckOutTime ?? "17:00") : null;
+            string? inTime = day.IsPresent ? (!string.IsNullOrWhiteSpace(day.CheckInTime) ? day.CheckInTime : (!string.IsNullOrWhiteSpace(dto.DefaultCheckInTime) ? dto.DefaultCheckInTime : "08:30")) : null;
+            string? outTime = day.IsPresent ? (!string.IsNullOrWhiteSpace(day.CheckOutTime) ? day.CheckOutTime : (!string.IsNullOrWhiteSpace(dto.DefaultCheckOutTime) ? dto.DefaultCheckOutTime : null)) : null;
             string? remarks = day.Remarks ?? (day.IsPresent ? "Manual Monthly Register (Present)" : "Manual Monthly Register (Absent)");
 
             var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
@@ -2410,8 +2411,10 @@ public class TeachersController : ControllerBase
 
             if (existingMap.TryGetValue(date, out var existing))
             {
-                // If it originated from LeaveApplication, do not overwrite
+                // If it originated from LeaveApplication or Biometric punch, do not overwrite real records
                 if (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave)
+                    continue;
+                if (string.Equals(existing.CaptureSource, "Biometric", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(existing.CheckInTime))
                     continue;
 
                 existing.Status = status;

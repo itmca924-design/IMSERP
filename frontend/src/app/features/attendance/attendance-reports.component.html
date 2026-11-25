@@ -622,6 +622,16 @@
                                             </div>
                                           </div>
                                         }
+                                        <!-- Biometric Device User ID -->
+                                        @if (row.biometricUserId) {
+                                          <div class="pop-item">
+                                            <mat-icon class="pop-ic">badge</mat-icon>
+                                            <div class="pop-text">
+                                              <span class="pop-sub">Biometric ID</span>
+                                              <span class="pop-main">{{ row.biometricUserId }}</span>
+                                            </div>
+                                          </div>
+                                        }
                                         <div class="pop-footer-hint">
                                           <span>💡 Click day to pin details</span>
                                         </div>
@@ -883,6 +893,9 @@
                                           @if (lp.captureSource) {
                                             <span class="act-meta-line">
                                               Stream: <strong>{{ lp.captureSource }}</strong>
+                                              @if (row.biometricUserId) {
+                                                <span> &bull; Biometric ID: <strong>{{ row.biometricUserId }}</strong></span>
+                                              }
                                             </span>
                                           }
                                           @if (!lp.checkInTime && !lp.checkOutTime && lp.status !== 'OFF' && lp.status !== 'H') {

@@ -42,6 +42,7 @@ interface ReportRow {
   photoUrl?: string | null;
   profilePhoto?: string | null;
   unmarkedDays?: number;
+  biometricUserId?: string | null;
 }
 
 interface AttendanceReport {

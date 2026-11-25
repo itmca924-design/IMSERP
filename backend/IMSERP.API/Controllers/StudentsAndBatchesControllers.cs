@@ -1033,7 +1033,8 @@ public class StudentsController : ControllerBase
                 elapsedWorkingDaysForStudent,
                 student.JoiningDate != default ? student.JoiningDate.ToString("yyyy-MM-dd") : null,
                 ImageStorageHelper.ResolveExistingFileUrl(student.ProfilePhoto, _env.ContentRootPath),
-                pastUnmarkedWorkingDays
+                pastUnmarkedWorkingDays,
+                student.BiometricUserId
             );
         }).ToList();
 
