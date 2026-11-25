@@ -570,6 +570,7 @@ public class StudentAttendance
     public Guid? BranchId { get; set; }
     public Guid StudentId { get; set; }
     public DateTime AttendanceDate { get; set; }
+    public string Stream { get; set; } = "School"; // "School" or "Coaching"
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
     public string? CheckInTime { get; set; }
     public string? CheckOutTime { get; set; }
@@ -775,6 +776,58 @@ public class TestMarks
 
     public Test? Test { get; set; }
     public Student? Student { get; set; }
+}
+
+public class CoachingQuestionPaper
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TestId { get; set; }
+    public Guid? ClassId { get; set; }
+    public Guid? BatchId { get; set; }
+    public string Subject { get; set; } = string.Empty;
+    public string ChapterTitle { get; set; } = string.Empty;
+    public string ChapterSourceType { get; set; } = "Text"; // Text, Pdf, Image
+    public string? ChapterSourceText { get; set; }
+    public string Language { get; set; } = "English"; // English, Hindi, Bilingual
+    public int DurationMinutes { get; set; } = 60;
+    public decimal TotalMarks { get; set; } = 20;
+    public string? DifficultyMixJson { get; set; }
+    public string? BlueprintJson { get; set; }
+    public string QuestionsJson { get; set; } = "[]";
+    public string? AnswerKeyJson { get; set; }
+    public string? GeneralInstructions { get; set; }
+    public string PaperStatus { get; set; } = "Draft"; // Draft, SubmittedForApproval, ApprovedAndLocked, RevisionRequested
+    public string? RevisionRemarks { get; set; }
+    public string? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public string? AiModelUsed { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
+
+    [ForeignKey("TestId")]
+    public Test? Test { get; set; }
+}
+
+public class TenantAiConfig
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string Provider { get; set; } = "Gemini";
+    public string ModelName { get; set; } = "gemini-2.5-flash";
+    public string? ApiKey { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public string? UpdatedBy { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [ForeignKey("BranchId")]
+    public Branch? Branch { get; set; }
 }
 
 public class WhatsAppLog

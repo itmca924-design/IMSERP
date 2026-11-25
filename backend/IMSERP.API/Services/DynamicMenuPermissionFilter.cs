@@ -61,6 +61,7 @@ public sealed class DynamicMenuPermissionFilter : IAsyncActionFilter
             ["Users"] = "/users",
             ["WhatsApp"] = "/whatsapp",
             ["Tests"] = "/tests",
+            ["CoachingAiExam"] = "/coaching/tests",
             ["Finance"] = "/finance/profit-loss",
             ["Attendance"] = "/students/attendance",
             ["Subscription"] = "/subscription",

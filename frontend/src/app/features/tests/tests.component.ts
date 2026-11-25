@@ -33,6 +33,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { RolesService } from '../../core/services/roles.service';
 import { ExamAdmitCardDialogComponent } from './exam-admit-card-dialog.component';
 import { ExamResultDialogComponent } from './exam-result-dialog.component';
+import { CoachingAiPaperDialogComponent } from '../coaching/coaching-ai-paper-dialog.component';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-tests',
@@ -1088,6 +1091,12 @@ import { ExamResultDialogComponent } from './exam-result-dialog.component';
                         <mat-icon>more_vert</mat-icon>
                       </button>
                       <mat-menu #testActionsMenu="matMenu">
+                      @if (isCoachingMode) {
+                        <button type="button" (click)="openAiPaperStudio(t)" mat-menu-item>
+                          <mat-icon style="color: #2563eb;">auto_awesome</mat-icon>
+                          <span>{{ getAiPaperMenuLabel(t.id) }}</span>
+                        </button>
+                      }
                       @if (canEditTest && !t.isMarksLocked) {
                         <button type="button" (click)="openBundleModal(t)" mat-menu-item>
                           <mat-icon>inventory_2</mat-icon><span>{{ t.evaluatorTeacherId ? 'Track Bundle' : 'Assign Bundle' }}</span>
@@ -5016,7 +5025,8 @@ export class TestsComponent implements OnInit, OnDestroy {
     public authService: AuthService,
     private aiCopilotService: AiErpCopilotService,
     private route: ActivatedRoute,
-    private rolesService: RolesService
+    private rolesService: RolesService,
+    private http: HttpClient
   ) {
     this.bulkForm = this.fb.group({ exams: this.fb.array([]) });
     this.bundleForm = this.fb.group({
@@ -5165,6 +5175,54 @@ export class TestsComponent implements OnInit, OnDestroy {
     });
   }
 
+  aiPaperStatusMap: Record<string, { paperId: string; paperStatus: string; questionCount: number; totalMarks: number }> = {};
+
+  loadAiPaperStatusMap(): void {
+    this.http.get<Record<string, any>>(`${environment.apiUrl}/coaching-ai-exam/papers/status-map`).subscribe({
+      next: map => {
+        this.aiPaperStatusMap = map || {};
+      },
+      error: () => {}
+    });
+  }
+
+  getAiPaperMenuLabel(testId: string): string {
+    const info = this.aiPaperStatusMap?.[testId];
+    if (!info) return 'AI Question Paper (Create)';
+    switch (info.paperStatus) {
+      case 'ApprovedAndLocked': return `AI Paper • Approved (${info.questionCount} Qs)`;
+      case 'SubmittedForApproval': return `AI Paper • Pending Approval (${info.questionCount} Qs)`;
+      case 'RevisionRequested': return `AI Paper • Revision Needed`;
+      default: return `AI Paper • Draft (${info.questionCount} Qs)`;
+    }
+  }
+
+  openAiPaperStudio(test: any): void {
+    const ref = this.dialog.open(CoachingAiPaperDialogComponent, {
+      width: 'min(1200px, 96vw)',
+      maxWidth: '96vw',
+      height: '92vh',
+      maxHeight: '92vh',
+      panelClass: 'erp-custom-dialog',
+      data: {
+        testId: test.id,
+        title: test.title,
+        subject: test.subject || '',
+        batchName: test.batchName || '',
+        className: test.className || '',
+        maxMarks: test.maxMarks || 20,
+        testDate: test.testDate,
+        canCreate: this.canCreateTest,
+        canEdit: this.canEditTest
+      }
+    });
+    ref.afterClosed().subscribe(res => {
+      if (res?.changed) {
+        this.loadAiPaperStatusMap();
+      }
+    });
+  }
+
   ngOnInit(): void {
     const routeMode = this.route.snapshot.data?.['divisionMode'];
     if (routeMode === 'coaching' || routeMode === 'school') {
@@ -5207,6 +5265,7 @@ export class TestsComponent implements OnInit, OnDestroy {
     this.loadSchoolClasses();
     if (this.isCoachingMode && this.hasCoaching) {
       this.loadBatches();
+      this.loadAiPaperStatusMap();
     }
     if (!this.isCoachingMode && this.hasSchool) {
       this.loadSchoolRoutines();

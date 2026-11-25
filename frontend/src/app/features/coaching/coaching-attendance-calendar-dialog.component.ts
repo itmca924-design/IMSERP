@@ -1,6 +1,6 @@
-import { Component, Inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -155,9 +155,51 @@ export interface BatchRegisterRow {
             @if (viewMode === 'calendar') {
               <div class="student-select-box">
                 <mat-form-field appearance="outline" class="student-dropdown-field" subscriptSizing="dynamic">
-                  <mat-label>Select Batch Student</mat-label>
-                  <mat-select [value]="selectedStudentId" (selectionChange)="onStudentChange($event.value)">
-                    @for (s of data.students; track s.studentId) {
+                  <mat-label>Select Batch Student ({{ filteredStudents.length }}/{{ data.students.length }})</mat-label>
+                  <mat-select
+                    [value]="selectedStudentId"
+                    (selectionChange)="onStudentChange($event.value)"
+                    (openedChange)="onStudentDropdownToggle($event)"
+                    panelClass="coaching-student-search-panel">
+                    <mat-select-trigger>
+                      @if (currentStudent) {
+                        <span class="trigger-roll">{{ currentStudent.coachingRollNumber || currentStudent.rollNumber || '—' }}</span>
+                        <span class="trigger-sep">•</span>
+                        <span class="trigger-name">{{ currentStudent.studentName }}</span>
+                      }
+                    </mat-select-trigger>
+
+                    <!-- Sticky Smooth Search Bar inside Dropdown -->
+                    <div class="dropdown-search-sticky" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                      <div class="dropdown-search-wrap">
+                        <mat-icon class="dropdown-search-ic">search</mat-icon>
+                        <input
+                          #studentSearchInput
+                          type="text"
+                          class="dropdown-search-input"
+                          [formControl]="studentSearchControl"
+                          placeholder="Search name, roll or admission no..."
+                          autocomplete="off"
+                          (click)="$event.stopPropagation()"
+                          (keydown)="$event.stopPropagation()" />
+                        @if (studentSearchControl.value) {
+                          <button
+                            type="button"
+                            class="dropdown-search-clear"
+                            (click)="clearStudentSearch($event)"
+                            aria-label="Clear search">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </div>
+
+                    @if (filteredStudents.length === 0) {
+                      <mat-option disabled class="no-match-option">
+                        No student matches "{{ studentSearchControl.value }}"
+                      </mat-option>
+                    }
+                    @for (s of filteredStudents; track s.studentId) {
                       <mat-option [value]="s.studentId">
                         <div class="student-option-row">
                           <span class="opt-roll">{{ s.coachingRollNumber || s.rollNumber || '—' }}</span>
@@ -1887,6 +1929,94 @@ export interface BatchRegisterRow {
         }
       }
     }
+
+    /* Smooth Sticky Search inside Student Dropdown */
+    .trigger-roll {
+      font-weight: 700;
+      color: #1d4ed8;
+    }
+    .trigger-sep {
+      margin: 0 6px;
+      color: #94a3b8;
+    }
+    .trigger-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    ::ng-deep .coaching-student-search-panel {
+      padding-top: 0 !important;
+      .dropdown-search-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #ffffff;
+        padding: 8px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+      }
+      .dropdown-search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #f8fafc;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0 8px;
+        height: 36px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+      .dropdown-search-wrap:focus-within {
+        background: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+      .dropdown-search-ic {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+      .dropdown-search-input {
+        border: none;
+        outline: none;
+        background: transparent;
+        width: 100%;
+        font-size: 0.84rem;
+        color: #0f172a;
+        font-family: inherit;
+      }
+      .dropdown-search-input::placeholder {
+        color: #94a3b8;
+      }
+      .dropdown-search-clear {
+        border: none;
+        background: transparent;
+        padding: 2px;
+        margin: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #64748b;
+        border-radius: 50%;
+      }
+      .dropdown-search-clear:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .dropdown-search-clear mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+      .no-match-option {
+        font-size: 0.82rem;
+        color: #64748b;
+        font-style: italic;
+        text-align: center;
+      }
+    }
   `]
 })
 export class CoachingAttendanceCalendarDialogComponent implements OnInit {
@@ -1894,6 +2024,10 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
   selectedStudentId = '';
   selectedMonth = new Date().getMonth() + 1;
   selectedYear = new Date().getFullYear();
+
+  @ViewChild('studentSearchInput') studentSearchInput?: ElementRef<HTMLInputElement>;
+  studentSearchControl = new FormControl('');
+  filteredStudents: CalendarStudentOption[] = [];
 
   monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1929,6 +2063,11 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.filteredStudents = [...(this.data.students || [])];
+    this.studentSearchControl.valueChanges.subscribe(query => {
+      this.applyStudentSearch(query || '');
+    });
+
     if (this.data.initialMonth) this.selectedMonth = this.data.initialMonth;
     if (this.data.initialYear) this.selectedYear = this.data.initialYear;
 
@@ -1939,6 +2078,39 @@ export class CoachingAttendanceCalendarDialogComponent implements OnInit {
     }
 
     this.loadHolidaysAndData();
+  }
+
+  applyStudentSearch(rawQuery: string): void {
+    const q = (rawQuery || '').trim().toLowerCase();
+    if (!q) {
+      this.filteredStudents = [...(this.data.students || [])];
+    } else {
+      this.filteredStudents = (this.data.students || []).filter(s =>
+        (s.studentName || '').toLowerCase().includes(q) ||
+        (s.coachingRollNumber || '').toLowerCase().includes(q) ||
+        (s.rollNumber || '').toLowerCase().includes(q) ||
+        (s.admissionNumber || '').toLowerCase().includes(q)
+      );
+    }
+    this.cdr.markForCheck();
+  }
+
+  onStudentDropdownToggle(opened: boolean): void {
+    if (opened) {
+      setTimeout(() => {
+        if (this.studentSearchInput?.nativeElement) {
+          this.studentSearchInput.nativeElement.focus();
+        }
+      }, 60);
+    } else if (this.studentSearchControl.value) {
+      this.studentSearchControl.setValue('');
+    }
+  }
+
+  clearStudentSearch(event: MouseEvent): void {
+    event.stopPropagation();
+    this.studentSearchControl.setValue('');
+    setTimeout(() => this.studentSearchInput?.nativeElement?.focus(), 0);
   }
 
   get currentStudent(): CalendarStudentOption | undefined {

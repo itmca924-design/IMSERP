@@ -640,26 +640,11 @@ public class StudentsController : ControllerBase
 
         if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource == "ManualBulk" 
-                                  || a.CaptureSource == "Coaching" 
-                                  || a.CaptureSource == "CoachingManual" 
-                                  || a.CaptureSource == "ManualCoaching"
-                                  || a.CaptureSource == "Manual"
-                                  || a.CaptureSource == "Hybrid"
-                                  || a.CaptureSource == "Regularization"
-                                  || a.CaptureSource == "LeaveApplication"
-                                  || student.IsCoachingStudent);
+            query = query.Where(a => a.Stream == "Coaching");
         }
         else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource == "ManualSchoolBulk" 
-                                  || a.CaptureSource == "School" 
-                                  || a.CaptureSource == "SchoolManual" 
-                                  || a.CaptureSource == "ManualSchool"
-                                  || a.CaptureSource == "Hybrid"
-                                  || a.CaptureSource == "Regularization"
-                                  || a.CaptureSource == "LeaveApplication"
-                                  || student.IsSchoolStudent);
+            query = query.Where(a => a.Stream == "School");
         }
 
         var records = await query.OrderBy(a => a.AttendanceDate).ToListAsync();
@@ -867,26 +852,19 @@ public class StudentsController : ControllerBase
             var targetRecords = personRecords;
             if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
             {
-                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualBulk" 
-                                                      || r.CaptureSource == "Coaching" 
-                                                      || r.CaptureSource == "CoachingManual" 
-                                                      || r.CaptureSource == "ManualCoaching"
-                                                      || r.CaptureSource == "Manual"
-                                                      || r.CaptureSource == "Hybrid"
-                                                      || r.CaptureSource == "Regularization"
-                                                      || r.CaptureSource == "LeaveApplication"
-                                                      || student.IsCoachingStudent).ToList();
+                targetRecords = personRecords.Where(r => r.Stream == "Coaching").ToList();
             }
             else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
             {
-                targetRecords = personRecords.Where(r => r.CaptureSource == "ManualSchoolBulk" 
-                                                      || r.CaptureSource == "School" 
-                                                      || r.CaptureSource == "SchoolManual" 
-                                                      || r.CaptureSource == "ManualSchool"
-                                                      || r.CaptureSource == "Hybrid"
-                                                      || r.CaptureSource == "Regularization"
-                                                      || r.CaptureSource == "LeaveApplication"
-                                                      || student.IsSchoolStudent).ToList();
+                targetRecords = personRecords.Where(r => r.Stream == "School").ToList();
+            }
+            else
+            {
+                // All/Hybrid view: deduplicate by AttendanceDate (prefer School or latest CapturedAt)
+                targetRecords = personRecords
+                    .GroupBy(r => r.AttendanceDate.Date)
+                    .Select(g => g.OrderByDescending(x => x.CapturedAt ?? x.CreatedAt).First())
+                    .ToList();
             }
 
             var today = GetIstToday();
@@ -1087,26 +1065,11 @@ public class StudentsController : ControllerBase
 
         if (string.Equals(stream, "coaching", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource == "ManualBulk" 
-                                  || a.CaptureSource == "Coaching" 
-                                  || a.CaptureSource == "CoachingManual" 
-                                  || a.CaptureSource == "ManualCoaching"
-                                  || a.CaptureSource == "Manual"
-                                  || a.CaptureSource == "Hybrid"
-                                  || a.CaptureSource == "Regularization"
-                                  || a.CaptureSource == "LeaveApplication"
-                                  || student.IsCoachingStudent);
+            query = query.Where(a => a.Stream == "Coaching");
         }
         else if (string.Equals(stream, "school", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(a => a.CaptureSource == "ManualSchoolBulk" 
-                                  || a.CaptureSource == "School" 
-                                  || a.CaptureSource == "SchoolManual" 
-                                  || a.CaptureSource == "ManualSchool"
-                                  || a.CaptureSource == "Hybrid"
-                                  || a.CaptureSource == "Regularization"
-                                  || a.CaptureSource == "LeaveApplication"
-                                  || student.IsSchoolStudent);
+            query = query.Where(a => a.Stream == "School");
         }
 
         var records = await query.ToListAsync();
@@ -1233,8 +1196,13 @@ public class StudentsController : ControllerBase
         if (!await CanEditPublicHolidayOrSundayAsync() && await IsPublicHolidayOrSundayAsync(date))
             return Forbid();
 
+        string targetStream = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            || (string.IsNullOrWhiteSpace(dto.Stream) && student.IsCoachingStudent && !student.IsSchoolStudent)
+            ? "Coaching"
+            : "School";
+
         var record = await _dbContext.StudentAttendances
-            .FirstOrDefaultAsync(a => a.StudentId == id && a.AttendanceDate == date);
+            .FirstOrDefaultAsync(a => a.StudentId == id && a.AttendanceDate == date && a.Stream == targetStream);
 
         if (record != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Modifying existing attendance records requires Admin Attendance Correction permission." });
@@ -1247,6 +1215,7 @@ public class StudentsController : ControllerBase
                 BranchId = student.BranchId ?? _currentUser.BranchId,
                 StudentId = id,
                 AttendanceDate = date,
+                Stream = targetStream,
                 CreatedAt = DateTime.UtcNow
             };
             _dbContext.StudentAttendances.Add(record);
@@ -1326,8 +1295,13 @@ public class StudentsController : ControllerBase
         if (validDates.Count == 0)
             return BadRequest(new { message = "No valid dates eligible for marking attendance." });
 
+        string targetStream = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            || (string.IsNullOrWhiteSpace(dto.Stream) && student.IsCoachingStudent && !student.IsSchoolStudent)
+            ? "Coaching"
+            : "School";
+
         var existingRecords = await _dbContext.StudentAttendances
-            .Where(a => a.StudentId == id && validDates.Contains(a.AttendanceDate))
+            .Where(a => a.StudentId == id && validDates.Contains(a.AttendanceDate) && a.Stream == targetStream)
             .ToListAsync();
 
         var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
@@ -1373,6 +1347,7 @@ public class StudentsController : ControllerBase
                     BranchId = student.BranchId ?? _currentUser.BranchId,
                     StudentId = id,
                     AttendanceDate = date,
+                    Stream = targetStream,
                     Status = effectiveStatus,
                     Remarks = dto.Remarks,
                     CheckInTime = inTime,
@@ -1438,8 +1413,13 @@ public class StudentsController : ControllerBase
             }
         }
 
+        string targetStream = string.Equals(dto.Stream, "coaching", StringComparison.OrdinalIgnoreCase)
+            || (string.IsNullOrWhiteSpace(dto.Stream) && student.IsCoachingStudent && !student.IsSchoolStudent)
+            ? "Coaching"
+            : "School";
+
         var existingRecords = await _dbContext.StudentAttendances
-            .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd)
+            .Where(a => a.StudentId == id && a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd && a.Stream == targetStream)
             .ToListAsync();
 
         var existingMap = existingRecords.ToDictionary(a => a.AttendanceDate.Date);
@@ -1565,7 +1545,7 @@ public class StudentsController : ControllerBase
         var existingRecords = studentIds.Count > 0
             ? await _dbContext.StudentAttendances
                 .AsNoTracking()
-                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate && a.Stream == "Coaching")
                 .ToDictionaryAsync(a => a.StudentId)
             : new Dictionary<Guid, StudentAttendance>();
 
@@ -1585,7 +1565,7 @@ public class StudentsController : ControllerBase
             pendingRegs.TryGetValue(s.Id, out var pendingReg);
             DateTime? captured = att?.CapturedAt ?? att?.CreatedAt;
             DateTime? capturedUtc = captured.HasValue ? DateTime.SpecifyKind(captured.Value, DateTimeKind.Utc) : null;
-            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, batch?.Shift ?? "coaching", batch?.StartTime, batch?.EndTime).ToString() : "Present";
+            var effStatus = att != null ? EvaluateStudentSmartAttendanceStatus(att.Status, att.CheckInTime, att.CheckOutTime, attSettings, batch?.Shift ?? "coaching", batch?.StartTime, batch?.EndTime).ToString() : "Unmarked";
             var resolvedRoll = !string.IsNullOrWhiteSpace(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber;
             return new BatchAttendanceStudentRowDto(
                 s.Id,
@@ -1646,7 +1626,7 @@ public class StudentsController : ControllerBase
             .ToDictionaryAsync(s => s.Id);
 
         var existingRecords = await _dbContext.StudentAttendances
-            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date && a.Stream == "Coaching")
             .ToDictionaryAsync(a => a.StudentId);
 
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);
@@ -1660,6 +1640,7 @@ public class StudentsController : ControllerBase
         {
             if (!students.TryGetValue(item.StudentId, out var student)) continue;
             if (student.JoiningDate != default && date < student.JoiningDate.Date) continue; // skip prior to admission
+            if (string.IsNullOrWhiteSpace(item.Status) || string.Equals(item.Status, "Unmarked", StringComparison.OrdinalIgnoreCase)) continue;
             if (!TryParseAttendanceStatus(item.Status, out var status)) continue;
 
             status = EvaluateStudentSmartAttendanceStatus(status, item.CheckInTime, item.CheckOutTime, attSettings, batch.Shift ?? "coaching", batch.StartTime, batch.EndTime);
@@ -1669,18 +1650,20 @@ public class StudentsController : ControllerBase
             else if (status == TeacherAttendanceStatus.Late) lateCount++;
             else if (status == TeacherAttendanceStatus.HalfDay) halfDayCount++;
 
-            var inTime = status == TeacherAttendanceStatus.Absent ? null : item.CheckInTime;
-            var outTime = status == TeacherAttendanceStatus.Absent ? null : item.CheckOutTime;
+            var inTime = status == TeacherAttendanceStatus.Absent ? null : (string.IsNullOrWhiteSpace(item.CheckInTime) ? null : item.CheckInTime);
+            var outTime = status == TeacherAttendanceStatus.Absent ? null : (string.IsNullOrWhiteSpace(item.CheckOutTime) ? null : item.CheckOutTime);
 
             if (existingRecords.TryGetValue(item.StudentId, out var existing))
             {
                 existing.Status = status;
                 existing.Remarks = item.Remarks;
-                existing.CheckInTime = inTime;
-                existing.CheckOutTime = outTime;
+                // Preserve existing biometric punch times if manual save didn't specify times
+                if (!string.IsNullOrWhiteSpace(inTime) || status == TeacherAttendanceStatus.Absent) existing.CheckInTime = inTime;
+                if (!string.IsNullOrWhiteSpace(outTime) || status == TeacherAttendanceStatus.Absent) existing.CheckOutTime = outTime;
                 existing.MarkedBy = _currentUser.UserId.ToString();
                 existing.BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId;
-                existing.CaptureSource = (existing.CaptureSource == "ManualSchoolBulk" || student.IsSchoolStudent) ? "Hybrid" : "ManualBulk";
+                if (existing.CaptureSource != "Biometric" && !(existing.CaptureSource?.Contains("Hikvision") ?? false))
+                    existing.CaptureSource = "ManualBulk";
                 existing.CapturedAt = DateTime.UtcNow;
             }
             else
@@ -1691,12 +1674,13 @@ public class StudentsController : ControllerBase
                     BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId,
                     StudentId = student.Id,
                     AttendanceDate = date,
+                    Stream = "Coaching",
                     Status = status,
                     Remarks = item.Remarks,
                     CheckInTime = inTime,
                     CheckOutTime = outTime,
                     MarkedBy = _currentUser.UserId.ToString(),
-                    CaptureSource = student.IsSchoolStudent ? "Hybrid" : "ManualBulk",
+                    CaptureSource = "ManualBulk",
                     CapturedAt = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -1760,7 +1744,7 @@ public class StudentsController : ControllerBase
             .ToDictionaryAsync(s => s.Id);
 
         var existingRecords = await _dbContext.StudentAttendances
-            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && validDates.Contains(a.AttendanceDate))
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && validDates.Contains(a.AttendanceDate) && a.Stream == "Coaching")
             .ToListAsync();
 
         var existingMap = existingRecords.ToDictionary(a => (a.StudentId, a.AttendanceDate.Date));
@@ -1796,12 +1780,13 @@ public class StudentsController : ControllerBase
                         BranchId = student.BranchId ?? batch.BranchId ?? _currentUser.BranchId,
                         StudentId = student.Id,
                         AttendanceDate = date,
+                        Stream = "Coaching",
                         Status = status,
                         Remarks = item.Remarks,
-                        CheckInTime = item.CheckInTime,
-                        CheckOutTime = item.CheckOutTime,
+                        CheckInTime = string.IsNullOrWhiteSpace(item.CheckInTime) ? null : item.CheckInTime,
+                        CheckOutTime = string.IsNullOrWhiteSpace(item.CheckOutTime) ? null : item.CheckOutTime,
                         MarkedBy = _currentUser.UserId.ToString(),
-                        CaptureSource = student.IsSchoolStudent ? "Hybrid" : "ManualBulk",
+                        CaptureSource = "ManualBulk",
                         CapturedAt = DateTime.UtcNow,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -1859,7 +1844,7 @@ public class StudentsController : ControllerBase
         var existingRecords = studentIds.Count > 0
             ? await _dbContext.StudentAttendances
                 .AsNoTracking()
-                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate)
+                .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == targetDate && a.Stream == "School")
                 .ToDictionaryAsync(a => a.StudentId)
             : new Dictionary<Guid, StudentAttendance>();
 
@@ -1928,7 +1913,7 @@ public class StudentsController : ControllerBase
             .ToDictionaryAsync(s => s.Id);
 
         var existingRecords = await _dbContext.StudentAttendances
-            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date)
+            .Where(a => a.TenantId == tenantId && studentIds.Contains(a.StudentId) && a.AttendanceDate == date && a.Stream == "School")
             .ToDictionaryAsync(a => a.StudentId);
 
         var attSettings = await _dbContext.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenantId);

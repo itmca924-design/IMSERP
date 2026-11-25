@@ -33,6 +33,8 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
     public DbSet<FeePayment> FeePayments => Set<FeePayment>();
     public DbSet<Test> Tests => Set<Test>();
     public DbSet<TestMarks> TestMarks => Set<TestMarks>();
+    public DbSet<CoachingQuestionPaper> CoachingQuestionPapers => Set<CoachingQuestionPaper>();
+    public DbSet<TenantAiConfig> TenantAiConfigs => Set<TenantAiConfig>();
     public DbSet<WhatsAppLog> WhatsAppLogs => Set<WhatsAppLog>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<TeacherBatchAssignment> TeacherBatchAssignments => Set<TeacherBatchAssignment>();
@@ -328,6 +330,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
         modelBuilder.Entity<StudentAttendance>().HasQueryFilter(x =>
             (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<CoachingQuestionPaper>().HasQueryFilter(x =>
+            (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
+            (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
+        modelBuilder.Entity<TenantAiConfig>().HasQueryFilter(x =>
+            _currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId));
         modelBuilder.Entity<StudentPromotionHistory>().HasQueryFilter(x =>
             (_currentUserService.IsSystemContext || (_currentUserService.TenantId != Guid.Empty && x.TenantId == _currentUserService.TenantId)) &&
             (_currentUserService.BranchId == null || x.BranchId == null || x.BranchId == _currentUserService.BranchId));
@@ -855,6 +862,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .HasConversion<string>()
             .HasColumnType("nvarchar(50)");
 
+        modelBuilder.Entity<StudentAttendance>()
+            .Property(t => t.Stream)
+            .HasMaxLength(20)
+            .HasDefaultValue("School");
+
         modelBuilder.Entity<TeacherLeave>()
             .Property(t => t.LeaveType)
             .HasConversion<string>()
@@ -881,7 +893,7 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .IsUnique();
 
         modelBuilder.Entity<StudentAttendance>()
-            .HasIndex(t => new { t.StudentId, t.AttendanceDate })
+            .HasIndex(t => new { t.StudentId, t.AttendanceDate, t.Stream })
             .IsUnique();
 
         modelBuilder.Entity<AttendanceSettings>()

@@ -335,6 +335,89 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"[Startup] AttendanceSettings absence fine columns patch failed: {ex.Message}");
         }
 
+        // Separate School vs Coaching Stream column on StudentAttendances
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('StudentAttendances') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('StudentAttendances') AND name = 'Stream')
+                    BEGIN
+                        ALTER TABLE StudentAttendances ADD Stream NVARCHAR(20) NOT NULL CONSTRAINT DF_StudentAttendances_Stream DEFAULT 'School';
+                        EXEC('UPDATE a SET a.Stream = ''Coaching'' FROM StudentAttendances a INNER JOIN Students s ON s.Id = a.StudentId WHERE s.IsCoachingStudent = 1 AND s.IsSchoolStudent = 0');
+                    END
+                    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_StudentAttendances_StudentId_AttendanceDate' AND object_id = OBJECT_ID('StudentAttendances'))
+                    BEGIN
+                        DROP INDEX IX_StudentAttendances_StudentId_AttendanceDate ON StudentAttendances;
+                    END
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_StudentAttendances_StudentId_AttendanceDate_Stream' AND object_id = OBJECT_ID('StudentAttendances'))
+                    BEGIN
+                        CREATE UNIQUE INDEX IX_StudentAttendances_StudentId_AttendanceDate_Stream ON StudentAttendances (StudentId, AttendanceDate, Stream);
+                    END
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] StudentAttendances Stream patch failed: {ex.Message}");
+        }
+
+        // Coaching AI Weekly Exam Question Papers & Tenant AI Config tables
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('CoachingQuestionPapers') IS NULL
+                BEGIN
+                    CREATE TABLE CoachingQuestionPapers (
+                        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+                        TenantId UNIQUEIDENTIFIER NOT NULL,
+                        BranchId UNIQUEIDENTIFIER NULL,
+                        TestId UNIQUEIDENTIFIER NOT NULL,
+                        ClassId UNIQUEIDENTIFIER NULL,
+                        BatchId UNIQUEIDENTIFIER NULL,
+                        Subject NVARCHAR(150) NOT NULL DEFAULT '',
+                        ChapterTitle NVARCHAR(300) NOT NULL DEFAULT '',
+                        ChapterSourceType NVARCHAR(30) NOT NULL DEFAULT 'Text',
+                        ChapterSourceText NVARCHAR(MAX) NULL,
+                        Language NVARCHAR(30) NOT NULL DEFAULT 'English',
+                        DurationMinutes INT NOT NULL DEFAULT 60,
+                        TotalMarks DECIMAL(18,2) NOT NULL DEFAULT 20,
+                        DifficultyMixJson NVARCHAR(MAX) NULL,
+                        BlueprintJson NVARCHAR(MAX) NULL,
+                        QuestionsJson NVARCHAR(MAX) NOT NULL DEFAULT '[]',
+                        AnswerKeyJson NVARCHAR(MAX) NULL,
+                        GeneralInstructions NVARCHAR(MAX) NULL,
+                        PaperStatus NVARCHAR(40) NOT NULL DEFAULT 'Draft',
+                        RevisionRemarks NVARCHAR(MAX) NULL,
+                        ApprovedBy NVARCHAR(150) NULL,
+                        ApprovedAt DATETIME2 NULL,
+                        AiModelUsed NVARCHAR(100) NULL,
+                        CreatedBy NVARCHAR(150) NULL,
+                        CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE INDEX IX_CoachingQuestionPapers_Tenant_Test ON CoachingQuestionPapers (TenantId, TestId);
+                END
+                IF OBJECT_ID('TenantAiConfigs') IS NULL
+                BEGIN
+                    CREATE TABLE TenantAiConfigs (
+                        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+                        TenantId UNIQUEIDENTIFIER NOT NULL,
+                        BranchId UNIQUEIDENTIFIER NULL,
+                        Provider NVARCHAR(40) NOT NULL DEFAULT 'Gemini',
+                        ModelName NVARCHAR(100) NOT NULL DEFAULT 'gemini-2.5-flash',
+                        ApiKey NVARCHAR(500) NULL,
+                        IsEnabled BIT NOT NULL DEFAULT 1,
+                        UpdatedBy NVARCHAR(150) NULL,
+                        UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE UNIQUE INDEX IX_TenantAiConfigs_TenantId ON TenantAiConfigs (TenantId);
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] CoachingQuestionPapers/TenantAiConfigs table creation failed: {ex.Message}");
+        }
+
         if (!string.IsNullOrEmpty(connectionString))
         {
             try

@@ -1612,8 +1612,9 @@ public class AttendanceController : ControllerBase
         if (student != null)
         {
             eventLog.PersonType = "student";
+            var resolvedStream = ResolveBiometricStudentStream(student, indiaTime, settings);
             var record = await _db.StudentAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
-                a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == istDate);
+                a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == istDate && a.Stream == resolvedStream);
 
             if (record == null)
             {
@@ -1623,6 +1624,7 @@ public class AttendanceController : ControllerBase
                     BranchId = student.BranchId ?? resolvedBranchId,
                     StudentId = student.Id,
                     AttendanceDate = istDate,
+                    Stream = resolvedStream,
                     CheckInTime = indiaTime.ToString("HH:mm"),
                     Status = TeacherAttendanceStatus.Present,
                     CaptureSource = "Biometric",
@@ -1656,10 +1658,10 @@ public class AttendanceController : ControllerBase
                 record.CapturedAt = eventTime;
             }
 
-            // Solution B: Smart attendance evaluation for student Hikvision punch
-            string shiftScope = student.IsCoachingStudent && !student.IsSchoolStudent
+            // Solution B: Smart attendance evaluation strictly scoped to resolved stream (School vs Coaching)
+            string shiftScope = resolvedStream == "Coaching"
                 ? (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning"))
-                : (student.IsSchoolStudent ? "school" : (student.Batch?.Shift ?? (indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning")));
+                : "school";
 
             record.Status = StudentsController.EvaluateStudentSmartAttendanceStatus(
                 TeacherAttendanceStatus.Present,
@@ -1667,8 +1669,8 @@ public class AttendanceController : ControllerBase
                 record.CheckOutTime,
                 settings,
                 shiftScope,
-                shiftScope != "school" ? student.Batch?.StartTime : null,
-                shiftScope != "school" ? student.Batch?.EndTime : null);
+                resolvedStream == "Coaching" ? student.Batch?.StartTime : null,
+                resolvedStream == "Coaching" ? student.Batch?.EndTime : null);
 
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;
@@ -1773,6 +1775,53 @@ public class AttendanceController : ControllerBase
             unmappedId = punchId,
             cardNo = cardNo
         });
+    }
+
+    private static string ResolveBiometricStudentStream(Student student, DateTime indiaTime, AttendanceSettings? settings)
+    {
+        if (student.IsCoachingStudent && !student.IsSchoolStudent)
+            return "Coaching";
+
+        if (student.IsSchoolStudent && !student.IsCoachingStudent)
+            return "School";
+
+        var punchMin = indiaTime.Hour * 60 + indiaTime.Minute;
+
+        static int? TryParseMin(string? hhmm)
+        {
+            if (string.IsNullOrWhiteSpace(hhmm)) return null;
+            var p = hhmm.Trim().Split(':');
+            if (p.Length >= 2 && int.TryParse(p[0], out var h) && int.TryParse(p[1], out var m))
+                return h * 60 + m;
+            return null;
+        }
+
+        var batchStart = TryParseMin(student.Batch?.StartTime);
+        var batchEnd = TryParseMin(student.Batch?.EndTime);
+        var schoolStart = TryParseMin(settings?.StudentShiftStartTime) ?? (8 * 60 + 30);
+        var schoolEnd = TryParseMin(settings?.StudentShiftEndTime) ?? (14 * 60 + 30);
+
+        if (batchStart.HasValue)
+        {
+            var bEnd = batchEnd ?? (batchStart.Value + 90);
+            var upperCap = bEnd < schoolStart ? Math.Min(bEnd + 75, schoolStart - 15) : (bEnd + 90);
+            var lowerCap = Math.Max(0, batchStart.Value - 60);
+            if (punchMin >= lowerCap && punchMin <= upperCap)
+                return "Coaching";
+        }
+        else
+        {
+            var cMornStart = TryParseMin(settings?.CoachingMorningStartTime) ?? (6 * 60);
+            var cMornEnd = TryParseMin(settings?.CoachingMorningEndTime) ?? (8 * 60);
+            var cEveStart = TryParseMin(settings?.CoachingEveningStartTime) ?? (15 * 60 + 30);
+            var cEveEnd = TryParseMin(settings?.CoachingEveningEndTime) ?? (20 * 60);
+
+            if ((punchMin >= cMornStart - 45 && punchMin <= Math.Min(cMornEnd + 45, schoolStart - 15)) ||
+                (punchMin >= Math.Max(cEveStart - 45, schoolEnd + 30) && punchMin <= cEveEnd + 60))
+                return "Coaching";
+        }
+
+        return "School";
     }
 
     private static bool IsValidMode(string mode) =>

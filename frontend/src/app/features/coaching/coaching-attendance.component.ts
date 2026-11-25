@@ -43,7 +43,7 @@ export interface AttendanceStudentRow {
   profilePhoto?: string;
   photoFailed?: boolean;
   parentWhatsAppPhone?: string;
-  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave';
+  status: 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' | 'Unmarked';
   checkInTime?: string;
   checkOutTime?: string;
   captureSource?: string;
@@ -300,6 +300,9 @@ export interface AttendanceStudentRow {
               <button type="button" class="filter-pill pill-leave" [class.active]="selectedStatusFilter === 'Leave'" (click)="setStatusFilter('Leave')">
                 Leave ({{ leaveCount }})
               </button>
+              <button type="button" class="filter-pill pill-unmarked" [class.active]="selectedStatusFilter === 'Unmarked'" (click)="setStatusFilter('Unmarked')">
+                Unmarked ({{ unmarkedCount }})
+              </button>
             </div>
           </div>
 
@@ -337,7 +340,7 @@ export interface AttendanceStudentRow {
                       <span class="sub-text">WhatsApp: {{ s.parentWhatsAppPhone || 'N/A' }}</span>
                       @if (s.checkInTime || s.checkOutTime) {
                         <div class="punch-time-row">
-                          @if (s.captureSource === 'Biometric') {
+                          @if (isBiometricSource(s.captureSource)) {
                             <span class="bio-chip" matTooltip="Captured via Biometric Device">
                               <mat-icon>fingerprint</mat-icon> Bio
                             </span>
@@ -1274,7 +1277,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
   // Search & Filter state
   searchControl = new FormControl('');
   searchTerm: string = '';
-  selectedStatusFilter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' = 'ALL';
+  selectedStatusFilter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' | 'Unmarked' = 'ALL';
 
   // Sorting & Pagination state
   pageIndex: number = 0;
@@ -1616,7 +1619,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
           admissionNumber: r.admissionNumber,
           profilePhoto: r.profilePhoto,
           parentWhatsAppPhone: r.parentWhatsAppPhone,
-          status: (r.status as any) || 'Present',
+          status: (r.status as any) || 'Unmarked',
           checkInTime: r.checkInTime || '',
           checkOutTime: r.checkOutTime || '',
           captureSource: r.captureSource || '',
@@ -1661,10 +1664,16 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     this.applyLocalFilters();
   }
 
-  setStatusFilter(filter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave'): void {
+  setStatusFilter(filter: 'ALL' | 'Present' | 'Absent' | 'Late' | 'HalfDay' | 'Leave' | 'Unmarked'): void {
     this.selectedStatusFilter = filter;
     this.pageIndex = 0;
     this.applyLocalFilters();
+  }
+
+  isBiometricSource(source?: string | null): boolean {
+    if (!source) return false;
+    const s = source.toLowerCase();
+    return s.includes('biometric') || s.includes('hikvision');
   }
 
   applyLocalFilters(): void {
@@ -1788,23 +1797,35 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     return this.students.filter(s => s.status === 'Leave').length;
   }
 
+  get unmarkedCount(): number {
+    return this.students.filter(s => s.status === 'Unmarked').length;
+  }
+
   get complianceRate(): number {
-    if (this.students.length === 0) return 100;
+    const marked = this.students.filter(s => s.status !== 'Unmarked').length;
+    if (marked === 0) return 0;
     const attended = this.presentCount + this.lateCount + (this.halfDayCount * 0.5);
-    return Math.round((attended / this.students.length) * 100);
+    return Math.round((attended / marked) * 100);
   }
 
   saveAttendance(): void {
     if (!this.canMarkAttendance || !this.selectedBatchId || this.students.length === 0) return;
 
+    const markedStudents = this.students.filter(s => s.status !== 'Unmarked');
+    if (markedStudents.length === 0) {
+      this.confirmDialog.alert('Nothing to Save', 'Please mark attendance status for at least one student before saving.', 'info');
+      return;
+    }
+
     const date = this.filterForm.get('date')?.value;
     const payload = {
       batchId: this.selectedBatchId,
       attendanceDate: date,
-      items: this.students.map(s => ({
+      items: markedStudents.map(s => ({
         studentId: s.studentId,
         status: s.status,
-        checkInTime: s.checkInTime || (s.status !== 'Absent' && s.status !== 'Leave' ? (this.selectedBatch?.startTime || '08:30') : null),
+        // Never bind shift-policy default time; preserve only actual biometric punch times
+        checkInTime: s.checkInTime || null,
         checkOutTime: s.checkOutTime || null,
         remarks: s.remarks || ''
       }))
