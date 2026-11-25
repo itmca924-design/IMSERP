@@ -541,12 +541,18 @@ interface CalendarDay {
                       <span class="adm-pill">ADM: {{ s.admissionNumber }}</span>
                     }
                     @if (s.attendanceId) {
-                      <!-- Biometric Machine Punch Source -->
+                      <!-- Biometric Machine Punch Source (In & Out strictly from real biometric punches) -->
                       @if (isBiometricAttendance(s)) {
-                        <span class="sub bio-sub" [matTooltip]="'Biometric machine punch captured at ' + formatCapturedTime(s.capturedAt) + ' IST'">
+                        <span class="sub bio-sub" [matTooltip]="'Biometric Check-In captured at ' + (s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt)) + ' IST'">
                           <mat-icon class="bio-dot">fingerprint</mat-icon>
-                          <span class="sub-text">Punch {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
+                          <span class="sub-text">In: {{ s.checkInTime ? formatTimeAmPm(s.checkInTime) : formatCapturedTime(s.capturedAt) }}</span>
                         </span>
+                        @if (s.checkOutTime) {
+                          <span class="sub bio-sub bio-out-sub" [matTooltip]="'Biometric Check-Out captured at ' + formatTimeAmPm(s.checkOutTime) + ' IST'">
+                            <mat-icon class="bio-dot bio-out-dot">logout</mat-icon>
+                            <span class="sub-text">Out: {{ formatTimeAmPm(s.checkOutTime) }}</span>
+                          </span>
+                        }
                       }
                       <!-- Manual Roll Call Source (Single clean tooltip, no double tooltip) -->
                       @if (!isBiometricAttendance(s)) {
