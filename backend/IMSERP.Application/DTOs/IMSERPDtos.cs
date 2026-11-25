@@ -643,7 +643,8 @@ public record StudentDto(
     Guid? TransportRouteStopId = null,
     string? TransportPickupDropType = null,
     // Dynamic Multi-Tenant Custom Fields (JSON dictionary)
-    string? CustomFieldsJson = null
+    string? CustomFieldsJson = null,
+    DateTime? CreatedAt = null
 );
 
 public record StudentLeavingClearanceDto(

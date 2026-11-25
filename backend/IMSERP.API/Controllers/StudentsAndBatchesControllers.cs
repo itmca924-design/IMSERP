@@ -2674,13 +2674,14 @@ public class StudentsController : ControllerBase
             "name" or "studentname" => sortDescending ? query.OrderByDescending(s => s.StudentName) : query.OrderBy(s => s.StudentName),
             "parentname" or "fathername" => sortDescending ? query.OrderByDescending(s => s.ParentName) : query.OrderBy(s => s.ParentName),
             "joiningdate" => sortDescending ? query.OrderByDescending(s => s.JoiningDate) : query.OrderBy(s => s.JoiningDate),
+            "createdat" or "addedat" => sortDescending ? query.OrderByDescending(s => s.CreatedAt) : query.OrderBy(s => s.CreatedAt),
             "rollno" or "rollnumber" or "coachingrollnumber" => sortDescending 
                 ? query.OrderByDescending(s => s.CoachingRollNumber ?? s.RollNumber) 
                 : query.OrderBy(s => s.CoachingRollNumber ?? s.RollNumber),
             "phone" or "mobile" or "contact" => sortDescending 
                 ? query.OrderByDescending(s => s.ParentWhatsAppPhone ?? s.EmergencyContactPhone) 
                 : query.OrderBy(s => s.ParentWhatsAppPhone ?? s.EmergencyContactPhone),
-            _ => query.OrderByDescending(s => s.JoiningDate).ThenByDescending(s => s.RollNumber)
+            _ => query.OrderByDescending(s => s.CreatedAt).ThenByDescending(s => s.JoiningDate)
         };
 
         var totalCount = await query.CountAsync();
@@ -2761,7 +2762,8 @@ public class StudentsController : ControllerBase
                 s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteId : null,
                 s.TransportAllocation != null ? (Guid?)s.TransportAllocation.RouteStopId : null,
                 s.TransportAllocation != null ? s.TransportAllocation.PickupDropType : null,
-                s.CustomFieldsJson
+                s.CustomFieldsJson,
+                s.CreatedAt
             )).ToListAsync();
 
         if (items.Count > 0)

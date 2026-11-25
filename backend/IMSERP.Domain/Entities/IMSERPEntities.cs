@@ -426,6 +426,7 @@ public class Student
     public string? PreviousBoard { get; set; }
     // Dynamic Multi-Tenant Custom Fields (JSON dictionary: { "field_key": "value" })
     public string? CustomFieldsJson { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BranchId")]
     public Branch? Branch { get; set; }

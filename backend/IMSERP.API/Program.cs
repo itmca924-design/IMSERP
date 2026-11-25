@@ -1871,6 +1871,11 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE Students ADD CustomFieldsJson NVARCHAR(MAX) NULL;
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Students') AND name = 'CreatedAt')
+                    BEGIN
+                        ALTER TABLE Students ADD CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE();
+                    END
+
                     IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'CustomFieldDefinitions')
                     BEGIN
                         CREATE TABLE CustomFieldDefinitions (

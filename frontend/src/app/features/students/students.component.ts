@@ -46,6 +46,7 @@ import { AiAdmissionAssistantService, AiParsedAdmissionData } from '../../core/s
 import { CustomFieldsService, CustomFieldDefinitionDto } from '../../core/services/custom-fields.service';
 import { ManageCustomFieldsDialogComponent } from './manage-custom-fields-dialog.component';
 import { StudentBulkImportDialogComponent } from './student-bulk-import-dialog.component';
+import { IstDatetimeDirective } from '../../shared/directives/ist-datetime.directive';
 import { environment } from '../../../environments/environment';
 
 const API_BASE = environment.apiBaseUrl;
@@ -63,6 +64,7 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
   standalone: true,
   imports: [
     CommonModule,
+    IstDatetimeDirective,
     RouterModule,
     ReactiveFormsModule,
     FormsModule,
@@ -1325,6 +1327,11 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
                               @if (s.joiningDate) {
                                 <div class="school-adm-date-pill">
                                   <span class="lbl">DOJ:</span> <strong>{{ s.joiningDate | date:'dd MMM yyyy':'Asia/Kolkata' }}</strong>
+                                </div>
+                              }
+                              @if (s.createdAt) {
+                                <div class="school-adm-date-pill added-date-pill" matTooltip="Software Entry / Upload Date & Time (IST)">
+                                  <span class="lbl">Added:</span> <strong [appIstDatetime]="s.createdAt" format="datetime"></strong>
                                 </div>
                               }
                               @if (s.isCoachingStudent && s.coachingJoiningDate && s.isSchoolStudent) {
@@ -3384,6 +3391,12 @@ export class DateRangeInstantErrorMatcher implements ErrorStateMatcher {
           .lbl { color: #ea580c; font-weight: 600; }
           strong { color: #9a3412; }
         }
+        &.added-date-pill {
+          color: #0f766e;
+          font-size: 0.72rem;
+          .lbl { color: #0d9488; font-weight: 600; }
+          strong { color: #115e59; font-weight: 600; }
+        }
       }
       .lib-card-pill {
         font-size: 0.78rem;
@@ -4274,8 +4287,8 @@ export class StudentsComponent implements OnInit, OnDestroy {
   pageSize = 10;
   pageIndex = 0;
   searchTerm = '';
-  sortBy = 'rollNumber';
-  sortDescending = false;
+  sortBy = 'createdAt';
+  sortDescending = true;
 
   selectedStreamFilter = 'all'; // 'all', 'school', 'coaching', 'hostel', 'dayscholar'
   selectedStatusFilter = 'all'; // 'all', 'active', 'left'
