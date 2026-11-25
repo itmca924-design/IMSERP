@@ -304,10 +304,14 @@ public class StudentBulkImportController : ControllerBase
         int skippedCount = 0;
         int errorCount = 0;
 
-        for (int i = 0; i < dto.Rows.Count; i++)
+        // Smart Sibling-Row Auto-Splitter: automatically splits combined rows like
+        // Name="Ayansh / Aaradhya", Sec="A / B", DOB="16/05/21 / 23/03/19", AdmNo="00150 / 00152"
+        // into clean individual student rows for both DryRun preview and actual import.
+        var expandedRows = ExpandCombinedSiblingRows(dto.Rows, activeMappings);
+
+        for (int i = 0; i < expandedRows.Count; i++)
         {
-            var rawRow = dto.Rows[i];
-            int excelRowNum = i + 2; // Row 1 is header
+            var (excelRowNum, rawRow) = expandedRows[i];
 
             string GetStd(string key)
             {
@@ -322,7 +326,7 @@ public class StudentBulkImportController : ControllerBase
             var className = GetStd("className");
             var sectionName = GetStd("sectionName");
             var rollNo = GetStd("rollNumber");
-            var admNo = GetStd("admissionNumber");
+            var admNo = CleanAdmissionNumber(GetStd("admissionNumber"));
             var dobStr = GetStd("dateOfBirth");
             var dojStr = GetStd("joiningDate");
             var address = GetStd("address");
@@ -599,7 +603,7 @@ public class StudentBulkImportController : ControllerBase
         return Ok(new
         {
             dryRun = dto.DryRun,
-            totalRows = dto.Rows.Count,
+            totalRows = expandedRows.Count,
             newCount,
             duplicateCount,
             updatedCount,
@@ -989,6 +993,135 @@ public class StudentBulkImportController : ControllerBase
     {
         var list = ExtractAllPhones10(raw);
         return list.Count > 0 ? list[0] : "";
+    }
+
+    private static List<(int ExcelRowNum, Dictionary<string, string> Row)> ExpandCombinedSiblingRows(
+        List<Dictionary<string, string>> rows,
+        List<BulkColumnMappingDto> activeMappings)
+    {
+        string? FindHeader(string stdKey) =>
+            activeMappings.FirstOrDefault(x =>
+                string.Equals(x.TargetType, "Standard", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.TargetKey, stdKey, StringComparison.OrdinalIgnoreCase))?.ExcelHeader;
+
+        var nameHeader = FindHeader("studentName");
+        var secHeader = FindHeader("sectionName");
+        var classHeader = FindHeader("className");
+        var dobHeader = FindHeader("dateOfBirth");
+        var dojHeader = FindHeader("joiningDate");
+        var admHeader = FindHeader("admissionNumber");
+        var rollHeader = FindHeader("rollNumber");
+        var genderHeader = FindHeader("gender");
+
+        var dateSplitRegex = new Regex(@"(?<=\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})\s*/\s*(?=\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})", RegexOptions.Compiled);
+        var expanded = new List<(int ExcelRowNum, Dictionary<string, string> Row)>(rows.Count);
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            int excelRowNum = i + 2;
+            var rawRow = rows[i];
+
+            if (string.IsNullOrWhiteSpace(nameHeader) || !rawRow.TryGetValue(nameHeader, out var rawName) || string.IsNullOrWhiteSpace(rawName) || !rawName.Contains('/'))
+            {
+                expanded.Add((excelRowNum, rawRow));
+                continue;
+            }
+
+            // Split combined sibling names like "Ayansh / Aaradhya" (ignore short abbreviations like S/O, C/O)
+            var nameParts = rawName.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(p => p.Length >= 2 && Regex.IsMatch(p, @"[A-Za-z\u0900-\u097F]{2,}"))
+                .ToList();
+
+            if (nameParts.Count < 2)
+            {
+                expanded.Add((excelRowNum, rawRow));
+                continue;
+            }
+
+            List<string> SplitSimple(string? header)
+            {
+                if (string.IsNullOrWhiteSpace(header) || !rawRow.TryGetValue(header, out var v) || string.IsNullOrWhiteSpace(v))
+                    return new List<string>();
+                return v.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            }
+
+            List<string> SplitDates(string? header)
+            {
+                if (string.IsNullOrWhiteSpace(header) || !rawRow.TryGetValue(header, out var v) || string.IsNullOrWhiteSpace(v))
+                    return new List<string>();
+                return dateSplitRegex.Split(v.Trim())
+                    .Select(p => p.Trim())
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .ToList();
+            }
+
+            var secParts = SplitSimple(secHeader);
+            var classParts = SplitSimple(classHeader);
+            var admParts = SplitSimple(admHeader);
+            var rollParts = SplitSimple(rollHeader);
+            var genderParts = SplitSimple(genderHeader);
+            var dobParts = SplitDates(dobHeader);
+            var dojParts = SplitDates(dojHeader);
+
+            for (int k = 0; k < nameParts.Count; k++)
+            {
+                var cloned = new Dictionary<string, string>(rawRow, StringComparer.OrdinalIgnoreCase);
+                cloned[nameHeader] = nameParts[k];
+
+                if (!string.IsNullOrWhiteSpace(secHeader) && secParts.Count > 0)
+                    cloned[secHeader] = k < secParts.Count ? secParts[k] : secParts[0];
+
+                if (!string.IsNullOrWhiteSpace(classHeader) && classParts.Count > 0)
+                    cloned[classHeader] = k < classParts.Count ? classParts[k] : classParts[0];
+
+                if (!string.IsNullOrWhiteSpace(admHeader) && admParts.Count > 0)
+                    cloned[admHeader] = k < admParts.Count ? admParts[k] : "";
+
+                if (!string.IsNullOrWhiteSpace(rollHeader) && rollParts.Count > 0)
+                    cloned[rollHeader] = k < rollParts.Count ? rollParts[k] : "";
+
+                if (!string.IsNullOrWhiteSpace(genderHeader) && genderParts.Count > 0)
+                    cloned[genderHeader] = k < genderParts.Count ? genderParts[k] : genderParts[0];
+
+                if (!string.IsNullOrWhiteSpace(dobHeader) && dobParts.Count > 0)
+                    cloned[dobHeader] = k < dobParts.Count ? dobParts[k] : "";
+
+                if (!string.IsNullOrWhiteSpace(dojHeader) && dojParts.Count > 0)
+                    cloned[dojHeader] = k < dojParts.Count ? dojParts[k] : dojParts[0];
+
+                expanded.Add((excelRowNum, cloned));
+            }
+        }
+
+        return expanded;
+    }
+
+    private static string CleanAdmissionNumber(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+
+        var parts = raw.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var part in parts)
+        {
+            var cleaned = part.Trim();
+            if (string.IsNullOrWhiteSpace(cleaned)) continue;
+
+            // Ignore dummy placeholders like "0", "00", "000", "-", "NA", "N/A", "Nil", "None"
+            if (Regex.IsMatch(cleaned, @"^0+$") ||
+                Regex.IsMatch(cleaned, @"^[-–—_\.]+$") ||
+                cleaned.Equals("na", StringComparison.OrdinalIgnoreCase) ||
+                cleaned.Equals("n/a", StringComparison.OrdinalIgnoreCase) ||
+                cleaned.Equals("nil", StringComparison.OrdinalIgnoreCase) ||
+                cleaned.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+                cleaned.Equals("null", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return cleaned;
+        }
+
+        return "";
     }
 
     private static DateTime? TryParseFlexibleDate(string? raw, int minYear = 1950, int maxYear = 2050)
