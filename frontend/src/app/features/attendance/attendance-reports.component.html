@@ -284,7 +284,8 @@
           }
         </div>
       </div>
-      <table class="report-table">
+      <div class="table-scroll-body" #mainScroll (scroll)="bottomScroll.scrollLeft = mainScroll.scrollLeft">
+      <table class="report-table" #reportTable>
         <thead>
           <tr>
             <th style="min-width:220px;" class="sortable-th" (click)="setSortColumn('personName')">
@@ -341,7 +342,7 @@
           <!-- Data rows -->
           @if (!loading) {
             @for (row of sortedRows; track row) {
-              <tr class="person-main-row" [class.expanded-row]="isExpanded(row.personId)" [ngClass]="getAttendanceRowClass(row.attendancePercentage)">
+              <tr class="person-main-row clickable-expand-row" (click)="toggleCalendar(row.personId)" [class.expanded-row]="isExpanded(row.personId)" [ngClass]="getAttendanceRowClass(row.attendancePercentage)">
                 <td>
                   <div class="person-name-cell">
                     <div class="avatar-circle">
@@ -432,7 +433,7 @@
                   <button class="matrix-action-btn"
                     [class.matrix-open]="isExpanded(row.personId)"
                     [class.matrix-loading]="loadingDaily.has(row.personId)"
-                    (click)="toggleCalendar(row.personId)" matButton="filled">
+                    (click)="$event.stopPropagation(); toggleCalendar(row.personId)" matButton="filled">
                     @if (!loadingDaily.has(row.personId)) {
                       <mat-icon>{{ isExpanded(row.personId) ? 'expand_less' : 'calendar_month' }}</mat-icon>
                     }
@@ -446,7 +447,7 @@
               <!-- Matrix Drawer -->
               @if (isExpanded(row.personId) || isCollapsing(row.personId)) {
                 <tr class="matrix-drawer-row no-print">
-                  <td colspan="10" class="matrix-drawer-container">
+                  <td colspan="11" class="matrix-drawer-container">
                     <div class="matrix-drawer-card"
                       [class.drawer-enter]="isExpanded(row.personId)"
                       [class.drawer-exit]="isCollapsing(row.personId)">
@@ -966,6 +967,11 @@
           }
         </tbody>
       </table>
+      </div>
+      <!-- Sticky Bottom Synced Horizontal Scrollbar (Always visible at bottom edge while scrolling) -->
+      <div class="bottom-hscroll-bar no-print" #bottomScroll (scroll)="mainScroll.scrollLeft = bottomScroll.scrollLeft">
+        <div class="bottom-hscroll-inner" [style.width.px]="reportTable.scrollWidth || 1320"></div>
+      </div>
       <!-- Pagination -->
       @if (!loading && !isStudentOrParent && clientTotalCount > 0) {
         <div class="pagination-bar no-print">

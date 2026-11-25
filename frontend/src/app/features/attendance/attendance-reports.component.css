@@ -1,5 +1,92 @@
 .report-page { display:flex; flex-direction:column; gap:16px; padding-bottom:30px; }
 
+/* Sticky Bottom Synced Horizontal Scrollbar (Ultra-Sleek 5px) + Clickable Row Expand */
+.bottom-hscroll-bar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 9px;
+  background: rgba(248, 250, 252, 0.94);
+  backdrop-filter: blur(4px);
+  border-top: 1px solid #e2e8f0;
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+.bottom-hscroll-inner {
+  height: 1px;
+}
+.bottom-hscroll-bar::-webkit-scrollbar {
+  height: 5px;
+}
+.bottom-hscroll-bar::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.bottom-hscroll-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bottom-hscroll-bar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+.bottom-hscroll-bar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.table-scroll-body {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.table-scroll-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Expanded Daily Attendance Card — Sleek Dedicated Bottom Horizontal Scrollbar */
+.matrix-drawer-card {
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 310px);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.matrix-drawer-card::-webkit-scrollbar {
+  height: 5px;
+}
+.matrix-drawer-card::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.matrix-drawer-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+.matrix-drawer-card::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+.matrix-drawer-card::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+@media (max-width: 1024px) {
+  .matrix-drawer-card {
+    max-width: calc(100vw - 48px);
+  }
+}
+.clickable-expand-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.clickable-expand-row:hover {
+  background-color: #f0f9ff !important;
+}
+
 /* Page Header */
 .page-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
 .header-titles h1 { display:flex; align-items:center; gap:8px; margin:0; color:#0284c7; font-size:1.4rem; font-weight:800; }
@@ -602,11 +689,8 @@
   background:#fff;
   border-radius:10px;
   border:1px solid #e2e8f0;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
+  overflow:visible;
   box-shadow:0 1px 3px rgba(0,0,0,0.03);
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f8fafc;
 }
 .table-responsive-container::-webkit-scrollbar {
   height: 6px;
