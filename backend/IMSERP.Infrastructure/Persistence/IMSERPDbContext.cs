@@ -865,6 +865,11 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .HasConversion<string>()
             .HasColumnType("nvarchar(50)");
 
+        modelBuilder.Entity<TeacherAttendance>()
+            .Property(t => t.Stream)
+            .HasMaxLength(20)
+            .HasDefaultValue("School");
+
         modelBuilder.Entity<StudentAttendance>()
             .Property(t => t.Status)
             .HasConversion<string>()
@@ -895,9 +900,9 @@ public class IMSERPDbContext : DbContext, IIMSERPDbContext
             .HasConversion<string>()
             .HasColumnType("nvarchar(50)");
 
-        // Unique index: one attendance record per teacher per date
+        // Unique index: one attendance record per teacher per date per stream (School vs Coaching)
         modelBuilder.Entity<TeacherAttendance>()
-            .HasIndex(t => new { t.TeacherId, t.AttendanceDate })
+            .HasIndex(t => new { t.TeacherId, t.AttendanceDate, t.Stream })
             .IsUnique();
 
         modelBuilder.Entity<StudentAttendance>()

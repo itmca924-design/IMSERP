@@ -68,6 +68,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                 <!-- Quick Presets -->
                 <div class="preset-strip">
                   <span class="preset-label">Quick Timings Presets:</span>
+                  <button type="button" class="preset-chip" (click)="applyTeacherPreset('09:00', '14:00')" matButton="filled">
+                    09:00 AM – 02:00 PM (5 hrs)
+                  </button>
                   <button type="button" class="preset-chip" (click)="applyTeacherPreset('08:00', '17:00')" matButton="filled">
                     08:00 AM – 05:00 PM (9 hrs)
                   </button>
@@ -378,6 +381,9 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     <!-- Quick Presets -->
                     <div class="preset-strip">
                       <span class="preset-label">Presets:</span>
+                      <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('14:30', '18:30')" matButton="filled">
+                        02:30 – 06:30 PM
+                      </button>
                       <button type="button" class="preset-chip" (click)="applyCoachingEveningPreset('15:30', '18:30')" matButton="filled">
                         03:30 – 06:30 PM
                       </button>
@@ -960,7 +966,8 @@ export class AttendanceSettingsComponent implements OnInit {
     return `Shift: ${this.minutesToTimeStr(sMin)} – ${this.minutesToTimeStr(eMin)} (${durHours} hrs). ` +
       `Arrival up to ${cutoff} is Present. Arrival after ${cutoff} is Late Mark. ` +
       `Work duration < ${halfH} hrs is Half-Day. ` +
-      `${freeLates} free late mark(s) per month.`;
+      `${freeLates} free late mark(s) per month. ` +
+      `Biometric punches after ${this.minutesToTimeStr(eMin)} automatically route to Coaching Session.`;
   }
 
   getStudentSummaryText(): string {

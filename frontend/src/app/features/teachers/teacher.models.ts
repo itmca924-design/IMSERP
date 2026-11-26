@@ -53,7 +53,7 @@ export interface CreateTeacherUserAccountDto {
 }
 export interface AttendanceDto {
   id: string; teacherId: string; teacherName: string; employeeCode: string;
-  attendanceDate: string; status: string; checkInTime?: string; checkOutTime?: string; remarks?: string; captureSource?: string; capturedAt?: string;
+  attendanceDate: string; status: string; checkInTime?: string; checkOutTime?: string; remarks?: string; captureSource?: string; capturedAt?: string; stream?: string;
 }
 export interface AttendanceSettingsDto {
   studentMode: 'Manual' | 'Biometric' | 'Both';

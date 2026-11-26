@@ -989,6 +989,7 @@ public class TeacherAttendance
     public Guid? BranchId { get; set; }
     public Guid TeacherId { get; set; }
     public DateTime AttendanceDate { get; set; }
+    public string Stream { get; set; } = "School"; // "School" or "Coaching"
     public TeacherAttendanceStatus Status { get; set; } = TeacherAttendanceStatus.Present;
     public string? CheckInTime { get; set; }
     public string? CheckOutTime { get; set; }

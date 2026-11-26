@@ -2235,7 +2235,8 @@ public record TeacherAttendanceDto(
     string? CheckOutTime,
     string? Remarks,
     string CaptureSource,
-    DateTime? CapturedAt
+    DateTime? CapturedAt,
+    string Stream = "School"
 );
 
 public record MarkTeacherAttendanceDto(
@@ -2243,7 +2244,8 @@ public record MarkTeacherAttendanceDto(
     string Status,
     string? CheckInTime,
     string? CheckOutTime,
-    string? Remarks
+    string? Remarks,
+    string? Stream = null
 );
 
 public record AttendanceSettingsDto(

@@ -240,7 +240,13 @@ export interface AttendanceStudentRow {
         <mat-card class="attendance-card mat-elevation-z1">
           <div class="attendance-toolbar">
             <div class="quick-btn-group">
-              @if (canMarkAttendance) {
+              @if (coachingMode === 'Biometric') {
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; border: 1px solid #bfdbfe;">
+                  <mat-icon style="font-size: 16px; width: 16px; height: 16px;">fingerprint</mat-icon>
+                  Biometric Only Mode Active (Manual Locked)
+                </span>
+              }
+              @if (canMarkAttendance && coachingMode !== 'Biometric') {
                 <button mat-flat-button class="quick-btn mark-present" (click)="markAll('Present')">
                   <mat-icon>done_all</mat-icon> Mark All Present
                 </button>
@@ -252,18 +258,22 @@ export interface AttendanceStudentRow {
                 <mat-icon>calendar_month</mat-icon> Individual &amp; Monthly Register
               </button>
               @if (canMarkAttendance) {
-                <button mat-stroked-button class="quick-btn multi-date-tool-btn" (click)="openMultiDateDialog()">
-                  <mat-icon>date_range</mat-icon> Multi-Date Bulk Entry
-                </button>
+                @if (coachingMode !== 'Biometric') {
+                  <button mat-stroked-button class="quick-btn multi-date-tool-btn" (click)="openMultiDateDialog()">
+                    <mat-icon>date_range</mat-icon> Multi-Date Bulk Entry
+                  </button>
+                }
                 <button mat-stroked-button class="quick-btn leave-tool-btn" (click)="openStudentLeaves()" matTooltip="Apply or review student leave applications for this batch">
                   <mat-icon>beach_access</mat-icon> Student Leaves
                 </button>
                 <button mat-stroked-button class="quick-btn reg-tool-btn" (click)="openApplyRegularization()" matTooltip="Submit attendance regularization or correction request for this batch">
                   <mat-icon>history_toggle_off</mat-icon> Regularize
                 </button>
-                <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
-                  <mat-icon>save</mat-icon> Save
-                </button>
+                @if (coachingMode !== 'Biometric') {
+                  <button mat-flat-button color="primary" class="save-attendance-btn" [disabled]="saving" (click)="saveAttendance()">
+                    <mat-icon>save</mat-icon> Save
+                  </button>
+                }
               }
             </div>
           </div>
@@ -367,11 +377,11 @@ export interface AttendanceStudentRow {
                 <td mat-cell *matCellDef="let s" class="text-center">
                   <div class="status-cell-wrap">
                     <div class="status-toggle-wrapper">
-                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
-                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
-                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
-                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
-                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance || coachingMode === 'Biometric'" [class.active-present]="s.status === 'Present'" (click)="setStatus(s, 'Present')">P</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance || coachingMode === 'Biometric'" [class.active-absent]="s.status === 'Absent'" (click)="setStatus(s, 'Absent')">A</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance || coachingMode === 'Biometric'" [class.active-late]="s.status === 'Late'" (click)="setStatus(s, 'Late')">L</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance || coachingMode === 'Biometric'" [class.active-half]="s.status === 'HalfDay'" (click)="setStatus(s, 'HalfDay')">HD</button>
+                      <button type="button" class="status-btn" [disabled]="!canMarkAttendance || coachingMode === 'Biometric'" [class.active-leave]="s.status === 'Leave'" (click)="setStatus(s, 'Leave')">LV</button>
                     </div>
                     @if (s.hasPendingRegularization) {
                       <div class="status-pending-tag" [matTooltip]="'Regularization Pending Review: ' + (s.pendingRegularizationReason || 'Awaiting Review')">
@@ -1324,8 +1334,11 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     });
   }
 
+  coachingMode: 'Manual' | 'Biometric' | 'Both' = 'Both';
+
   ngOnInit(): void {
     this.loadPermissions();
+    this.loadCoachingMode();
     this.searchControl.valueChanges.subscribe(val => {
       this.searchTerm = val || '';
       this.pageIndex = 0;
@@ -1333,6 +1346,18 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     });
     this.loadClasses();
     this.loadBatches();
+  }
+
+  private loadCoachingMode(): void {
+    this.http.get<any>(`${environment.apiUrl}/attendance/settings`).subscribe({
+      next: res => {
+        if (res?.coachingMode) {
+          this.coachingMode = res.coachingMode;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {}
+    });
   }
 
   private loadPermissions(): void {
@@ -1439,6 +1464,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
     ref.afterClosed().subscribe(res => {
       if (res?.saved) {
         this.confirmDialog.alert('Settings Saved', 'Coaching batch shift timings and policies updated successfully.', 'success');
+        this.loadCoachingMode();
         this.loadBatches();
       }
     });

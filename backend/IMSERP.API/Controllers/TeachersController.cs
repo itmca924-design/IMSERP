@@ -925,13 +925,24 @@ public class TeachersController : ControllerBase
             .ToListAsync();
 
         int present = 0, absent = 0, late = 0, half = 0;
-        foreach (var a in attendances)
+        // Group by date to avoid double-counting when teacher has both School and Coaching records per day
+        var dashDailyGroups = attendances
+            .GroupBy(a => a.AttendanceDate.Date)
+            .ToDictionary(g => g.Key, g =>
+            {
+                var evals = g.Select(rec => EvaluateSmartAttendanceStatus(rec.Status, rec.CheckInTime, rec.CheckOutTime, attSettings, rec.Stream)).ToList();
+                if (evals.Contains(TeacherAttendanceStatus.Present)) return TeacherAttendanceStatus.Present;
+                if (evals.Contains(TeacherAttendanceStatus.Late)) return TeacherAttendanceStatus.Late;
+                if (evals.Contains(TeacherAttendanceStatus.HalfDay)) return TeacherAttendanceStatus.HalfDay;
+                if (evals.Contains(TeacherAttendanceStatus.Leave)) return TeacherAttendanceStatus.Leave;
+                return evals.First();
+            });
+        foreach (var kv in dashDailyGroups)
         {
-            var effectiveStatus = EvaluateSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings);
-            if (effectiveStatus == TeacherAttendanceStatus.Present) present++;
-            else if (effectiveStatus == TeacherAttendanceStatus.Absent) absent++;
-            else if (effectiveStatus == TeacherAttendanceStatus.Late) late++;
-            else if (effectiveStatus == TeacherAttendanceStatus.HalfDay) half++;
+            if (kv.Value == TeacherAttendanceStatus.Present) present++;
+            else if (kv.Value == TeacherAttendanceStatus.Absent) absent++;
+            else if (kv.Value == TeacherAttendanceStatus.Late) late++;
+            else if (kv.Value == TeacherAttendanceStatus.HalfDay) half++;
         }
 
         var monthStart = new DateTime(now.Year, now.Month, 1);
@@ -1767,7 +1778,19 @@ public class TeachersController : ControllerBase
         var rows = teachers.Select(teacher =>
         {
             var personRecords = records.Where(record => record.TeacherId == teacher.Id).ToList();
-            var statuses = personRecords.Select(record => EvaluateSmartAttendanceStatus(record.Status, record.CheckInTime, record.CheckOutTime, attSettings)).ToList();
+            var dailyGroups = personRecords
+                .GroupBy(r => r.AttendanceDate.Date)
+                .ToDictionary(g => g.Key, g =>
+                {
+                    var evaluated = g.Select(rec => EvaluateSmartAttendanceStatus(rec.Status, rec.CheckInTime, rec.CheckOutTime, attSettings, rec.Stream)).ToList();
+                    if (evaluated.Contains(TeacherAttendanceStatus.Present)) return TeacherAttendanceStatus.Present;
+                    if (evaluated.Contains(TeacherAttendanceStatus.Late)) return TeacherAttendanceStatus.Late;
+                    if (evaluated.Contains(TeacherAttendanceStatus.HalfDay)) return TeacherAttendanceStatus.HalfDay;
+                    if (evaluated.Contains(TeacherAttendanceStatus.Leave)) return TeacherAttendanceStatus.Leave;
+                    return evaluated.First();
+                });
+
+            var statuses = dailyGroups.Values.ToList();
             var present = statuses.Count(status => status == TeacherAttendanceStatus.Present);
             var recordedAbsent = statuses.Count(status => status == TeacherAttendanceStatus.Absent);
             var late = statuses.Count(status => status == TeacherAttendanceStatus.Late);
@@ -1785,10 +1808,8 @@ public class TeachersController : ControllerBase
                 }
                 else
                 {
-                    var rec = personRecords.FirstOrDefault(r => r.AttendanceDate.Date == curDate.Date);
-                    if (rec != null)
+                    if (dailyGroups.TryGetValue(curDate.Date, out var st))
                     {
-                        var st = EvaluateSmartAttendanceStatus(rec.Status, rec.CheckInTime, rec.CheckOutTime, attSettings);
                         var code = st switch
                         {
                             TeacherAttendanceStatus.Present => "P",
@@ -2002,8 +2023,8 @@ public class TeachersController : ControllerBase
         var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
         var list = rawList.Select(a => new TeacherAttendanceDto(
             a.Id, a.TeacherId, teacher.FullName, teacher.EmployeeCode,
-            a.AttendanceDate, EvaluateSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings).ToString(),
-            a.CheckInTime, a.CheckOutTime, a.Remarks, a.CaptureSource, a.CapturedAt)).ToList();
+            a.AttendanceDate, EvaluateSmartAttendanceStatus(a.Status, a.CheckInTime, a.CheckOutTime, attSettings, a.Stream).ToString(),
+            a.CheckInTime, a.CheckOutTime, a.Remarks, a.CaptureSource, a.CapturedAt, a.Stream)).ToList();
 
         return Ok(list);
     }
@@ -2022,13 +2043,25 @@ public class TeachersController : ControllerBase
         var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
 
         int present = 0, absent = 0, late = 0, half = 0;
-        foreach (var r in records)
+        // Group by date — a teacher may have both School and Coaching records on same day.
+        // Pick the best status per day: Present > Late > HalfDay > Absent
+        var dailyGroups = records
+            .GroupBy(r => r.AttendanceDate.Date)
+            .ToDictionary(g => g.Key, g =>
+            {
+                var evaluated = g.Select(rec => EvaluateSmartAttendanceStatus(rec.Status, rec.CheckInTime, rec.CheckOutTime, attSettings, rec.Stream)).ToList();
+                if (evaluated.Contains(TeacherAttendanceStatus.Present)) return TeacherAttendanceStatus.Present;
+                if (evaluated.Contains(TeacherAttendanceStatus.Late)) return TeacherAttendanceStatus.Late;
+                if (evaluated.Contains(TeacherAttendanceStatus.HalfDay)) return TeacherAttendanceStatus.HalfDay;
+                if (evaluated.Contains(TeacherAttendanceStatus.Leave)) return TeacherAttendanceStatus.Leave;
+                return evaluated.First();
+            });
+        foreach (var kv in dailyGroups)
         {
-            var effectiveStatus = EvaluateSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings);
-            if (effectiveStatus == TeacherAttendanceStatus.Present) present++;
-            else if (effectiveStatus == TeacherAttendanceStatus.Absent) absent++;
-            else if (effectiveStatus == TeacherAttendanceStatus.Late) late++;
-            else if (effectiveStatus == TeacherAttendanceStatus.HalfDay) half++;
+            if (kv.Value == TeacherAttendanceStatus.Present) present++;
+            else if (kv.Value == TeacherAttendanceStatus.Absent) absent++;
+            else if (kv.Value == TeacherAttendanceStatus.Late) late++;
+            else if (kv.Value == TeacherAttendanceStatus.HalfDay) half++;
         }
 
         // Fetch declared holidays from Holidays table
@@ -2135,7 +2168,7 @@ public class TeachersController : ControllerBase
                 continue;
 
             var existing = await _db.TeacherAttendances
-                .FirstOrDefaultAsync(a => a.TeacherId == entry.TeacherId && a.AttendanceDate.Date == dto.AttendanceDate.Date);
+                .FirstOrDefaultAsync(a => a.TeacherId == entry.TeacherId && a.AttendanceDate.Date == dto.AttendanceDate.Date && a.Stream == "School");
 
             // Skip overwriting teachers who are currently on sanctioned approved leave
             if (existing != null && (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave))
@@ -2144,7 +2177,7 @@ public class TeachersController : ControllerBase
             if (existing != null && !await HasAttendancePermissionAsync("/attendance/permissions/correction", true))
                 return Forbid();
 
-            var smartStatus = EvaluateSmartAttendanceStatus(status, entry.CheckInTime, entry.CheckOutTime, attSettings);
+            var smartStatus = EvaluateSmartAttendanceStatus(status, entry.CheckInTime, entry.CheckOutTime, attSettings, "School");
             if (existing != null)
             {
                 existing.Status = smartStatus;
@@ -2163,6 +2196,7 @@ public class TeachersController : ControllerBase
                     TenantId = _currentUser.TenantId,
                     TeacherId = entry.TeacherId,
                     AttendanceDate = dto.AttendanceDate.Date,
+                    Stream = "School",
                     Status = smartStatus,
                     CheckInTime = entry.CheckInTime,
                     CheckOutTime = entry.CheckOutTime,
@@ -2193,8 +2227,9 @@ public class TeachersController : ControllerBase
         if (!Enum.TryParse<TeacherAttendanceStatus>(dto.Status, true, out var status))
             return BadRequest(new { message = "Invalid attendance status." });
 
+        var resolvedStream = string.Equals(dto.Stream, "Coaching", StringComparison.OrdinalIgnoreCase) ? "Coaching" : "School";
         var attSettings = await _db.AttendanceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == teacher.TenantId);
-        var smartStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings);
+        var smartStatus = EvaluateSmartAttendanceStatus(status, dto.CheckInTime, dto.CheckOutTime, attSettings, resolvedStream);
         var today = GetIstToday();
         var date = dto.AttendanceDate.Date;
 
@@ -2227,7 +2262,7 @@ public class TeachersController : ControllerBase
             return Forbid();
 
         var existing = await _db.TeacherAttendances
-            .FirstOrDefaultAsync(a => a.TeacherId == id && a.AttendanceDate.Date == date);
+            .FirstOrDefaultAsync(a => a.TeacherId == id && a.AttendanceDate.Date == date && a.Stream == resolvedStream);
 
         if (existing != null && (existing.CaptureSource == "LeaveApplication" || existing.Status == TeacherAttendanceStatus.Leave))
             return Conflict(new { message = "Cannot overwrite an attendance record originating from an Approved Leave Application. Please cancel or revoke the leave from Leave Management first." });
@@ -2259,6 +2294,7 @@ public class TeachersController : ControllerBase
                 BranchId = teacher.BranchId ?? _currentUser.BranchId,
                 TeacherId = id,
                 AttendanceDate = date,
+                Stream = resolvedStream,
                 Status = smartStatus,
                 CheckInTime = dto.CheckInTime,
                 CheckOutTime = dto.CheckOutTime,
@@ -2318,7 +2354,7 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherAttendanceDto(
             existing.Id, existing.TeacherId, teacher.FullName, teacher.EmployeeCode,
             existing.AttendanceDate, existing.Status.ToString(),
-            existing.CheckInTime, existing.CheckOutTime, existing.Remarks, existing.CaptureSource, existing.CapturedAt));
+            existing.CheckInTime, existing.CheckOutTime, existing.Remarks, existing.CaptureSource, existing.CapturedAt, existing.Stream));
     }
 
     [HttpPost("{id}/attendance/monthly-register")]
@@ -2871,7 +2907,7 @@ public class TeachersController : ControllerBase
                 continue;
             }
 
-            var effectiveStatus = EvaluateSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings);
+            var effectiveStatus = EvaluateSmartAttendanceStatus(r.Status, r.CheckInTime, r.CheckOutTime, attSettings, r.Stream);
             if (effectiveStatus == TeacherAttendanceStatus.Present) present++;
             else if (effectiveStatus == TeacherAttendanceStatus.Absent) absent++;
             else if (effectiveStatus == TeacherAttendanceStatus.Late) late++;
@@ -5276,25 +5312,22 @@ public class TeachersController : ControllerBase
                          string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
 
-        // Dynamic Shift Inference: If scopeOrShift not specified, infer coaching vs school based on check-in timing
-        // Coaching in India typically operates in early morning (< 07:30 AM / 450m) or late afternoon/evening (>= 15:30 / 930m)
-        if (!isCoaching && string.IsNullOrWhiteSpace(scopeOrShift))
-        {
-            if (inMin.Value < 450 || inMin.Value >= 930)
-            {
-                isCoaching = true;
-            }
-        }
-
         int shiftStartMin;
         int shiftEndMin;
         int graceMinutes;
 
         if (isCoaching)
         {
-            if (string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) || inMin.Value >= 720)
+            var schoolEndMin = ParseTimeToMinutes(settings?.TeacherShiftEndTime ?? "17:00") ?? 1020;
+            var mornEndMin = ParseTimeToMinutes(settings?.CoachingMorningEndTime ?? "10:00") ?? 600;
+            var eveStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
+            var isEveningCoaching = string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) ||
+                (!string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) &&
+                 (inMin.Value >= eveStartMin - 90 || inMin.Value > Math.Max(mornEndMin + 60, schoolEndMin - 15)));
+
+            if (isEveningCoaching)
             {
-                // Coaching Evening Shift
+                // Coaching Evening / Post-School Shift
                 shiftStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
                 shiftEndMin = ParseTimeToMinutes(settings?.CoachingEveningEndTime ?? "19:00") ?? 1140;
                 graceMinutes = settings?.CoachingEveningGraceMinutes ?? 15;

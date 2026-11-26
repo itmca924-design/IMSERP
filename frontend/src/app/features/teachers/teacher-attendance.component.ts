@@ -406,28 +406,27 @@ export interface CalendarDayItem {
                     <td><strong>{{a.attendanceDate | date:'dd MMM yyyy'}}</strong></td>
                     <td><span class="day-label">{{a.attendanceDate | date:'EEEE'}}</span></td>
                     <td><span class="status-badge" [ngClass]="getEffectiveStatus(a).toLowerCase()">{{getEffectiveStatus(a) === 'HalfDay' ? 'Half Day' : getEffectiveStatus(a)}}</span></td>
-                    <td><span class="source-tag">{{ a.captureSource || 'Manual' }}</span></td>
                     <td>
-                      <span class="time-main">{{ a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkInTime || '—') }}</span>
-                      @if (a.captureSource === 'Biometric' && a.capturedAt) {
-                        <small class="time-sub">
-                          ({{ a.capturedAt | localDatetime:'time' }})
-                        </small>
+                      <span class="source-tag">{{ a.captureSource || 'Manual' }}</span>
+                      @if (a.stream) {
+                        <span class="source-tag" style="margin-left: 4px; background: #e0f2fe; color: #0369a1;">{{ a.stream }}</span>
                       }
-                      @if (a.captureSource !== 'Biometric' && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime) {
+                    </td>
+                    <td>
+                      <span class="time-main">{{ a.checkInTime || (a.captureSource === 'Biometric' && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : '—') }}</span>
+                      @if (a.checkInTime && formatDisplayTime(a.checkInTime) && formatDisplayTime(a.checkInTime) !== a.checkInTime) {
                         <small class="time-sub">
                           ({{ formatDisplayTime(a.checkInTime) }})
+                        </small>
+                      } @else if (!a.checkInTime && a.captureSource === 'Biometric' && a.capturedAt) {
+                        <small class="time-sub">
+                          ({{ a.capturedAt | localDatetime:'time' }})
                         </small>
                       }
                     </td>
                     <td>
-                      <span class="time-main">{{ a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt ? (a.capturedAt | localDatetime:'time24') : (a.checkOutTime || '—') }}</span>
-                      @if (a.captureSource === 'Biometric' && a.checkOutTime && a.capturedAt) {
-                        <small class="time-sub">
-                          ({{ a.capturedAt | localDatetime:'time' }})
-                        </small>
-                      }
-                      @if (a.captureSource !== 'Biometric' && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime) {
+                      <span class="time-main">{{ a.checkOutTime || '—' }}</span>
+                      @if (a.checkOutTime && formatDisplayTime(a.checkOutTime) && formatDisplayTime(a.checkOutTime) !== a.checkOutTime) {
                         <small class="time-sub">
                           ({{ formatDisplayTime(a.checkOutTime) }})
                         </small>

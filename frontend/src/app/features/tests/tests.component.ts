@@ -1502,13 +1502,19 @@ import { environment } from '../../../environments/environment';
               </mat-form-field>
             </div>
             <!-- Modal Footer -->
+            @if ((approvalTest?.totalStudentsEvaluated || 0) === 0) {
+              <div class="marks-warning-banner">
+                <mat-icon>warning_amber</mat-icon>
+                <span>Marks have not been entered yet. Please ask the evaluator to enter student marks before approving.</span>
+              </div>
+            }
             <div class="modal-dialog-footer">
               <button color="warn" (click)="promptRejectRevision()" [disabled]="approvingMarks" matButton="filled">
                 <mat-icon>replay</mat-icon> Send Back for Revision
               </button>
               <div class="footer-spacer"></div>
               <button (click)="closeApprovalModal()" matButton="filled" class="app-button-cancel">Cancel</button>
-              <button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks" matButton="filled">
+              <button color="primary" class="approve-seal-btn" (click)="confirmApproveAndLock()" [disabled]="approvingMarks || (approvalTest?.totalStudentsEvaluated || 0) === 0" [matTooltip]="(approvalTest?.totalStudentsEvaluated || 0) === 0 ? 'No marks entered yet — evaluator must submit marks first' : 'Approve & freeze exam results'" matButton="filled">
                 @if (approvingMarks) {
                   <mat-progress-spinner diameter="16" mode="indeterminate" class="btn-spinner"></mat-progress-spinner>
                 }
@@ -3607,6 +3613,20 @@ import { environment } from '../../../environments/environment';
       align-items: center;
       gap: 12px;
       flex-shrink: 0;
+    }
+    .marks-warning-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fef9c3;
+      border: 1px solid #fde047;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 0 24px 12px;
+      color: #854d0e;
+      font-size: 13px;
+      line-height: 1.4;
+      mat-icon { color: #ca8a04; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
     }
     .footer-spacer {
       flex: 1;

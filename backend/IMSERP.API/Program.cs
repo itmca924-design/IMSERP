@@ -335,6 +335,68 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine($"[Startup] AttendanceSettings absence fine columns patch failed: {ex.Message}");
         }
 
+        // Separate School vs Coaching Stream column on TeacherAttendances
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('TeacherAttendances') IS NOT NULL
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('TeacherAttendances') AND name = 'Stream')
+                    BEGIN
+                        ALTER TABLE TeacherAttendances ADD Stream NVARCHAR(20) NOT NULL CONSTRAINT DF_TeacherAttendances_Stream DEFAULT 'School';
+                    END
+                    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TeacherAttendances_TeacherId_AttendanceDate' AND object_id = OBJECT_ID('TeacherAttendances'))
+                    BEGIN
+                        DROP INDEX IX_TeacherAttendances_TeacherId_AttendanceDate ON TeacherAttendances;
+                    END
+                    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TeacherAttendances_TeacherId_AttendanceDate_Stream' AND object_id = OBJECT_ID('TeacherAttendances'))
+                    BEGIN
+                        CREATE UNIQUE INDEX IX_TeacherAttendances_TeacherId_AttendanceDate_Stream ON TeacherAttendances (TeacherId, AttendanceDate, Stream);
+                    END
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] TeacherAttendances Stream patch failed: {ex.Message}");
+        }
+
+        // Data-fix: Re-classify any TeacherAttendance rows where Stream='Coaching' but CheckInTime falls
+        // within school hours (i.e., before TeacherShiftEndTime from AttendanceSettings).
+        // These were mis-routed by the old ResolveBiometricTeacherStream logic before the post-school-only fix.
+        // Safe to run on every startup — it only touches rows that have no corresponding School record for that day
+        // and whose CheckInTime is earlier than school end time (indicating a morning/school-hours punch).
+        try
+        {
+            context.Database.ExecuteSqlRaw(@"
+                IF OBJECT_ID('TeacherAttendances') IS NOT NULL AND OBJECT_ID('AttendanceSettings') IS NOT NULL
+                BEGIN
+                    -- Re-classify Coaching records whose check-in is before school shift end (school hours punch)
+                    -- Only fix rows where no School record already exists for that (TeacherId, Date) pair
+                    UPDATE ta
+                    SET ta.Stream = 'School'
+                    FROM TeacherAttendances ta
+                    INNER JOIN AttendanceSettings [as] ON [as].TenantId = ta.TenantId
+                    WHERE ta.Stream = 'Coaching'
+                      AND ta.CheckInTime IS NOT NULL
+                      AND ta.CaptureSource = 'Biometric'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM TeacherAttendances ta2
+                          WHERE ta2.TeacherId = ta.TeacherId
+                            AND ta2.AttendanceDate = ta.AttendanceDate
+                            AND ta2.Stream = 'School'
+                      )
+                      AND (
+                          -- Parse CheckInTime HH:mm and compare to school shift end (also HH:mm)
+                          -- Use string comparison (works correctly for HH:mm 24h format)
+                          ta.CheckInTime < ISNULL([as].TeacherShiftEndTime, '17:00')
+                      );
+                END");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup] TeacherAttendances stream re-classification patch failed: {ex.Message}");
+        }
+
         // Separate School vs Coaching Stream column on StudentAttendances
         try
         {

@@ -767,7 +767,7 @@ public class AttendanceController : ControllerBase
             return Ok(new { message = "Hostel resident biometric attendance captured.", attendanceId = record.Id, student = student.StudentName });
         }
 
-        var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
+        var teacher = await _db.Teachers.Include(t => t.BatchAssignments).FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
         if (teacher == null)
         {
             eventLog.Status = "Failed";
@@ -776,12 +776,24 @@ public class AttendanceController : ControllerBase
             return NotFound(new { message = eventLog.ErrorMessage });
         }
 
+        var todayTeacherRecords = await _db.TeacherAttendances
+            .Where(a => a.TeacherId == teacher.Id && a.AttendanceDate == indiaTime.Date)
+            .ToListAsync();
+        var (resolvedTeacherStream, _) = ResolveBiometricTeacherStream(teacher, indiaTime, settings, todayTeacherRecords);
+
         var teacherRecord = await _db.TeacherAttendances.FirstOrDefaultAsync(a =>
             (dto.EventId != null && a.BiometricEventId == dto.EventId) ||
-            (a.TeacherId == teacher.Id && a.AttendanceDate == dto.EventTime.Date));
+            (a.TeacherId == teacher.Id && a.AttendanceDate == indiaTime.Date && a.Stream == resolvedTeacherStream));
         if (teacherRecord == null)
         {
-            teacherRecord = new TeacherAttendance { TenantId = _currentUser.TenantId, BranchId = teacher.BranchId ?? _currentUser.BranchId, TeacherId = teacher.Id, AttendanceDate = dto.EventTime.Date };
+            teacherRecord = new TeacherAttendance
+            {
+                TenantId = _currentUser.TenantId,
+                BranchId = teacher.BranchId ?? _currentUser.BranchId,
+                TeacherId = teacher.Id,
+                AttendanceDate = indiaTime.Date,
+                Stream = resolvedTeacherStream
+            };
             _db.TeacherAttendances.Add(teacherRecord);
         }
 
@@ -796,18 +808,13 @@ public class AttendanceController : ControllerBase
         else
             teacherRecord.CheckInTime ??= indiaTime.ToString("HH:mm");
 
-        // Solution B: Smart attendance evaluation for teacher biometric punch
-        string teacherShiftScope = "school";
-        if (indiaTime.Hour < 8 || indiaTime.Hour >= 16)
-        {
-            teacherShiftScope = indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning";
-        }
+        // Dynamic smart attendance evaluation strictly scoped to the record's resolved Stream + CheckInTime
         teacherRecord.Status = TeachersController.EvaluateSmartAttendanceStatus(
             TeacherAttendanceStatus.Present,
             teacherRecord.CheckInTime,
             teacherRecord.CheckOutTime,
             settings,
-            teacherShiftScope);
+            teacherRecord.Stream);
 
         // Biometric Conflict Resolution: Check if teacher had an approved leave on this date
         var approvedLeave = await _db.TeacherLeaves.FirstOrDefaultAsync(l =>
@@ -1613,6 +1620,15 @@ public class AttendanceController : ControllerBase
         {
             eventLog.PersonType = "student";
             var resolvedStream = ResolveBiometricStudentStream(student, indiaTime, settings);
+            var activeStudentMode = resolvedStream == "Coaching" ? settings?.CoachingMode : settings?.StudentMode;
+            if (string.Equals(activeStudentMode, "Manual", StringComparison.OrdinalIgnoreCase))
+            {
+                eventLog.Status = "Skipped";
+                eventLog.ErrorMessage = $"Biometric skipped: {resolvedStream} attendance mode is set to Manual Only.";
+                await _db.SaveChangesAsync();
+                return Ok(new { message = eventLog.ErrorMessage, skipped = true });
+            }
+
             var record = await _db.StudentAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
                 a.TenantId == resolvedTenantId && a.StudentId == student.Id && a.AttendanceDate == istDate && a.Stream == resolvedStream);
 
@@ -1687,6 +1703,7 @@ public class AttendanceController : ControllerBase
 
         // Check Teacher next (by Biometric ID, Employee Code, or RFID Card No)
         var teacher = await _db.Teachers.IgnoreQueryFilters()
+            .Include(t => t.BatchAssignments)
             .FirstOrDefaultAsync(t => t.TenantId == resolvedTenantId &&
                 (t.BiometricUserId == punchId ||
                  t.EmployeeCode == punchId ||
@@ -1695,8 +1712,20 @@ public class AttendanceController : ControllerBase
         if (teacher != null)
         {
             eventLog.PersonType = "teacher";
-            var record = await _db.TeacherAttendances.IgnoreQueryFilters().FirstOrDefaultAsync(a =>
-                a.TenantId == resolvedTenantId && a.TeacherId == teacher.Id && a.AttendanceDate == istDate);
+            if (string.Equals(settings?.TeacherMode, "Manual", StringComparison.OrdinalIgnoreCase))
+            {
+                eventLog.Status = "Skipped";
+                eventLog.ErrorMessage = "Biometric skipped: Staff & Faculty attendance mode is set to Manual Only.";
+                await _db.SaveChangesAsync();
+                return Ok(new { message = eventLog.ErrorMessage, skipped = true });
+            }
+
+            var todayTeacherRecords = await _db.TeacherAttendances.IgnoreQueryFilters()
+                .Where(a => a.TenantId == resolvedTenantId && a.TeacherId == teacher.Id && a.AttendanceDate == istDate)
+                .ToListAsync();
+
+            var (resolvedStream, _) = ResolveBiometricTeacherStream(teacher, indiaTime, settings, todayTeacherRecords);
+            var record = todayTeacherRecords.FirstOrDefault(a => a.Stream == resolvedStream);
 
             if (record == null)
             {
@@ -1706,6 +1735,7 @@ public class AttendanceController : ControllerBase
                     BranchId = teacher.BranchId ?? resolvedBranchId,
                     TeacherId = teacher.Id,
                     AttendanceDate = istDate,
+                    Stream = resolvedStream,
                     CheckInTime = indiaTime.ToString("HH:mm"),
                     Status = TeacherAttendanceStatus.Present,
                     CaptureSource = "Biometric",
@@ -1739,18 +1769,13 @@ public class AttendanceController : ControllerBase
                 record.CapturedAt = eventTime;
             }
 
-            // Solution B: Smart attendance evaluation for teacher Hikvision punch
-            string teacherShiftScope = "school";
-            if (indiaTime.Hour < 8 || indiaTime.Hour >= 16)
-            {
-                teacherShiftScope = indiaTime.Hour >= 12 ? "coaching_evening" : "coaching_morning";
-            }
+            // Dynamic smart attendance evaluation strictly scoped to record.Stream + CheckInTime (never Check-Out hour)
             record.Status = TeachersController.EvaluateSmartAttendanceStatus(
                 TeacherAttendanceStatus.Present,
                 record.CheckInTime,
                 record.CheckOutTime,
                 settings,
-                teacherShiftScope);
+                record.Stream);
 
             eventLog.Status = "Processed";
             eventLog.AttendanceId = record.Id;
@@ -1822,6 +1847,75 @@ public class AttendanceController : ControllerBase
         }
 
         return "School";
+    }
+
+    /// <summary>
+    /// Dynamically resolves whether a teacher biometric punch belongs to School or Coaching
+    /// based strictly on AttendanceSettings timings and open/closed sessions for the day.
+    /// </summary>
+    private static (string Stream, string ShiftScope) ResolveBiometricTeacherStream(
+        Teacher teacher,
+        DateTime indiaTime,
+        AttendanceSettings? settings,
+        List<TeacherAttendance> todayRecords)
+    {
+        var punchMin = indiaTime.Hour * 60 + indiaTime.Minute;
+
+        static int? TryParseMin(string? hhmm)
+        {
+            if (string.IsNullOrWhiteSpace(hhmm)) return null;
+            var p = hhmm.Trim().Split(':');
+            if (p.Length >= 2 && int.TryParse(p[0], out var h) && int.TryParse(p[1], out var m))
+                return h * 60 + m;
+            return null;
+        }
+
+        var schoolStart = TryParseMin(settings?.TeacherShiftStartTime) ?? 480;
+        var schoolEnd = TryParseMin(settings?.TeacherShiftEndTime) ?? 1020;
+        var cMornStart = TryParseMin(settings?.CoachingMorningStartTime);
+        var cMornEnd = TryParseMin(settings?.CoachingMorningEndTime);
+        var cEveStart = TryParseMin(settings?.CoachingEveningStartTime);
+
+        var schoolRec = todayRecords.FirstOrDefault(r => string.Equals(r.Stream, "School", StringComparison.OrdinalIgnoreCase));
+        var coachingRec = todayRecords.FirstOrDefault(r => string.Equals(r.Stream, "Coaching", StringComparison.OrdinalIgnoreCase));
+
+        // 1. If Coaching Morning session is already open (checked in, not yet checked out) and punch is before School starts
+        if (coachingRec != null && string.IsNullOrEmpty(coachingRec.CheckOutTime) && punchMin < schoolStart)
+        {
+            return ("Coaching", "coaching_morning");
+        }
+
+        // 2. If School session is already open (checked in, not yet checked out) -> this punch is School Check-Out
+        if (schoolRec != null && string.IsNullOrEmpty(schoolRec.CheckOutTime))
+        {
+            return ("School", "school");
+        }
+
+        // 3. Post-School Coaching: School record is fully checked out AND punch happens at/after school shift end boundary
+        //    OR no school record at all and punch is clearly after school shift has ended for the day
+        var postSchoolBoundary = cEveStart.HasValue ? Math.Min(schoolEnd, cEveStart.Value) : schoolEnd;
+        if (schoolRec != null && !string.IsNullOrEmpty(schoolRec.CheckOutTime) && punchMin >= postSchoolBoundary - 15)
+        {
+            // School is done for the day, teacher punching again → Coaching (Evening / Post-School)
+            return ("Coaching", "coaching_evening");
+        }
+
+        // 4. Pre-School Morning Coaching: ONLY if tenant explicitly configured a CoachingMorningStartTime
+        //    AND CoachingMorningEndTime is strictly before school starts (morning-only coaching slot)
+        //    AND punch falls squarely inside that pre-school morning window
+        //    AND teacher has active coaching batch assignments
+        //    NOTE: If coaching is always post-school (no morning window configured), this condition is never met.
+        bool hasCoachingBatches = teacher.BatchAssignments != null && teacher.BatchAssignments.Any(b => b.IsActive);
+        if (hasCoachingBatches && cMornStart.HasValue && cMornEnd.HasValue && cMornEnd.Value < schoolStart)
+        {
+            if (punchMin >= cMornStart.Value && punchMin < cMornEnd.Value)
+            {
+                return ("Coaching", "coaching_morning");
+            }
+        }
+
+        // Default: School shift — first punch of the day before school ends always goes to School
+        return ("School", "school");
     }
 
     private static bool IsValidMode(string mode) =>

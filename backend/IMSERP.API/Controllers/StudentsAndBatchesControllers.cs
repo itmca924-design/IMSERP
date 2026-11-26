@@ -289,6 +289,13 @@ public class StudentsController : ControllerBase
         return !string.Equals(settings?.StudentMode, "Biometric", StringComparison.OrdinalIgnoreCase);
     }
 
+    private async Task<bool> IsManualCoachingAttendanceAllowedAsync()
+    {
+        var settings = await _dbContext.AttendanceSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == _currentUser.TenantId);
+        return !string.Equals(settings?.CoachingMode, "Biometric", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task<bool> HasAttendancePermissionAsync(string route, bool edit)
     {
         var user = await _dbContext.Users.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
@@ -1597,8 +1604,8 @@ public class StudentsController : ControllerBase
         if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
             return Forbid();
 
-        if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+        if (!await IsManualCoachingAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual coaching attendance is disabled. Current mode is Biometric." });
 
         var today = GetIstToday();
         var rawDate = dto.AttendanceDate != default ? dto.AttendanceDate : (dto.Date ?? default);
@@ -1708,8 +1715,8 @@ public class StudentsController : ControllerBase
         if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
             return Forbid();
 
-        if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+        if (!await IsManualCoachingAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual coaching attendance is disabled. Current mode is Biometric." });
 
         if (dto.AttendanceDates == null || dto.AttendanceDates.Count == 0)
             return BadRequest(new { message = "No attendance dates selected." });
@@ -1884,8 +1891,8 @@ public class StudentsController : ControllerBase
         if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
             return Forbid();
 
-        if (!await IsManualAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
+        if (!await IsManualCoachingAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual coaching attendance is disabled. Current mode is Biometric." });
 
         var today = GetIstToday();
         var rawDate = dto.AttendanceDate != default ? dto.AttendanceDate : (dto.Date ?? default);
