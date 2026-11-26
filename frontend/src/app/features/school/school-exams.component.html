@@ -343,28 +343,27 @@
                       </button>
                     }
                   </div>
-                  <!-- Secondary Utility Action Row -->
-                  <div class="card-action-row-secondary">
+                  <!-- Agentic AI Paper & Hall Seating Quick Row -->
+                  <div class="card-ai-tools-row">
                     <button
                       type="button"
-                      class="bypass-link-btn"
-                      style="color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe;"
+                      class="ai-tool-pill ai-paper-pill"
                       (click)="openAiPaperStudio(exam)"
-                      matTooltip="Generate, Approve & Print Set A/B/C Question Paper & Answer Key with Agentic AI"
-                      matButton="filled">
-                      <mat-icon style="font-size: 15px; width: 15px; height: 15px; margin-right: 4px;">auto_awesome</mat-icon>
-                      <span>AI Question Paper</span>
+                      matTooltip="Generate, Approve & Print Set A/B/C Question Paper & Answer Key with Agentic AI">
+                      <mat-icon>auto_awesome</mat-icon>
+                      <span>AI Paper</span>
                     </button>
                     <button
                       type="button"
-                      class="bypass-link-btn"
-                      style="color: #0f766e; background: #f0fdfa; border: 1px solid #99f6e4;"
+                      class="ai-tool-pill hall-seating-pill"
                       (click)="openSeatingStudio(exam)"
-                      matTooltip="Allocate Exam Halls, Invigilators, Auto Seats & Print Attendance Sheets"
-                      matButton="filled">
-                      <mat-icon style="font-size: 15px; width: 15px; height: 15px; margin-right: 4px;">event_seat</mat-icon>
+                      matTooltip="Allocate Exam Halls, Invigilators, Auto Seats & Print Attendance Sheets">
+                      <mat-icon>event_seat</mat-icon>
                       <span>Hall &amp; Seating</span>
                     </button>
+                  </div>
+                  <!-- Secondary Utility Action Row -->
+                  <div class="card-action-row-secondary">
                     <!-- For unassigned exams: allow direct oral entry link -->
                     @if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {
                       <button
@@ -982,8 +981,8 @@
             </div>
           }
           <!-- Search filter inside modal -->
-          <div class="modal-search-bar">
-            <mat-form-field appearance="outline" class="compact-field">
+          <div class="modal-search-bar" style="display: flex; align-items: center; gap: 14px; width: 100%;">
+            <mat-form-field appearance="outline" class="compact-field" style="flex: 1 1 auto; width: 100%; max-width: none;">
               <mat-label>Filter Student by Name or Roll #</mat-label>
               <input matInput [(ngModel)]="marksFilterText" placeholder="Type student name...">
               @if (marksFilterText) {
@@ -992,7 +991,7 @@
                 </button>
               }
             </mat-form-field>
-            <div class="marks-count-label">
+            <div class="marks-count-label" style="white-space: nowrap; flex-shrink: 0;">
               Showing {{ filteredMarksList.length }} of {{ marksList.length }} students
             </div>
           </div>
@@ -1002,9 +1001,9 @@
               <table class="marks-input-table">
                 <thead>
                   <tr>
-                    <th style="width: 60px;">Roll #</th>
-                    <th style="width: 105px;">Adm #</th>
-                    <th style="min-width: 130px;">Student Name</th>
+                    <th style="width: 60px; white-space: nowrap;">Roll #</th>
+                    <th style="min-width: 136px; white-space: nowrap;">Adm #</th>
+                    <th style="min-width: 150px;">Student Name</th>
                     <th style="width: 75px; text-align: center;">Absent?</th>
                     <th style="width: 115px; text-align: center;">Marks</th>
                     <th style="width: 65px; text-align: center;">Max</th>
@@ -1016,8 +1015,8 @@
                 <tbody>
                   @for (item of filteredMarksList; track item) {
                     <tr [class.row-absent]="item.isAbsent" [class.row-fail]="!item.isAbsent && !item.isPassed && item.marksObtained !== null">
-                      <td>{{ item.schoolRollNumber || '-' }}</td>
-                      <td>{{ item.admissionNumber }}</td>
+                      <td style="white-space: nowrap;">{{ item.schoolRollNumber || '-' }}</td>
+                      <td style="white-space: nowrap; font-variant-numeric: tabular-nums;">{{ item.admissionNumber }}</td>
                       <td>
                         <strong>{{ item.studentName }}</strong>
                       </td>
@@ -1028,8 +1027,14 @@
                         <input
                           type="number"
                           class="marks-num-input"
+                          data-school-marks-input="true"
                           [(ngModel)]="item.marksObtained"
                           (input)="onMarksChanged(item)"
+                          (focus)="onSchoolMarksFocus(item, $event)"
+                          (blur)="onSchoolMarksBlur(item)"
+                          (keydown.enter)="focusAdjacentSchoolMarksInput($event, 1)"
+                          (keydown.arrowdown)="focusAdjacentSchoolMarksInput($event, 1)"
+                          (keydown.arrowup)="focusAdjacentSchoolMarksInput($event, -1)"
                           [disabled]="item.isAbsent || !!activeExamForMarks.isMarksLocked"
                           [min]="0"
                           [max]="activeExamForMarks.maxMarks"

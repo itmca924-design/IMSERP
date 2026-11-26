@@ -999,10 +999,12 @@ export interface AttendanceStudentRow {
 
     .roll-badge {
       display: inline-block;
-      padding: 4px 8px;
+      padding: 4px 10px;
       background: #eff6ff;
       color: #1d4ed8;
       border-radius: 6px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
       font-weight: 700;
       font-size: 0.82rem;
       border: 1px solid #dbeafe;
@@ -1287,7 +1289,7 @@ export class CoachingAttendanceComponent implements OnInit, OnDestroy {
 
   // Column Resizing state
   colWidths: Record<string, number> = {
-    rollNo: 120,
+    rollNo: 140,
     studentName: 320,
     status: 290,
     remarks: 220,

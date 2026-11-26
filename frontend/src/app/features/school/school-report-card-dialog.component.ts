@@ -1,12 +1,17 @@
 import { Component, Inject, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { environment } from '../../../environments/environment';
 import {
   SchoolService,
   ConsolidatedStudentResultDto,
@@ -37,6 +42,7 @@ export interface ExamRoutineItem {
   dateStr: string;
   dayStr: string;
   timeStr: string;
+  durationStr: string;
   maxMarks: number;
   roomNo: string;
 }
@@ -46,9 +52,12 @@ export interface ExamRoutineItem {
   standalone: true,
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
     MatTooltipModule,
     MatChipsModule,
     MatDividerModule,
@@ -69,6 +78,12 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
   todayDate = '';
   sendingWhatsApp = false;
   logoImgFailed = false;
+
+  // Auto-synced Hall & Seating lookup + User Manual Override controls
+  seatLookupMap = new Map<string, { roomName: string; seatNumber: string; examStartTime?: string; examEndTime?: string }>();
+  syncedSeatCount = 0;
+  manualHallControl = new FormControl('');
+  manualTimingControl = new FormControl('');
 
   get instituteLogo(): string | null {
     return this.authService.getInstituteLogoUrl();
@@ -99,7 +114,8 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
     @Inject(MAT_DIALOG_DATA) public data: SchoolReportCardDialogData,
     private schoolService: SchoolService,
     private authService: AuthService,
-    private confirmDialog: ConfirmDialogService
+    private confirmDialog: ConfirmDialogService,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
@@ -141,6 +157,87 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
         this.studentsToRender = [this.activeStudent];
       }
     }
+
+    this.loadSyncedExamSeating();
+  }
+
+  private loadSyncedExamSeating(): void {
+    const testIds = (this.data.exams || []).map(e => e.id).filter(Boolean);
+    if (testIds.length === 0) return;
+
+    this.http.post<any>(`${environment.apiUrl}/coaching-ai-exam/seating/by-tests`, { testIds }).subscribe({
+      next: res => {
+        this.seatLookupMap.clear();
+        const list = res?.seats || [];
+        for (const s of list) {
+          this.seatLookupMap.set(`${s.testId}_${s.studentId}`, {
+            roomName: s.roomName,
+            seatNumber: s.seatNumber,
+            examStartTime: s.examStartTime,
+            examEndTime: s.examEndTime
+          });
+        }
+        this.syncedSeatCount = list.length;
+      },
+      error: () => {}
+    });
+  }
+
+  resetManualOverrides(): void {
+    this.manualHallControl.setValue('');
+    this.manualTimingControl.setValue('');
+  }
+
+  private formatTime12h(hhmm?: string): string {
+    if (!hhmm) return '';
+    const parts = hhmm.trim().split(':');
+    if (parts.length < 2) return hhmm;
+    let h = parseInt(parts[0], 10);
+    const m = parts[1].substring(0, 2);
+    if (isNaN(h)) return hhmm;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  private computeDurationLabel(rangeOrStart?: string, endTime?: string): string {
+    const parseTimeToken = (tok: string): number | null => {
+      const m = tok.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const ampm = m[3]?.toUpperCase();
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h * 60 + min;
+    };
+
+    let startMin: number | null = null;
+    let endMin: number | null = null;
+
+    if (rangeOrStart && endTime) {
+      startMin = parseTimeToken(rangeOrStart);
+      endMin = parseTimeToken(endTime);
+    } else if (rangeOrStart && rangeOrStart.includes('-')) {
+      const parts = rangeOrStart.split('-');
+      if (parts.length >= 2) {
+        startMin = parseTimeToken(parts[0]);
+        endMin = parseTimeToken(parts[1]);
+      }
+    }
+
+    if (startMin !== null && endMin !== null) {
+      let diff = endMin - startMin;
+      if (diff <= 0) diff += 12 * 60;
+      if (diff > 0 && diff <= 720) {
+        const hrs = Math.floor(diff / 60);
+        const mins = diff % 60;
+        if (hrs > 0 && mins > 0) return `${hrs} ${hrs === 1 ? 'Hr' : 'Hrs'} ${mins} Mins`;
+        if (hrs > 0) return `${hrs} ${hrs === 1 ? 'Hr' : 'Hrs'}`;
+        return `${mins} Mins`;
+      }
+    }
+    return '3 Hrs';
   }
 
   getViewTitle(): string {
@@ -351,8 +448,13 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
   // ─── Admit Card Helpers ───
   getExamRoutine(st: ConsolidatedStudentResultDto): ExamRoutineItem[] {
     const list: ExamRoutineItem[] = [];
-    const subjects = st.subjectDetails?.length > 0 ? st.subjectDetails.map(s => s.subject) : this.data.subjects;
     const exams = this.data.exams || [];
+    const subjects = st.subjectDetails?.length > 0
+      ? st.subjectDetails.map(s => s.subject)
+      : (this.data.subjects?.length > 0 ? this.data.subjects : exams.map(e => e.subject));
+
+    const manualHall = (this.manualHallControl.value || '').trim();
+    const manualTiming = (this.manualTimingControl.value || '').trim();
 
     const baseDate = new Date();
     baseDate.setDate(baseDate.getDate() + ((1 + 7 - baseDate.getDay()) % 7 || 7));
@@ -374,15 +476,33 @@ export class SchoolReportCardDialogComponent implements OnInit, OnDestroy {
       }
 
       const maxMarks = matchedExam?.maxMarks || (st.subjectDetails?.find(s => s.subject === sub)?.maxMarks) || 100;
+      const syncedSeat = matchedExam ? this.seatLookupMap.get(`${matchedExam.id}_${st.studentId}`) : undefined;
+
+      const resolvedRoom = manualHall
+        ? manualHall
+        : (syncedSeat ? `${syncedSeat.roomName} (Seat: ${syncedSeat.seatNumber})` : 'As Allotted');
+
+      const resolvedTime = manualTiming
+        ? manualTiming
+        : (syncedSeat?.examStartTime && syncedSeat?.examEndTime
+            ? `${this.formatTime12h(syncedSeat.examStartTime)} - ${this.formatTime12h(syncedSeat.examEndTime)}`
+            : '09:30 AM - 12:30 PM');
+
+      const durationStr = manualTiming
+        ? this.computeDurationLabel(manualTiming)
+        : (syncedSeat?.examStartTime && syncedSeat?.examEndTime
+            ? this.computeDurationLabel(syncedSeat.examStartTime, syncedSeat.examEndTime)
+            : '3 Hrs');
 
       list.push({
         slNo: i + 1,
         subject: sub,
         dateStr,
         dayStr,
-        timeStr: '09:30 AM - 12:45 PM (1st Shift)',
+        timeStr: resolvedTime,
+        durationStr,
         maxMarks,
-        roomNo: `Hall-${String.fromCharCode(65 + (i % 3))} / Rm ${101 + (i % 5)}`
+        roomNo: resolvedRoom
       });
     });
 

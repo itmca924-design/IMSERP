@@ -297,9 +297,14 @@ export class SchoolExamsComponent implements OnInit {
   }
 
   loadTeachers(): void {
-    this.schoolService.getTeachers().subscribe({
+    this.schoolService.getTeachers(true, 'Teaching').subscribe({
       next: (teachers) => {
-        this.teachers = teachers || [];
+        this.teachers = (teachers || []).filter((t: any) => {
+          const st = String(t.staffType || '').toLowerCase();
+          if (st && st !== 'teaching' && st !== '1') return false;
+          const meta = `${t.department || ''} ${t.designation || ''} ${t.fullName || ''}`;
+          return !/\b(accountant|accounts|reception|clerk|peon|driver|guard|security|librarian|helper|sweeper|office\s*boy)\b/i.test(meta);
+        });
       },
       error: () => {
         this.teachers = [];
@@ -719,6 +724,41 @@ export class SchoolExamsComponent implements OnInit {
   }
 
   // ─── Marks Entry Modal ─────────────────────────────
+
+  onSchoolMarksFocus(item: any, event: FocusEvent): void {
+    if (!item || item.isAbsent || this.activeExamForMarks?.isMarksLocked) return;
+    const input = event.target as HTMLInputElement | null;
+    if (item.marksObtained === 0 || item.marksObtained === '0') {
+      item.marksObtained = null;
+      if (input) input.value = '';
+    } else if (input) {
+      setTimeout(() => input.select(), 0);
+    }
+  }
+
+  onSchoolMarksBlur(item: any): void {
+    if (!item) return;
+    if (item.marksObtained === null || item.marksObtained === undefined || item.marksObtained === '') {
+      item.marksObtained = 0;
+      this.onMarksChanged(item);
+    }
+  }
+
+  focusAdjacentSchoolMarksInput(event: Event, delta: number): void {
+    event.preventDefault();
+    const current = event.target as HTMLInputElement | null;
+    if (!current) return;
+    const allInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('input[data-school-marks-input="true"]:not(:disabled)')
+    );
+    const idx = allInputs.indexOf(current);
+    if (idx === -1) return;
+    const next = allInputs[idx + delta];
+    if (next) {
+      next.focus();
+      next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
 
   openMarksEntry(exam: SchoolExamDto): void {
     if (!exam.isMarksLocked && (exam.evaluationStatus === 'Scheduled' || !exam.evaluatorTeacherId)) {

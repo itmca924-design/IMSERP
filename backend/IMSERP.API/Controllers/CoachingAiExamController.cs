@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using IMSERP.API.Services;
 using IMSERP.Application.Interfaces;
 using IMSERP.Domain.Entities;
+using IMSERP.Domain.Enums;
 using IMSERP.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -596,12 +597,23 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             .Select(r => new { r.Id, r.RoomNumber, r.Capacity, r.Floor, r.BranchId })
             .ToListAsync();
 
-        var teachers = await _db.Teachers
+        var rawTeachers = await _db.Teachers
             .AsNoTracking()
-            .Where(t => t.TenantId == _currentUser.TenantId && t.IsActive)
+            .Where(t => t.TenantId == _currentUser.TenantId && t.IsActive && t.EmploymentType != "Deleted" && t.StaffType == StaffType.Teaching)
             .OrderBy(t => t.FullName)
-            .Select(t => new { t.Id, t.FullName, t.EmployeeCode })
+            .Select(t => new { t.Id, t.FullName, t.EmployeeCode, t.StaffType, t.Department, t.Designation })
             .ToListAsync();
+
+        var nonTeachingTokens = new[] { "account", "clerk", "peon", "driver", "conductor", "guard", "cashier", "reception", "librarian", "sweeper", "security", "gatekeeper", "warden", "supervisor", "hr manager" };
+        var teachers = rawTeachers
+            .Where(t =>
+            {
+                var blob = $"{t.FullName} {t.Department} {t.Designation}".ToLowerInvariant();
+                return !nonTeachingTokens.Any(tok => blob.Contains(tok)) &&
+                       !(t.EmployeeCode ?? string.Empty).StartsWith("ACC", StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(t => new { t.Id, t.FullName, t.EmployeeCode, staffType = t.StaffType.ToString() })
+            .ToList();
 
         var halls = await _db.CoachingExamHallAllocations
             .AsNoTracking()
@@ -824,6 +836,50 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             absentCount = seats.Count(s => s.AttendanceStatus == "Absent"),
             totalCount = seats.Count
         });
+    }
+
+    [HttpPost("seating/by-tests")]
+    public async Task<IActionResult> GetSeatingByTests([FromBody] SeatingByTestsRequest req)
+    {
+        if (!await HasCoachingTestPermissionAsync(MenuPermissionOperation.View))
+            return Forbid();
+
+        var ids = (req.TestIds ?? new List<Guid>()).Distinct().ToList();
+        if (ids.Count == 0) return Ok(new { seats = Array.Empty<object>() });
+
+        var hallTimes = await _db.CoachingExamHallAllocations
+            .AsNoTracking()
+            .Where(h => h.TenantId == _currentUser.TenantId && ids.Contains(h.TestId))
+            .ToDictionaryAsync(h => h.Id, h => new { h.ExamStartTime, h.ExamEndTime });
+
+        var seats = await _db.CoachingExamSeatAllocations
+            .AsNoTracking()
+            .Where(s => s.TenantId == _currentUser.TenantId && ids.Contains(s.TestId))
+            .Select(s => new
+            {
+                s.TestId,
+                s.StudentId,
+                s.HallAllocationId,
+                s.RoomName,
+                s.SeatNumber
+            })
+            .ToListAsync();
+
+        var enriched = seats.Select(s =>
+        {
+            hallTimes.TryGetValue(s.HallAllocationId, out var ht);
+            return new
+            {
+                s.TestId,
+                s.StudentId,
+                s.RoomName,
+                s.SeatNumber,
+                examStartTime = ht?.ExamStartTime,
+                examEndTime = ht?.ExamEndTime
+            };
+        }).ToList();
+
+        return Ok(new { seats = enriched });
     }
 
     // ─── 9. Phase 3: Coaching Weekly Marksheet, Rank & AI Remarks ─────────
@@ -1421,4 +1477,9 @@ public class UpdateExamHallAttendanceRequest
 {
     public bool SyncCopyBundleCount { get; set; } = true;
     public List<ExamHallAttendanceItem> Items { get; set; } = new();
+}
+
+public class SeatingByTestsRequest
+{
+    public List<Guid> TestIds { get; set; } = new();
 }

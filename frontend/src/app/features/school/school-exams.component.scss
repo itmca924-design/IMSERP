@@ -669,6 +669,56 @@
       }
     }
 
+    .card-ai-tools-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+      margin-top: 6px;
+
+      .ai-tool-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        text-decoration: none;
+        transition: all 0.16s ease;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      .ai-paper-pill {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        &:hover {
+          background: #dbeafe;
+          border-color: #93c5fd;
+        }
+      }
+
+      .hall-seating-pill {
+        background: #f0fdfa;
+        color: #0f766e;
+        border: 1px solid #99f6e4;
+        &:hover {
+          background: #ccfbf1;
+          border-color: #5eead4;
+        }
+      }
+    }
+
     .card-action-row-secondary {
       display: flex;
       align-items: center;

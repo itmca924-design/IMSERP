@@ -571,7 +571,12 @@ export class CoachingExamSeatingDialogComponent implements OnInit {
         this.loadingMessage = '';
         this.enrolledCount = res?.enrolledCount || 0;
         this.rooms = res?.rooms || [];
-        this.teachers = res?.teachers || [];
+        this.teachers = (res?.teachers || []).filter((t: any) => {
+          const st = String(t.staffType || '').toLowerCase();
+          if (st && st !== 'teaching' && st !== '1') return false;
+          const meta = `${t.fullName || ''} ${t.department || ''} ${t.designation || ''} ${t.employeeCode || ''}`;
+          return !/\b(accountant|accounts|acc-|clerk|peon|driver|guard|security|librarian|helper|sweeper|reception|warden|supervisor)\b/i.test(meta);
+        });
         this.halls = res?.halls || [];
         this.seats = res?.seats || [];
 

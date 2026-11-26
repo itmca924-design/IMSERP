@@ -5470,7 +5470,12 @@ export class TestsComponent implements OnInit, OnDestroy {
   loadTeachers(): void {
     this.coachingService.getTeachers().subscribe({
       next: list => {
-        this.teachersList = list || [];
+        this.teachersList = (list || []).filter((t: any) => {
+          const st = String(t.staffType || '').toLowerCase();
+          if (st && st !== 'teaching' && st !== '1') return false;
+          const meta = `${t.department || ''} ${t.designation || ''} ${t.fullName || ''}`;
+          return !/\b(accountant|accounts|reception|clerk|peon|driver|guard|security|librarian|helper|sweeper|office\s*boy)\b/i.test(meta);
+        });
         this.filteredTeachers = [...this.teachersList];
       },
       error: err => console.error('Error loading teachers:', err)

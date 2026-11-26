@@ -345,6 +345,31 @@
     <!-- VIEW 2: EXAM CARD / ADMIT CARD (हॉल टिकट / प्रवेश पत्र)         -->
     <!-- ═════════════════════════════════════════════════════════════════ -->
     @if (currentView === 'admit_card') {
+      <!-- Auto-Sync & Manual Override Bar for Exam Hall / Timing (Hidden during Print) -->
+      <div class="admit-override-bar no-print" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;margin:0 auto 14px;max-width:860px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;color:#1e3a8a;">
+          <mat-icon style="font-size:18px;width:18px;height:18px;color:#2563eb;">event_seat</mat-icon>
+          @if (syncedSeatCount > 0) {
+            <span style="color:#15803d;">Hall &amp; Seating Auto-Synced ({{ syncedSeatCount }} seats)</span>
+          } @else {
+            <span>Hall &amp; Timing (Optional Manual Override)</span>
+          }
+        </div>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1 1 200px;background:#fff;border-radius:6px;">
+          <mat-label>Manual Hall / Room Override</mat-label>
+          <input matInput [formControl]="manualHallControl" placeholder="Leave blank for Auto-Sync (e.g. Room 101)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1 1 200px;background:#fff;border-radius:6px;">
+          <mat-label>Manual Timing / Shift Override</mat-label>
+          <input matInput [formControl]="manualTimingControl" placeholder="e.g. 09:00 AM - 11:30 AM" />
+        </mat-form-field>
+        @if (manualHallControl.value || manualTimingControl.value) {
+          <button type="button" mat-stroked-button (click)="resetManualOverrides()" style="height:36px;font-size:0.78rem;">
+            <mat-icon style="font-size:16px;width:16px;height:16px;">restart_alt</mat-icon> Reset Auto-Sync
+          </button>
+        }
+      </div>
+
       @for (st of studentsToRender; track st; let sIdx = $index) {
         <div class="admit-card-page" [class.page-break-always]="isBulkMode && sIdx < studentsToRender.length - 1">
           <!-- Admit Card Header -->
@@ -428,9 +453,8 @@
                   <th class="th-date">Date &amp; Day</th>
                   <th class="th-sub">Subject / Paper</th>
                   <th class="th-time">Timing / Shift</th>
-                  <th class="th-max">Max Marks</th>
+                  <th class="th-max">Duration</th>
                   <th class="th-room">Hall / Room</th>
-                  <th class="th-invig">Invigilator Sign</th>
                 </tr>
               </thead>
               <tbody>
@@ -443,9 +467,8 @@
                     </td>
                     <td class="td-subject"><strong>{{ item.subject }}</strong></td>
                     <td class="td-time">{{ item.timeStr }}</td>
-                    <td class="td-center">{{ item.maxMarks }}</td>
+                    <td class="td-center">{{ item.durationStr }}</td>
                     <td class="td-room">{{ item.roomNo }}</td>
-                    <td class="td-invig"></td>
                   </tr>
                 }
               </tbody>
