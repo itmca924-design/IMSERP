@@ -409,7 +409,7 @@ export interface CalendarDayItem {
                     <td>
                       <span class="source-tag">{{ a.captureSource || 'Manual' }}</span>
                       @if (a.stream) {
-                        <span class="source-tag" style="margin-left: 4px; background: #e0f2fe; color: #0369a1;">{{ a.stream }}</span>
+                        <span class="source-tag" style="margin-left: 4px; background: #e0f2fe; color: #0369a1;">{{ a.stream === 'CoachingMorning' ? 'Coaching (Morning)' : (a.stream === 'CoachingEvening' ? 'Coaching (Evening)' : a.stream) }}</span>
                       }
                     </td>
                     <td>

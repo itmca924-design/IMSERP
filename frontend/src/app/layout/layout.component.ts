@@ -425,9 +425,9 @@ export interface BreadcrumbItem {
                 </button>
               }
               @if (headerSearchFocused && headerSearchResults.length > 0) {
-                <div class="search-results">
+                <div class="search-results" (click)="$event.stopPropagation()">
                   @for (result of headerSearchResults; track result.route) {
-                    <a [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="headerSearch = ''; headerSearchFocused = false">
+                    <a [routerLink]="result.route" (mousedown)="$event.preventDefault()" (click)="onSearchResultClick($event)">
                       <mat-icon>{{ result.icon }}</mat-icon><span>{{ translationService.translate(result.title) }}</span>
                     </a>
                   }
@@ -4048,12 +4048,19 @@ export class LayoutComponent implements OnInit {
   }
 
   @ViewChild('headerSearchInput') headerSearchInput?: ElementRef<HTMLInputElement>;
+  private openSearchTimer?: ReturnType<typeof setTimeout>;
+  private closeSearchTimer?: ReturnType<typeof setTimeout>;
 
   openAndFocusSearch(): void {
+    if (this.closeSearchTimer) {
+      clearTimeout(this.closeSearchTimer);
+      this.closeSearchTimer = undefined;
+    }
     if (this.headerSearchFocused) return;
     this.headerSearchFocused = true;
     this.onSearchFocus();
-    setTimeout(() => {
+    if (this.openSearchTimer) clearTimeout(this.openSearchTimer);
+    this.openSearchTimer = setTimeout(() => {
       this.headerSearchInput?.nativeElement?.focus();
     }, 50);
   }
@@ -4065,15 +4072,39 @@ export class LayoutComponent implements OnInit {
     }
   }
 
-  closeHeaderSearchImmediate(event: MouseEvent): void {
+  onSearchResultClick(event: MouseEvent): void {
     event.stopPropagation();
+    if (this.openSearchTimer) {
+      clearTimeout(this.openSearchTimer);
+      this.openSearchTimer = undefined;
+    }
+    if (this.closeSearchTimer) {
+      clearTimeout(this.closeSearchTimer);
+      this.closeSearchTimer = undefined;
+    }
     this.headerSearch = '';
     this.headerSearchFocused = false;
+    this.headerSearchResults = [];
+    this.headerSearchInput?.nativeElement?.blur();
+  }
+
+  closeHeaderSearchImmediate(event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.openSearchTimer) {
+      clearTimeout(this.openSearchTimer);
+      this.openSearchTimer = undefined;
+    }
+    this.headerSearch = '';
+    this.headerSearchFocused = false;
+    this.headerSearchResults = [];
     this.headerSearchInput?.nativeElement?.blur();
   }
 
   closeHeaderSearch(): void {
-    setTimeout(() => this.headerSearchFocused = false, 250);
+    if (this.closeSearchTimer) clearTimeout(this.closeSearchTimer);
+    this.closeSearchTimer = setTimeout(() => {
+      this.headerSearchFocused = false;
+    }, 250);
   }
 
   loadHeaderBranches(): void {
@@ -4146,6 +4177,15 @@ export class LayoutComponent implements OnInit {
       const url = e.urlAfterRedirects || e.url || this.router.url;
       this.updateBreadcrumbs(url);
       this.updateActiveMenuPanel(url);
+      // Close search dropdown on every navigation
+      if (this.openSearchTimer) {
+        clearTimeout(this.openSearchTimer);
+        this.openSearchTimer = undefined;
+      }
+      this.headerSearchFocused = false;
+      this.headerSearch = '';
+      this.headerSearchResults = [];
+      this.headerSearchInput?.nativeElement?.blur();
     });
     this.loadCurrentTenant();
     this.loadUserProfile();

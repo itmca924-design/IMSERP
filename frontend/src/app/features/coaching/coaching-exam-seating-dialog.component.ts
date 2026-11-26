@@ -36,6 +36,10 @@ interface SeatRow {
   seatNumber: string;
   benchNumber: number;
   attendanceStatus: 'Scheduled' | 'Present' | 'Absent' | string;
+  punchCheckInTime?: string | null;
+  punchSource?: string | null;
+  dailyAttendanceStatus?: string | null;
+  isAutoFilledFromBiometric?: boolean;
 }
 
 interface HallRow {
@@ -227,12 +231,14 @@ interface HallRow {
                 <span class="stat-chip total">Total: {{ seats.length }}</span>
                 <span class="stat-chip present">Present: {{ presentSeatCount }}</span>
                 <span class="stat-chip absent">Absent: {{ absentSeatCount }}</span>
+                <div class="filter-pills">
+                  <button type="button" class="filter-pill" [class.active]="seatFilter === 'all'" (click)="seatFilter = 'all'">All ({{ seats.length }})</button>
+                  <button type="button" class="filter-pill" [class.active]="seatFilter === 'punched'" (click)="seatFilter = 'punched'">Punched / Present ({{ punchedSeatCount }})</button>
+                  <button type="button" class="filter-pill" [class.active]="seatFilter === 'unpunched'" (click)="seatFilter = 'unpunched'">Not Punched ({{ unpunchedSeatCount }})</button>
+                </div>
               </div>
               @if (data.canEdit) {
                 <div class="att-btns">
-                  <button type="button" mat-stroked-button (click)="markAllExamStatus('Present')">
-                    <mat-icon>done_all</mat-icon> Mark All Present
-                  </button>
                   <button type="button" mat-flat-button color="primary" (click)="saveExamAttendance()" [disabled]="loading">
                     <mat-icon>save</mat-icon> Save Attendance &amp; Sync Copy Bundle
                   </button>
@@ -265,25 +271,46 @@ interface HallRow {
                     </thead>
                     <tbody>
                       @for (s of group.seats; track s.studentId) {
-                        <tr>
+                        <tr [class.row-auto-present]="s.isAutoFilledFromBiometric" [class.row-scheduled]="s.attendanceStatus === 'Scheduled'">
                           <td><span class="seat-pill">{{ s.seatNumber }}</span></td>
                           <td>Bench #{{ s.benchNumber }}</td>
                           <td><code>{{ s.rollNumber || '—' }}</code></td>
-                          <td><strong>{{ s.studentName }}</strong></td>
+                          <td>
+                            <div class="student-name-cell">
+                              <div class="sname-line">
+                                <strong>{{ s.studentName }}</strong>
+                                @if (s.isAutoFilledFromBiometric) {
+                                  <span class="bio-sync-tag auto-filled" [matTooltip]="'Biometric punch at ' + formatTime(s.punchCheckInTime)">
+                                    &#x1F7E2; Bio In: {{ formatTime(s.punchCheckInTime) }}
+                                  </span>
+                                } @else if (s.dailyAttendanceStatus) {
+                                  <span class="bio-sync-tag">
+                                    {{ s.punchSource === 'Biometric' ? 'Bio' : 'Daily' }} &bull; {{ s.punchCheckInTime ? formatTime(s.punchCheckInTime) : s.dailyAttendanceStatus }}
+                                  </span>
+                                }
+                              </div>
+                              @if (s.parentPhone) {
+                                <div class="parent-phone">&#x1F4DE; {{ s.parentPhone }}</div>
+                              }
+                            </div>
+                          </td>
                           <td>
                             <div class="att-toggle-group">
+                              @if (s.attendanceStatus === 'Scheduled') {
+                                <span class="scheduled-label">—</span>
+                              }
                               <button
                                 type="button"
                                 class="att-btn"
                                 [disabled]="!data.canEdit"
                                 [class.active-present]="s.attendanceStatus === 'Present'"
-                                (click)="setSeatAttendance(s, 'Present')">Present</button>
+                                (click)="setSeatAttendance(s, 'Present')">P</button>
                               <button
                                 type="button"
                                 class="att-btn"
                                 [disabled]="!data.canEdit"
                                 [class.active-absent]="s.attendanceStatus === 'Absent'"
-                                (click)="setSeatAttendance(s, 'Absent')">Absent</button>
+                                (click)="setSeatAttendance(s, 'Absent')">A</button>
                             </div>
                           </td>
                         </tr>
@@ -437,6 +464,23 @@ interface HallRow {
       &.present { background: #dcfce7; color: #15803d; }
       &.absent { background: #fee2e2; color: #b91c1c; }
     }
+    .filter-pills { display: inline-flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
+    .filter-pill {
+      padding: 3px 10px; border-radius: 999px; border: 1px solid #cbd5e1; background: #f8fafc;
+      color: #475569; font-size: 0.74rem; font-weight: 600; cursor: pointer;
+      &.active { background: #1e3a8a; border-color: #1e3a8a; color: #ffffff; }
+    }
+    .student-name-cell { display: flex; flex-direction: column; gap: 2px; }
+    .sname-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .bio-sync-tag {
+      font-size: 0.7rem; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+      background: #e0f2fe; color: #0369a1;
+      &.auto-filled { background: #dcfce7; color: #15803d; }
+    }
+    .parent-phone { font-size: 0.72rem; color: #64748b; }
+    .scheduled-label { font-size: 0.72rem; color: #94a3b8; font-weight: 600; }
+    .row-auto-present { background: #f0fdf4 !important; }
+    .row-scheduled { background: #fafafa; }
 
     .hall-group-card {
       background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
@@ -542,6 +586,8 @@ export class CoachingExamSeatingDialogComponent implements OnInit {
     return this.hallsArray.controls.reduce((sum, c) => sum + (Number(c.get('capacity')?.value) || 0), 0);
   }
 
+  seatFilter: 'all' | 'punched' | 'unpunched' = 'all';
+
   get presentSeatCount(): number {
     return this.seats.filter(s => s.attendanceStatus === 'Present').length;
   }
@@ -550,9 +596,22 @@ export class CoachingExamSeatingDialogComponent implements OnInit {
     return this.seats.filter(s => s.attendanceStatus === 'Absent').length;
   }
 
+  get punchedSeatCount(): number {
+    return this.seats.filter(s => !!s.dailyAttendanceStatus || s.attendanceStatus === 'Present').length;
+  }
+
+  get unpunchedSeatCount(): number {
+    return this.seats.filter(s => !s.dailyAttendanceStatus && s.attendanceStatus !== 'Present').length;
+  }
+
   get groupedByHall(): { roomName: string; invigilatorName: string; seats: SeatRow[] }[] {
+    const filtered = this.seats.filter(s => {
+      if (this.seatFilter === 'punched') return !!s.dailyAttendanceStatus || s.attendanceStatus === 'Present';
+      if (this.seatFilter === 'unpunched') return !s.dailyAttendanceStatus && s.attendanceStatus !== 'Present';
+      return true;
+    });
     const map = new Map<string, SeatRow[]>();
-    for (const s of this.seats) {
+    for (const s of filtered) {
       if (!map.has(s.roomName)) map.set(s.roomName, []);
       map.get(s.roomName)!.push(s);
     }
@@ -675,6 +734,12 @@ export class CoachingExamSeatingDialogComponent implements OnInit {
     });
   }
 
+  /** Format "09:04:00" or "09:04" → first 5 chars HH:mm */
+  formatTime(val: string | null | undefined): string {
+    if (!val) return '';
+    return val.substring(0, 5);
+  }
+
   setSeatAttendance(s: SeatRow, status: 'Present' | 'Absent'): void {
     s.attendanceStatus = status;
     this.cdr.markForCheck();
@@ -682,6 +747,15 @@ export class CoachingExamSeatingDialogComponent implements OnInit {
 
   markAllExamStatus(status: 'Present' | 'Absent'): void {
     this.seats.forEach(s => s.attendanceStatus = status);
+    this.cdr.markForCheck();
+  }
+
+  markRemainingAbsent(): void {
+    this.seats.forEach(s => {
+      if (s.attendanceStatus !== 'Present') {
+        s.attendanceStatus = 'Absent';
+      }
+    });
     this.cdr.markForCheck();
   }
 

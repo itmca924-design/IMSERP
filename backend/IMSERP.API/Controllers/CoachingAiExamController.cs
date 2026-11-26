@@ -621,14 +621,44 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             .OrderBy(h => h.SortOrder)
             .ToListAsync();
 
-        var seats = await _db.CoachingExamSeatAllocations
+        var rawSeats = await _db.CoachingExamSeatAllocations
             .AsNoTracking()
             .Include(s => s.Student)
             .Where(s => s.TenantId == _currentUser.TenantId && s.TestId == testId)
             .OrderBy(s => s.RoomName)
             .ThenBy(s => s.BenchNumber)
             .ThenBy(s => s.SeatNumber)
-            .Select(s => new
+            .ToListAsync();
+
+        var seatStudentIds = rawSeats.Select(s => s.StudentId).Distinct().ToList();
+        string targetStream = isSchoolTest ? "School" : "Coaching";
+        var examDate = test.TestDate.Date;
+
+        var dailyAttendanceMap = seatStudentIds.Count > 0
+            ? (await _db.StudentAttendances
+                .AsNoTracking()
+                .Where(a => a.TenantId == _currentUser.TenantId
+                         && seatStudentIds.Contains(a.StudentId)
+                         && a.AttendanceDate == examDate
+                         && a.Stream == targetStream)
+                .ToListAsync())
+                .GroupBy(a => a.StudentId)
+                .ToDictionary(g => g.Key, g => g.First())
+            : new Dictionary<Guid, StudentAttendance>();
+
+        var seats = rawSeats.Select(s =>
+        {
+            dailyAttendanceMap.TryGetValue(s.StudentId, out var dailyAtt);
+            bool isDailyPresent = dailyAtt != null && (
+                dailyAtt.Status == TeacherAttendanceStatus.Present ||
+                dailyAtt.Status == TeacherAttendanceStatus.Late ||
+                dailyAtt.Status == TeacherAttendanceStatus.HalfDay);
+
+            // Auto-fill "Present" only when seat is still unmarked ("Scheduled") and student punched/present on exam date
+            bool isAutoFilled = string.Equals(s.AttendanceStatus, "Scheduled", StringComparison.OrdinalIgnoreCase) && isDailyPresent;
+            string effectiveStatus = isAutoFilled ? "Present" : s.AttendanceStatus;
+
+            return new
             {
                 s.Id,
                 s.HallAllocationId,
@@ -644,15 +674,19 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
                 parentPhone = s.Student != null ? s.Student.ParentWhatsAppPhone : "",
                 s.SeatNumber,
                 s.BenchNumber,
-                s.AttendanceStatus
-            })
-            .ToListAsync();
+                attendanceStatus = effectiveStatus,
+                punchCheckInTime = dailyAtt?.CheckInTime,
+                punchSource = dailyAtt?.CaptureSource,
+                dailyAttendanceStatus = isDailyPresent ? dailyAtt!.Status.ToString() : null,
+                isAutoFilledFromBiometric = isAutoFilled
+            };
+        }).ToList();
 
         int enrolledCount = 0;
         if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
         {
             enrolledCount = await _db.Students.AsNoTracking()
-                .CountAsync(s => s.TenantId == _currentUser.TenantId && s.BatchId == test.BatchId && s.IsActive);
+                .CountAsync(s => s.TenantId == _currentUser.TenantId && s.BatchId == test.BatchId && s.IsActive && s.IsCoachingStudent);
         }
         else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
         {
@@ -702,7 +736,7 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
         bool isSchoolTest = (!test.BatchId.HasValue || test.BatchId.Value == Guid.Empty) && test.ClassId.HasValue;
 
         if (test.BatchId.HasValue && test.BatchId.Value != Guid.Empty)
-            studentsQuery = studentsQuery.Where(s => s.BatchId == test.BatchId.Value);
+            studentsQuery = studentsQuery.Where(s => s.BatchId == test.BatchId.Value && s.IsCoachingStudent);
         else if (test.ClassId.HasValue && test.ClassId.Value != Guid.Empty)
         {
             studentsQuery = studentsQuery.Where(s => s.ClassId == test.ClassId.Value && s.IsSchoolStudent);
@@ -760,6 +794,21 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
             _db.CoachingExamHallAllocations.Add(hallEntity);
         }
 
+        var allocStudentIds = students.Select(s => s.Id).ToList();
+        string allocStream = isSchoolTest ? "School" : "Coaching";
+        var allocExamDate = test.TestDate.Date;
+        var punchedStudentIds = (await _db.StudentAttendances
+            .AsNoTracking()
+            .Where(a => a.TenantId == _currentUser.TenantId
+                     && allocStudentIds.Contains(a.StudentId)
+                     && a.AttendanceDate == allocExamDate
+                     && a.Stream == allocStream
+                     && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late || a.Status == TeacherAttendanceStatus.HalfDay))
+            .Select(a => a.StudentId)
+            .Distinct()
+            .ToListAsync())
+            .ToHashSet();
+
         // Distribute students sequentially across halls
         int studentIdx = 0;
         for (int hi = 0; hi < newHalls.Count && studentIdx < students.Count; hi++)
@@ -780,7 +829,7 @@ Note: Only include 4 options for MCQ type; for non-MCQ types use empty array [].
                     StudentId = st.Id,
                     SeatNumber = $"{prefix}-{seatInHall:D2}",
                     BenchNumber = (seatInHall + 1) / 2,
-                    AttendanceStatus = "Scheduled",
+                    AttendanceStatus = punchedStudentIds.Contains(st.Id) ? "Present" : "Scheduled",
                     UpdatedAt = DateTime.UtcNow
                 });
             }

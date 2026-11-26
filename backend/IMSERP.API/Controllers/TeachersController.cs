@@ -5309,6 +5309,8 @@ public class TeachersController : ControllerBase
             return declaredStatus;
 
         var isCoaching = string.Equals(scopeOrShift, "coaching", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "CoachingMorning", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(scopeOrShift, "CoachingEvening", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
 
@@ -5321,8 +5323,12 @@ public class TeachersController : ControllerBase
             var schoolEndMin = ParseTimeToMinutes(settings?.TeacherShiftEndTime ?? "17:00") ?? 1020;
             var mornEndMin = ParseTimeToMinutes(settings?.CoachingMorningEndTime ?? "10:00") ?? 600;
             var eveStartMin = ParseTimeToMinutes(settings?.CoachingEveningStartTime ?? "16:00") ?? 960;
-            var isEveningCoaching = string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase) ||
-                (!string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase) &&
+            var isExplicitMorning = string.Equals(scopeOrShift, "CoachingMorning", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(scopeOrShift, "coaching_morning", StringComparison.OrdinalIgnoreCase);
+            var isExplicitEvening = string.Equals(scopeOrShift, "CoachingEvening", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(scopeOrShift, "coaching_evening", StringComparison.OrdinalIgnoreCase);
+            var isEveningCoaching = isExplicitEvening ||
+                (!isExplicitMorning &&
                  (inMin.Value >= eveStartMin - 90 || inMin.Value > Math.Max(mornEndMin + 60, schoolEndMin - 15)));
 
             if (isEveningCoaching)

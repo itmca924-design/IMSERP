@@ -767,7 +767,7 @@ public class AttendanceController : ControllerBase
             return Ok(new { message = "Hostel resident biometric attendance captured.", attendanceId = record.Id, student = student.StudentName });
         }
 
-        var teacher = await _db.Teachers.Include(t => t.BatchAssignments).FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
+        var teacher = await _db.Teachers.Include(t => t.BatchAssignments).ThenInclude(a => a.Batch).FirstOrDefaultAsync(t => t.BiometricUserId == dto.BiometricUserId);
         if (teacher == null)
         {
             eventLog.Status = "Failed";
@@ -1703,7 +1703,7 @@ public class AttendanceController : ControllerBase
 
         // Check Teacher next (by Biometric ID, Employee Code, or RFID Card No)
         var teacher = await _db.Teachers.IgnoreQueryFilters()
-            .Include(t => t.BatchAssignments)
+            .Include(t => t.BatchAssignments).ThenInclude(a => a.Batch)
             .FirstOrDefaultAsync(t => t.TenantId == resolvedTenantId &&
                 (t.BiometricUserId == punchId ||
                  t.EmployeeCode == punchId ||
@@ -1876,45 +1876,85 @@ public class AttendanceController : ControllerBase
         var cMornEnd = TryParseMin(settings?.CoachingMorningEndTime);
         var cEveStart = TryParseMin(settings?.CoachingEveningStartTime);
 
-        var schoolRec = todayRecords.FirstOrDefault(r => string.Equals(r.Stream, "School", StringComparison.OrdinalIgnoreCase));
-        var coachingRec = todayRecords.FirstOrDefault(r => string.Equals(r.Stream, "Coaching", StringComparison.OrdinalIgnoreCase));
+        var activeBatches = teacher.BatchAssignments?
+            .Where(a => a.IsActive && a.Batch != null && !a.Batch.IsDeleted)
+            .Select(a => a.Batch!)
+            .ToList() ?? new List<Batch>();
 
-        // 1. If Coaching Morning session is already open (checked in, not yet checked out) and punch is before School starts
-        if (coachingRec != null && string.IsNullOrEmpty(coachingRec.CheckOutTime) && punchMin < schoolStart)
+        // Determine if teacher actually teaches Morning Coaching vs Evening/Afternoon Coaching from their assigned batches
+        var morningBatches = activeBatches.Where(b =>
         {
-            return ("Coaching", "coaching_morning");
+            var bStart = TryParseMin(b.StartTime);
+            return string.Equals(b.Shift, "Morning", StringComparison.OrdinalIgnoreCase) ||
+                   (bStart.HasValue && bStart.Value < schoolStart);
+        }).ToList();
+
+        var eveningBatches = activeBatches.Where(b =>
+        {
+            var bStart = TryParseMin(b.StartTime);
+            return string.Equals(b.Shift, "Evening", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(b.Shift, "Afternoon", StringComparison.OrdinalIgnoreCase) ||
+                   (bStart.HasValue && bStart.Value >= schoolEnd - 30);
+        }).ToList();
+
+        bool hasMorningBatch = morningBatches.Count > 0;
+        bool hasEveningBatch = eveningBatches.Count > 0;
+
+        // Effective Morning Coaching window (prefer teacher's actual assigned morning batch bounds if set, else global settings)
+        int? effMornStart = morningBatches.Select(b => TryParseMin(b.StartTime)).Where(v => v.HasValue).Min() ?? cMornStart;
+        int? effMornEnd = morningBatches.Select(b => TryParseMin(b.EndTime)).Where(v => v.HasValue).Max() ?? cMornEnd;
+
+        var mornRec = todayRecords.FirstOrDefault(r =>
+            string.Equals(r.Stream, "CoachingMorning", StringComparison.OrdinalIgnoreCase) ||
+            (string.Equals(r.Stream, "Coaching", StringComparison.OrdinalIgnoreCase) &&
+             (TryParseMin(r.CheckInTime) ?? schoolStart) < schoolStart));
+        var schoolRec = todayRecords.FirstOrDefault(r => string.Equals(r.Stream, "School", StringComparison.OrdinalIgnoreCase));
+        var eveRec = todayRecords.FirstOrDefault(r =>
+            string.Equals(r.Stream, "CoachingEvening", StringComparison.OrdinalIgnoreCase) ||
+            (string.Equals(r.Stream, "Coaching", StringComparison.OrdinalIgnoreCase) &&
+             (TryParseMin(r.CheckInTime) ?? 0) >= schoolEnd - 30));
+
+        // 1. If Morning Coaching session is already OPEN (checked in, no check-out) and punch is before School starts
+        if (mornRec != null && string.IsNullOrEmpty(mornRec.CheckOutTime) && punchMin < schoolStart - 15)
+        {
+            return (mornRec.Stream, "coaching_morning");
         }
 
-        // 2. If School session is already open (checked in, not yet checked out) -> this punch is School Check-Out
+        // 2. If School session is already OPEN (checked in, no check-out) -> this punch is School Check-Out
         if (schoolRec != null && string.IsNullOrEmpty(schoolRec.CheckOutTime))
         {
             return ("School", "school");
         }
 
-        // 3. Post-School Coaching: School record is fully checked out AND punch happens at/after school shift end boundary
-        //    OR no school record at all and punch is clearly after school shift has ended for the day
-        var postSchoolBoundary = cEveStart.HasValue ? Math.Min(schoolEnd, cEveStart.Value) : schoolEnd;
-        if (schoolRec != null && !string.IsNullOrEmpty(schoolRec.CheckOutTime) && punchMin >= postSchoolBoundary - 15)
+        // 3. If Evening Coaching session is already OPEN (checked in, no check-out) -> this punch is Evening Coaching Check-Out
+        if (eveRec != null && string.IsNullOrEmpty(eveRec.CheckOutTime))
         {
-            // School is done for the day, teacher punching again → Coaching (Evening / Post-School)
-            return ("Coaching", "coaching_evening");
+            return (eveRec.Stream, "coaching_evening");
         }
 
-        // 4. Pre-School Morning Coaching: ONLY if tenant explicitly configured a CoachingMorningStartTime
-        //    AND CoachingMorningEndTime is strictly before school starts (morning-only coaching slot)
-        //    AND punch falls squarely inside that pre-school morning window
-        //    AND teacher has active coaching batch assignments
-        //    NOTE: If coaching is always post-school (no morning window configured), this condition is never met.
-        bool hasCoachingBatches = teacher.BatchAssignments != null && teacher.BatchAssignments.Any(b => b.IsActive);
-        if (hasCoachingBatches && cMornStart.HasValue && cMornEnd.HasValue && cMornEnd.Value < schoolStart)
+        // 4. Pre-School Morning Coaching Check-In:
+        //    Only if teacher has an active Morning Coaching batch, no Morning Coaching record yet today,
+        //    morning window ends at or before school starts, and punch falls inside that morning window.
+        if (hasMorningBatch && mornRec == null && effMornStart.HasValue && effMornEnd.HasValue && effMornEnd.Value <= schoolStart)
         {
-            if (punchMin >= cMornStart.Value && punchMin < cMornEnd.Value)
+            if (punchMin >= Math.Max(0, effMornStart.Value - 30) && punchMin < effMornEnd.Value)
             {
-                return ("Coaching", "coaching_morning");
+                return ("CoachingMorning", "coaching_morning");
             }
         }
 
-        // Default: School shift — first punch of the day before school ends always goes to School
+        // 5. Post-School Evening Coaching Check-In:
+        //    Either School is already checked out and punch is at/after post-school boundary,
+        //    OR teacher has no School record today and punches after School Shift End Time (evening-only coaching faculty).
+        var postSchoolBoundary = cEveStart.HasValue ? Math.Min(schoolEnd, cEveStart.Value) : schoolEnd;
+        if (eveRec == null &&
+            ((schoolRec != null && !string.IsNullOrEmpty(schoolRec.CheckOutTime) && punchMin >= postSchoolBoundary - 15) ||
+             (schoolRec == null && punchMin >= schoolEnd && (hasEveningBatch || cEveStart.HasValue))))
+        {
+            return ("CoachingEvening", "coaching_evening");
+        }
+
+        // Default: School shift (first punch before school ends always routes to School)
         return ("School", "school");
     }
 

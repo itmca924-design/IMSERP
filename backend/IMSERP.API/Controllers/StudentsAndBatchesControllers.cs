@@ -360,7 +360,7 @@ public class StudentsController : ControllerBase
             query = query.Where(s => s.SectionId == sectionId.Value);
 
         if (batchId.HasValue && batchId != Guid.Empty)
-            query = query.Where(s => s.BatchId == batchId.Value);
+            query = query.Where(s => s.BatchId == batchId.Value && s.IsCoachingStudent);
 
         var list = await query
             .OrderBy(s => s.SchoolRollNumber)
@@ -1532,7 +1532,7 @@ public class StudentsController : ControllerBase
 
         var students = await _dbContext.Students
             .AsNoTracking()
-            .Where(s => s.TenantId == tenantId && s.BatchId == batchId && s.IsActive 
+            .Where(s => s.TenantId == tenantId && s.BatchId == batchId && s.IsActive && s.IsCoachingStudent
                      && (s.JoiningDate == default || s.JoiningDate.Date <= targetDate))
             .OrderBy(s => !string.IsNullOrEmpty(s.CoachingRollNumber) ? s.CoachingRollNumber : s.RollNumber)
             .ThenBy(s => s.StudentName)
@@ -1891,8 +1891,8 @@ public class StudentsController : ControllerBase
         if (!await HasAttendancePermissionAsync("/attendance/permissions/manual", false))
             return Forbid();
 
-        if (!await IsManualCoachingAttendanceAllowedAsync())
-            return Conflict(new { message = "Manual coaching attendance is disabled. Current mode is Biometric." });
+        if (!await IsManualAttendanceAllowedAsync())
+            return Conflict(new { message = "Manual student attendance is disabled. Current mode is Biometric." });
 
         var today = GetIstToday();
         var rawDate = dto.AttendanceDate != default ? dto.AttendanceDate : (dto.Date ?? default);
@@ -2599,7 +2599,7 @@ public class StudentsController : ControllerBase
 
         if (batchId.HasValue && batchId != Guid.Empty)
         {
-            query = query.Where(s => s.BatchId == batchId.Value);
+            query = query.Where(s => s.BatchId == batchId.Value && s.IsCoachingStudent);
         }
         else if (unallocatedBatchOnly == true)
         {
@@ -5864,7 +5864,7 @@ public class BatchesController : ControllerBase
                 b.Subject,
                 b.AcademicYear,
                 b.StandardMonthlyFee,
-                b.Students.Count,
+                b.Students.Count(s => s.IsActive && !s.IsDeleted && s.IsCoachingStudent),
                 b.BranchId,
                 b.Branch != null ? b.Branch.Name : null,
                 b.RoomId,
@@ -5944,7 +5944,7 @@ public class BatchesController : ControllerBase
                 b.Subject,
                 b.AcademicYear,
                 b.StandardMonthlyFee,
-                b.Students.Count,
+                b.Students.Count(s => s.IsActive && !s.IsDeleted && s.IsCoachingStudent),
                 b.BranchId,
                 b.Branch != null ? b.Branch.Name : null,
                 b.RoomId,
