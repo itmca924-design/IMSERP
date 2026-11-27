@@ -1075,6 +1075,15 @@ public class AutomationSettings
     public string? WhatsAppCloudApiToken { get; set; }
     public string? WhatsAppPhoneNumberId { get; set; }
     public string? WhatsAppBusinessAccountId { get; set; }
+    public int FeeDueReminderStartDay { get; set; } = 5;
+    public int FeeDueReminderEndDay { get; set; } = 10;
+    public int WhatsAppDailyMessageLimit { get; set; } = 250;
+    public string? WhatsAppFeeReminderTemplateName { get; set; }
+    public string? WhatsAppFeeReminderTemplateLanguage { get; set; } = "en";
+    public string? WhatsAppAbsentAlertTemplateName { get; set; }
+    public string? WhatsAppAbsentAlertTemplateLanguage { get; set; } = "en";
+    public string? WhatsAppFeeReceiptTemplateName { get; set; }
+    public string? WhatsAppFeeReceiptTemplateLanguage { get; set; } = "en";
 
     public bool BiometricSyncEnabled { get; set; } = true;
     public DateTime? LastBiometricSyncAt { get; set; }

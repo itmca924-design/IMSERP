@@ -50,6 +50,11 @@ public class AutomationService : IAutomationService
         if (dto.WhatsAppCloudApiToken != null) settings.WhatsAppCloudApiToken = dto.WhatsAppCloudApiToken.Trim();
         if (dto.WhatsAppPhoneNumberId != null) settings.WhatsAppPhoneNumberId = dto.WhatsAppPhoneNumberId.Trim();
         if (dto.WhatsAppBusinessAccountId != null) settings.WhatsAppBusinessAccountId = dto.WhatsAppBusinessAccountId.Trim();
+        settings.FeeDueReminderStartDay = Math.Clamp(dto.FeeDueReminderStartDay > 0 ? dto.FeeDueReminderStartDay : 5, 1, 28);
+        settings.FeeDueReminderEndDay = Math.Clamp(dto.FeeDueReminderEndDay > 0 ? dto.FeeDueReminderEndDay : 10, 1, 28);
+        settings.WhatsAppDailyMessageLimit = Math.Max(0, dto.WhatsAppDailyMessageLimit);
+        settings.WhatsAppFeeReminderTemplateName = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReminderTemplateName) ? null : dto.WhatsAppFeeReminderTemplateName.Trim();
+        settings.WhatsAppFeeReminderTemplateLanguage = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReminderTemplateLanguage) ? "en_US" : dto.WhatsAppFeeReminderTemplateLanguage.Trim();
         settings.BiometricSyncEnabled = dto.BiometricSyncEnabled;
         settings.LateFeeAutoComputeEnabled = dto.LateFeeAutoComputeEnabled;
         settings.LateFeeDailyRate = Math.Max(0, dto.LateFeeDailyRate);
@@ -101,6 +106,9 @@ public class AutomationService : IAutomationService
         // Find students marked absent today
         var absentAttendances = await _db.StudentAttendances
             .Include(a => a.Student)
+                .ThenInclude(s => s!.Class)
+            .Include(a => a.Student)
+                .ThenInclude(s => s!.Batch)
             .Where(a => a.TenantId == tenantId &&
                         a.AttendanceDate.Date == today &&
                         a.Status == TeacherAttendanceStatus.Absent)
@@ -125,8 +133,8 @@ public class AutomationService : IAutomationService
 
             if (!alreadySent)
             {
-                var roll = !string.IsNullOrWhiteSpace(student.RollNumber) ? student.RollNumber : student.AdmissionNumber ?? "";
-                var ok = await _whatsAppService.SendAbsenteeAlertAsync(tenantId, student.ParentWhatsAppPhone, student.StudentName, roll, todayStr);
+                var classLabel = student.Class?.Name ?? student.Batch?.Name ?? (!string.IsNullOrWhiteSpace(student.RollNumber) ? $"Roll #{student.RollNumber}" : "School");
+                var ok = await _whatsAppService.SendAbsenteeAlertAsync(tenantId, student.ParentWhatsAppPhone, student.StudentName, classLabel, todayStr);
                 if (ok)
                 {
                     sentCount++;
@@ -171,6 +179,47 @@ public class AutomationService : IAutomationService
         var istZone = GetIstTimeZone();
         var today = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
 
+        // 1. Dynamic Reminder Window Check (configured per tenant from SuperAdmin Platform)
+        int startDay = Math.Clamp(settings.FeeDueReminderStartDay > 0 ? settings.FeeDueReminderStartDay : 5, 1, 28);
+        int endDay = Math.Clamp(settings.FeeDueReminderEndDay > 0 ? settings.FeeDueReminderEndDay : 10, 1, 28);
+        bool inWindow = startDay <= endDay
+            ? (today.Day >= startDay && today.Day <= endDay)
+            : (today.Day >= startDay || today.Day <= endDay);
+
+        if (!inWindow)
+        {
+            return new RunAutomationJobResultDto(
+                JobName: "Fee Due Auto-Reminders",
+                Success: true,
+                Message: $"Skipped: Today (Day {today.Day}) is outside configured reminder window (Day {startDay}–{endDay}).",
+                ProcessedCount: 0,
+                ExecutedAt: DateTime.UtcNow
+            );
+        }
+
+        // 2. Dynamic 24-Hour Rate-Limit Quota Check (0 = unlimited)
+        int dailyLimit = Math.Max(0, settings.WhatsAppDailyMessageLimit);
+        int remainingQuota = int.MaxValue;
+        if (dailyLimit > 0)
+        {
+            var cutoff24h = DateTime.UtcNow.AddHours(-24);
+            var sentLast24h = await _db.WhatsAppLogs.CountAsync(l =>
+                l.TenantId == tenantId &&
+                l.SentAt >= cutoff24h &&
+                !l.Status.Contains("Failed"));
+            remainingQuota = Math.Max(0, dailyLimit - sentLast24h);
+            if (remainingQuota == 0)
+            {
+                return new RunAutomationJobResultDto(
+                    JobName: "Fee Due Auto-Reminders",
+                    Success: true,
+                    Message: $"24-hour WhatsApp limit ({dailyLimit} messages) reached. Remaining students will be processed in the next cycle.",
+                    ProcessedCount: 0,
+                    ExecutedAt: DateTime.UtcNow
+                );
+            }
+        }
+
         var prior = daysPrior ?? settings.FeeDueDaysPrior;
         var thresholdDate = today.AddDays(prior);
 
@@ -192,6 +241,8 @@ public class AutomationService : IAutomationService
 
         foreach (var inv in invoices)
         {
+            if (sentCount >= remainingQuota) break;
+
             var student = inv.Student;
             if (student == null || string.IsNullOrWhiteSpace(student.ParentWhatsAppPhone))
                 continue;
@@ -1036,7 +1087,12 @@ public class AutomationService : IAutomationService
         AdmissionCutoffDay: s.AdmissionCutoffDay,
         AdmissionRolloverPolicy: s.AdmissionRolloverPolicy,
         FinancialYearStartMonth: s.FinancialYearStartMonth,
-        UpdatedAt: s.UpdatedAt
+        UpdatedAt: s.UpdatedAt,
+        FeeDueReminderStartDay: s.FeeDueReminderStartDay > 0 ? s.FeeDueReminderStartDay : 5,
+        FeeDueReminderEndDay: s.FeeDueReminderEndDay > 0 ? s.FeeDueReminderEndDay : 10,
+        WhatsAppDailyMessageLimit: s.WhatsAppDailyMessageLimit >= 0 ? s.WhatsAppDailyMessageLimit : 250,
+        WhatsAppFeeReminderTemplateName: s.WhatsAppFeeReminderTemplateName,
+        WhatsAppFeeReminderTemplateLanguage: string.IsNullOrWhiteSpace(s.WhatsAppFeeReminderTemplateLanguage) ? "en_US" : s.WhatsAppFeeReminderTemplateLanguage
     );
 
     private static TimeZoneInfo GetIstTimeZone()

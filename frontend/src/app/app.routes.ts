@@ -57,6 +57,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then(m => m.LoginComponent)
   },
   {
+    path: 'privacy-policy',
+    loadComponent: () => import('./features/public/privacy-policy.component').then(m => m.PrivacyPolicyComponent)
+  },
+  {
     path: 'receipt/:receiptNumber',
     loadComponent: () => import('./features/fees/public-receipt.component').then(m => m.PublicReceiptComponent)
   },

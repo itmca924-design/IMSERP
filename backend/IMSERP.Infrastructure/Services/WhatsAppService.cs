@@ -31,16 +31,72 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<bool> SendFeeReceiptAsync(Guid tenantId, string recipientPhone, string studentName, string receiptNo, decimal amount, decimal balanceDue)
     {
+        if (string.IsNullOrWhiteSpace(recipientPhone)) return false;
+        var instName = await GetTenantNameAsync(tenantId);
         var content = $"*FEE RECEIPT ACKNOWLEDGMENT*\nDear Parent, We have received payment of *₹{amount:N2}* for *{studentName}*. Receipt No: #{receiptNo}. Remaining Balance Due: ₹{balanceDue:N2}. Thank you!";
-        
-        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.FeeReceipt, content);
+
+        var settings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+
+        var istNow = DateTime.UtcNow.AddHours(5).AddMinutes(30);
+        // Template school_fee_receipt_msg variables: [paid_amount, student_name, receipt_no, payment_date, school_name]
+        var templateParams = new[]
+        {
+            $"₹{amount:N0}",
+            studentName,
+            receiptNo,
+            istNow.ToString("dd-MMM-yyyy"),
+            instName
+        };
+
+        return await SendMetaOrLogAsync(
+            tenantId,
+            recipientPhone,
+            studentName,
+            MessageType.FeeReceipt,
+            content,
+            settings?.WhatsAppFeeReceiptTemplateName,
+            settings?.WhatsAppFeeReceiptTemplateLanguage,
+            templateParams,
+            settings);
     }
 
     public async Task<bool> SendFeeReminderAsync(Guid tenantId, string recipientPhone, string studentName, string invoiceNo, decimal amountDue, DateTime dueDate)
     {
+        if (string.IsNullOrWhiteSpace(recipientPhone)) return false;
+        var instName = await GetTenantNameAsync(tenantId);
         var content = $"*FEE DUE REMINDER*\nDear Parent, This is a gentle reminder that fee of *₹{amountDue:N2}* for *{studentName}* (Inv: #{invoiceNo}) is due on *{dueDate:dd-MMM-yyyy}*. Kindly pay at the earliest.";
-        
-        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.FeeReminder, content);
+
+        var settings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+
+        // Template school_fee_due_msg variables: [due_amount, student_name, class_section, fee_month, due_date, school_name]
+        var templateParams = new[]
+        {
+            $"₹{amountDue:N0}",
+            studentName,
+            "School",
+            dueDate.ToString("MMMM yyyy"),
+            dueDate.ToString("dd-MMM-yyyy"),
+            instName
+        };
+
+        return await SendMetaOrLogAsync(
+            tenantId,
+            recipientPhone,
+            studentName,
+            MessageType.FeeReminder,
+            content,
+            settings?.WhatsAppFeeReminderTemplateName,
+            settings?.WhatsAppFeeReminderTemplateLanguage,
+            templateParams,
+            settings);
     }
 
     public async Task<bool> SendFeeDueWithVoiceAsync(
@@ -98,7 +154,9 @@ public class WhatsAppService : IWhatsAppService
 
         var settings = await _dbContext.AutomationSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
 
         var normalizedPhone = NormalizePhone(recipientPhone);
         string deliveryStatus = "Delivered (Gateway Logged)";
@@ -108,12 +166,40 @@ public class WhatsAppService : IWhatsAppService
             !string.IsNullOrWhiteSpace(settings.WhatsAppCloudApiToken) && 
             !string.IsNullOrWhiteSpace(settings.WhatsAppPhoneNumberId))
         {
-            var metaSent = await DispatchMetaCloudApiAsync(
-                settings.WhatsAppPhoneNumberId,
-                settings.WhatsAppCloudApiToken,
-                normalizedPhone,
-                content
-            );
+            bool metaSent;
+            if (!string.IsNullOrWhiteSpace(settings.WhatsAppFeeReminderTemplateName))
+            {
+                var langCode = !string.IsNullOrWhiteSpace(settings.WhatsAppFeeReminderTemplateLanguage)
+                    ? settings.WhatsAppFeeReminderTemplateLanguage.Trim()
+                    : "en";
+                // Template school_fee_due_msg variables: [due_amount, student_name, class_section, fee_month, due_date, school_name]
+                var templateParams = new[]
+                {
+                    $"₹{amountDue:N0}",
+                    studentName,
+                    cName,
+                    monthName,
+                    dueDate.ToString("dd-MMM-yyyy"),
+                    instName
+                };
+                metaSent = await DispatchMetaCloudTemplateAsync(
+                    settings.WhatsAppPhoneNumberId,
+                    settings.WhatsAppCloudApiToken,
+                    normalizedPhone,
+                    settings.WhatsAppFeeReminderTemplateName.Trim(),
+                    langCode,
+                    templateParams
+                );
+            }
+            else
+            {
+                metaSent = await DispatchMetaCloudApiAsync(
+                    settings.WhatsAppPhoneNumberId,
+                    settings.WhatsAppCloudApiToken,
+                    normalizedPhone,
+                    content
+                );
+            }
 
             deliveryStatus = metaSent ? "Delivered (Meta Cloud API)" : "Delivered (Meta API Failed - Fallback Logged)";
         }
@@ -141,7 +227,9 @@ public class WhatsAppService : IWhatsAppService
     {
         var settings = await _dbContext.AutomationSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
 
         var instName = await GetTenantNameAsync(tenantId);
         var normPhone = NormalizePhone(recipientPhone);
@@ -280,15 +368,99 @@ public class WhatsAppService : IWhatsAppService
 
     public async Task<bool> SendAbsenteeAlertAsync(Guid tenantId, string recipientPhone, string studentName, string rollNumber, string dateStr)
     {
+        if (string.IsNullOrWhiteSpace(recipientPhone)) return false;
         var instName = await GetTenantNameAsync(tenantId);
-        var rollText = !string.IsNullOrWhiteSpace(rollNumber) ? $" (Roll: #{rollNumber})" : "";
+        var classOrRoll = !string.IsNullOrWhiteSpace(rollNumber) ? rollNumber : "School";
         var content = $"*DAILY ABSENTEE ALERT*\n" +
                       $"Dear Parent,\n" +
-                      $"Your ward *{studentName}*{rollText} has been marked *ABSENT* on *{dateStr}*.\n" +
+                      $"Your ward *{studentName}* ({classOrRoll}) has been marked *ABSENT* on *{dateStr}*.\n" +
                       $"If this absence is unplanned or unexplained, kindly contact the institute desk immediately.\n" +
                       $"{instName}.";
 
-        return await LogAndSend(tenantId, recipientPhone, studentName, MessageType.Announcement, content);
+        var settings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .Where(s => s.TenantId == tenantId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+
+        // Template school_absent_alert_msg variables: [student_name, class_section, date, school_name]
+        var templateParams = new[]
+        {
+            studentName,
+            classOrRoll,
+            dateStr,
+            instName
+        };
+
+        return await SendMetaOrLogAsync(
+            tenantId,
+            recipientPhone,
+            studentName,
+            MessageType.Announcement,
+            content,
+            settings?.WhatsAppAbsentAlertTemplateName,
+            settings?.WhatsAppAbsentAlertTemplateLanguage,
+            templateParams,
+            settings);
+    }
+
+    private async Task<bool> SendMetaOrLogAsync(
+        Guid tenantId,
+        string recipientPhone,
+        string studentName,
+        MessageType type,
+        string fallbackContent,
+        string? templateName,
+        string? templateLanguage,
+        string[] templateParams,
+        AutomationSettings? settings)
+    {
+        var normalizedPhone = NormalizePhone(recipientPhone);
+        string deliveryStatus = "Delivered (Gateway Logged)";
+
+        if (settings != null &&
+            !string.IsNullOrWhiteSpace(settings.WhatsAppCloudApiToken) &&
+            !string.IsNullOrWhiteSpace(settings.WhatsAppPhoneNumberId))
+        {
+            bool metaSent;
+            if (!string.IsNullOrWhiteSpace(templateName))
+            {
+                var langCode = !string.IsNullOrWhiteSpace(templateLanguage) ? templateLanguage.Trim() : "en";
+                metaSent = await DispatchMetaCloudTemplateAsync(
+                    settings.WhatsAppPhoneNumberId,
+                    settings.WhatsAppCloudApiToken,
+                    normalizedPhone,
+                    templateName.Trim(),
+                    langCode,
+                    templateParams);
+            }
+            else
+            {
+                metaSent = await DispatchMetaCloudApiAsync(
+                    settings.WhatsAppPhoneNumberId,
+                    settings.WhatsAppCloudApiToken,
+                    normalizedPhone,
+                    fallbackContent);
+            }
+
+            deliveryStatus = metaSent ? "Delivered (Meta Cloud API)" : "Delivered (Meta API Failed - Fallback Logged)";
+        }
+
+        var log = new WhatsAppLog
+        {
+            TenantId = tenantId,
+            RecipientPhone = recipientPhone,
+            StudentName = studentName,
+            MessageType = type,
+            Content = fallbackContent,
+            Status = deliveryStatus,
+            SentAt = DateTime.UtcNow
+        };
+
+        _dbContext.WhatsAppLogs.Add(log);
+        await _dbContext.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task<bool> SendLeaveStatusAlertAsync(Guid tenantId, string recipientPhone, string studentName, string status, DateTime fromDate, DateTime toDate, string? remarks, string reviewerName)
@@ -347,6 +519,63 @@ public class WhatsAppService : IWhatsAppService
         if (digits.Length == 10) return "91" + digits;
         if (digits.Length == 12 && digits.StartsWith("91")) return digits;
         return digits;
+    }
+
+    private async Task<bool> DispatchMetaCloudTemplateAsync(
+        string phoneNumberId,
+        string token,
+        string recipientPhone,
+        string templateName,
+        string languageCode,
+        string[] bodyParameters)
+    {
+        try
+        {
+            var url = $"https://graph.facebook.com/v21.0/{phoneNumberId}/messages";
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var payload = new
+            {
+                messaging_product = "whatsapp",
+                recipient_type = "individual",
+                to = recipientPhone,
+                type = "template",
+                template = new
+                {
+                    name = templateName,
+                    language = new { code = languageCode },
+                    components = bodyParameters.Length > 0
+                        ? new[]
+                        {
+                            new
+                            {
+                                type = "body",
+                                parameters = bodyParameters.Select(p => new { type = "text", text = p }).ToArray()
+                            }
+                        }
+                        : Array.Empty<object>()
+                }
+            };
+
+            request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("✅ [Meta Cloud API Template] '{Template}' sent successfully to {Phone}", templateName, recipientPhone);
+                return true;
+            }
+
+            var errBody = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("⚠️ [Meta Cloud API Template] '{Template}' failed with status {Code}: {Error}", templateName, response.StatusCode, errBody);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [Meta Cloud API Template] Exception occurred while dispatching '{Template}' to {Phone}", templateName, recipientPhone);
+            return false;
+        }
     }
 
     private async Task<bool> DispatchMetaCloudApiAsync(string phoneNumberId, string token, string recipientPhone, string messageBody)

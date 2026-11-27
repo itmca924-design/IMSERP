@@ -438,7 +438,7 @@ import { environment } from '../../../environments/environment';
                   [class.active]="activeModalTab === 'whatsapp'"
                   (click)="activeModalTab = 'whatsapp'" matButton="filled">
                   <mat-icon>chat</mat-icon>
-                  <span>WhatsApp Alerts</span>
+                  <span>WhatsApp Cloud API</span>
                   @if (tenantForm.get('whatsAppPhoneId')?.value) {
                     <span class="tab-status-dot online" matTooltip="WhatsApp Configured"></span>
                   }
@@ -1018,7 +1018,7 @@ import { environment } from '../../../environments/environment';
                                     </div>
                                   </div>
                                 }
-                                <!-- TAB 3: WhatsApp Cloud API -->
+                                <!-- TAB 3: WhatsApp Cloud API & Fee Reminder Policy -->
                                 @if (isEditing && activeModalTab === 'whatsapp') {
                                   <div class="tab-pane">
                                     <div class="wa-config-banner">
@@ -1026,25 +1026,124 @@ import { environment } from '../../../environments/environment';
                                         <mat-icon>chat</mat-icon>
                                       </div>
                                       <div class="wa-banner-text">
-                                        <strong>Meta Cloud WhatsApp API Integration</strong>
-                                        <p>Send automated digital fee receipts, balance due notices, homework alerts, and exam report cards directly to parents' WhatsApp.</p>
+                                        <strong>Meta Cloud WhatsApp API &amp; Fee Reminder Policy</strong>
+                                        <p>Configure per-tenant Meta Cloud API credentials, automated reminder date window, 24-hour dispatch quota, and approved utility template.</p>
                                       </div>
+                                      @if (isSuperAdmin) {
+                                        <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                          <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;"
+                                                [style.background]="waHasPermanentToken ? '#dcfce7' : '#fef3c7'"
+                                                [style.color]="waHasPermanentToken ? '#166534' : '#92400e'">
+                                            {{ waHasPermanentToken ? 'Token Active ✓' : 'No Token Saved' }}
+                                          </span>
+                                          <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; background:#eff6ff; color:#1e40af;">
+                                            24h Sent: {{ waSentLast24Hours }} / {{ tenantForm.get('whatsAppDailyMessageLimit')?.value || '∞' }}
+                                          </span>
+                                        </div>
+                                      }
                                     </div>
                                     <div class="form-grid">
                                       <!-- WhatsApp Phone ID -->
-                                      <mat-form-field appearance="outline" class="span-2">
+                                      <mat-form-field appearance="outline">
                                         <mat-label>WhatsApp Phone Number ID</mat-label>
-                                        <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 104829103982">
+                                        <input matInput formControlName="whatsAppPhoneId" placeholder="e.g. 1515201251676027">
                                         <mat-icon matPrefix>chat</mat-icon>
                                         <mat-hint>Meta Cloud API Phone Number ID</mat-hint>
+                                      </mat-form-field>
+                                      <!-- WhatsApp Business Account ID -->
+                                      <mat-form-field appearance="outline">
+                                        <mat-label>WhatsApp Business Account (WABA) ID</mat-label>
+                                        <input matInput formControlName="whatsAppWabaId" placeholder="e.g. 1177179778071228">
+                                        <mat-icon matPrefix>business</mat-icon>
+                                        <mat-hint>Meta Business WABA ID</mat-hint>
                                       </mat-form-field>
                                       <!-- WhatsApp Access Token -->
                                       <mat-form-field appearance="outline" class="span-2">
                                         <mat-label>WhatsApp Permanent Access Token</mat-label>
-                                        <input matInput formControlName="whatsAppAccessToken" placeholder="Meta Graph API System User Token">
+                                        <input matInput formControlName="whatsAppAccessToken" [placeholder]="waHasPermanentToken ? 'Leave blank to keep existing permanent token' : 'Paste Meta Graph API System User Token'">
                                         <mat-icon matPrefix>security</mat-icon>
-                                        <mat-hint>System User Permanent Token from Meta Business Suite</mat-hint>
+                                        <mat-hint>{{ waHasPermanentToken ? 'Permanent token is already saved. Enter a new token only if rotating.' : 'System User Permanent Token from Meta Business Suite' }}</mat-hint>
                                       </mat-form-field>
+
+                                      @if (isSuperAdmin) {
+                                        <div class="span-2" style="display:flex; gap:18px; flex-wrap:wrap; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+                                          <mat-slide-toggle formControlName="feeDueRemindersEnabled" color="primary">
+                                            <strong>Fee Due Reminders</strong> (Daily 09:00 AM IST)
+                                          </mat-slide-toggle>
+                                          <mat-slide-toggle formControlName="dailyAbsenteeAlertEnabled" color="primary">
+                                            <strong>Daily Absentee Alerts</strong> (10:30 AM IST)
+                                          </mat-slide-toggle>
+                                          <mat-slide-toggle formControlName="whatsAppFeeReceiptsEnabled" color="primary">
+                                            <strong>Auto Fee Receipts</strong>
+                                          </mat-slide-toggle>
+                                          <mat-slide-toggle formControlName="feeDueVoiceNoteEnabled" color="primary">
+                                            <strong>Attach AI Voice Note</strong>
+                                          </mat-slide-toggle>
+                                        </div>
+
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Reminder Window Start Day (1–28)</mat-label>
+                                          <input matInput type="number" min="1" max="28" formControlName="feeDueReminderStartDay">
+                                          <mat-icon matPrefix>date_range</mat-icon>
+                                          <mat-hint>e.g. 5 (starts on 5th of month)</mat-hint>
+                                        </mat-form-field>
+
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Reminder Window End Day (1–28)</mat-label>
+                                          <input matInput type="number" min="1" max="28" formControlName="feeDueReminderEndDay">
+                                          <mat-icon matPrefix>event_available</mat-icon>
+                                          <mat-hint>e.g. 10 (stops after 10th of month)</mat-hint>
+                                        </mat-form-field>
+
+                                        <mat-form-field appearance="outline" class="span-2">
+                                          <mat-label>24-Hour Daily Message Cap</mat-label>
+                                          <input matInput type="number" min="0" formControlName="whatsAppDailyMessageLimit">
+                                          <mat-icon matPrefix>speed</mat-icon>
+                                          <mat-hint>Default: 250 per 24h (0 = Unlimited)</mat-hint>
+                                        </mat-form-field>
+
+                                        <!-- 1. Fee Due Reminder Template -->
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Fee Due Reminder Template</mat-label>
+                                          <input matInput formControlName="whatsAppFeeReminderTemplateName" placeholder="e.g. school_fee_due_msg">
+                                          <mat-icon matPrefix>notifications_active</mat-icon>
+                                          <mat-hint>Vars: (due_amount, student, class, month, due_date, school_name)</mat-hint>
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Fee Due Template Language</mat-label>
+                                          <input matInput formControlName="whatsAppFeeReminderTemplateLanguage" placeholder="en">
+                                          <mat-icon matPrefix>translate</mat-icon>
+                                          <mat-hint>e.g. en, en_US, hi</mat-hint>
+                                        </mat-form-field>
+
+                                        <!-- 2. Absent Alert Template -->
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Student Absent Alert Template</mat-label>
+                                          <input matInput formControlName="whatsAppAbsentAlertTemplateName" placeholder="e.g. school_absent_alert_msg">
+                                          <mat-icon matPrefix>person_off</mat-icon>
+                                          <mat-hint>Vars: (student_name, class_section, date, school_name)</mat-hint>
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Absent Template Language</mat-label>
+                                          <input matInput formControlName="whatsAppAbsentAlertTemplateLanguage" placeholder="en">
+                                          <mat-icon matPrefix>translate</mat-icon>
+                                          <mat-hint>e.g. en, en_US, hi</mat-hint>
+                                        </mat-form-field>
+
+                                        <!-- 3. Fee Receipt Confirmation Template -->
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Fee Receipt Confirmation Template</mat-label>
+                                          <input matInput formControlName="whatsAppFeeReceiptTemplateName" placeholder="e.g. school_fee_receipt_msg">
+                                          <mat-icon matPrefix>receipt_long</mat-icon>
+                                          <mat-hint>Vars: (paid_amount, student, receipt_no, payment_date, school_name)</mat-hint>
+                                        </mat-form-field>
+                                        <mat-form-field appearance="outline">
+                                          <mat-label>Receipt Template Language</mat-label>
+                                          <input matInput formControlName="whatsAppFeeReceiptTemplateLanguage" placeholder="en">
+                                          <mat-icon matPrefix>translate</mat-icon>
+                                          <mat-hint>e.g. en, en_US, hi</mat-hint>
+                                        </mat-form-field>
+                                      }
                                     </div>
                                   </div>
                                 }
@@ -1781,7 +1880,7 @@ import { environment } from '../../../environments/environment';
       width: 95vw;
       max-width: 1240px;
       max-height: 90vh;
-      overflow-y: auto;
+      overflow: hidden;
       box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
       display: flex;
       flex-direction: column;
@@ -1796,6 +1895,7 @@ import { environment } from '../../../environments/environment';
 
     /* Modal Navigation Tabs */
     .modal-nav-tabs {
+      flex-shrink: 0;
       display: flex;
       gap: 8px;
       padding: 10px 24px 0 24px;
@@ -2159,6 +2259,7 @@ import { environment } from '../../../environments/environment';
     }
 
     .modal-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -2286,6 +2387,9 @@ import { environment } from '../../../environments/environment';
     }
 
     .modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
       padding: 20px 24px;
       display: flex;
       flex-direction: column;
@@ -2308,146 +2412,144 @@ import { environment } from '../../../environments/environment';
       }
 
       .asset-card {
-        background: #f8fafc;
+        background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 12px;
+        border-radius: 10px;
+        padding: 12px 14px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        transition: all 0.2s ease;
+        gap: 10px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
         &:hover {
-          border-color: #cbd5e1;
-          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+          border-color: #93c5fd;
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.06);
         }
 
         &.seal-card {
-          background: #fef2f2;
-          border-color: #fecaca;
+          border-top: 3px solid #2563eb;
         }
 
         &.sign-card {
-          background: #f0fdf4;
-          border-color: #bbf7d0;
+          border-top: 3px solid #0ea5e9;
         }
 
         .asset-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 6px;
+          gap: 8px;
 
           .asset-title {
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            color: #1e293b;
+            color: #0f172a;
+            letter-spacing: -0.01em;
           }
 
           .asset-tag {
-            font-size: 0.65rem;
+            font-size: 0.66rem;
             font-weight: 600;
-            color: #2563eb;
+            color: #1d4ed8;
             background: #eff6ff;
-            padding: 2px 6px;
+            border: 1px solid #dbeafe;
+            padding: 2px 7px;
             border-radius: 6px;
-
-            &.seal-tag {
-              color: #dc2626;
-              background: #fee2e2;
-            }
-
-            &.sign-tag {
-              color: #16a34a;
-              background: #dcfce7;
-            }
           }
         }
 
         .asset-body {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
 
           .asset-preview-box {
-            width: 60px;
-            height: 60px;
+            width: 72px;
+            height: 72px;
             border-radius: 10px;
-            background: #ffffff;
-            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             flex-shrink: 0;
-
-            &.seal-preview-box { border-color: #fca5a5; }
-            &.sign-preview-box { border-color: #86efac; }
+            padding: 4px;
 
             .asset-img {
               width: 100%;
               height: 100%;
               object-fit: contain;
-              padding: 2px;
             }
 
             .asset-placeholder-icon {
-              font-size: 26px;
-              width: 26px;
-              height: 26px;
+              font-size: 28px;
+              width: 28px;
+              height: 28px;
               color: #94a3b8;
-
-              &.seal-ph { color: #f87171; }
-              &.sign-ph { color: #4ade80; }
             }
           }
 
           .asset-actions {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
             flex: 1;
+
+            .generator-btn,
+            .seal-gen-btn,
+            .sign-gen-btn {
+              height: 30px !important;
+              min-height: 30px !important;
+              line-height: 30px !important;
+              padding: 0 11px !important;
+              border-radius: 7px !important;
+              font-size: 0.74rem !important;
+              font-weight: 600 !important;
+              background: #2563eb !important;
+              color: #ffffff !important;
+              box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2) !important;
+              mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 4px; }
+            }
 
             .asset-upload-btn {
               cursor: pointer;
               display: inline-flex;
               align-items: center;
+              justify-content: center;
               gap: 5px;
-              background: #eff6ff;
-              color: #2563eb;
-              padding: 4px 8px;
-              border-radius: 6px;
-              font-size: 0.75rem;
+              height: 30px;
+              background: #ffffff;
+              color: #334155;
+              padding: 0 10px;
+              border-radius: 7px;
+              font-size: 0.74rem;
               font-weight: 600;
-              border: 1px solid #bfdbfe;
-              width: fit-content;
+              border: 1px solid #cbd5e1;
+              box-sizing: border-box;
               transition: all 0.15s ease;
 
-              &:hover { background: #dbeafe; }
-              mat-icon { font-size: 15px; width: 15px; height: 15px; }
-
-              &.seal-btn {
-                background: #fef2f2;
-                color: #dc2626;
-                border-color: #fecaca;
-                &:hover { background: #fee2e2; }
-              }
-
-              &.sign-btn {
-                background: #f0fdf4;
-                color: #16a34a;
-                border-color: #bbf7d0;
-                &:hover { background: #dcfce7; }
-              }
+              &:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
+              mat-icon { font-size: 15px; width: 15px; height: 15px; color: #2563eb; }
             }
 
             .remove-asset-btn {
-              font-size: 0.7rem;
-              height: 22px;
-              line-height: 22px;
-              padding: 0 4px;
-              width: fit-content;
-              mat-icon { font-size: 13px; width: 13px; height: 13px; margin-right: 2px; }
+              height: 30px !important;
+              min-height: 30px !important;
+              line-height: 30px !important;
+              padding: 0 10px !important;
+              border-radius: 7px !important;
+              font-size: 0.74rem !important;
+              font-weight: 600 !important;
+              background: #fff1f2 !important;
+              color: #e11d48 !important;
+              border: 1px solid #fecdd3 !important;
+              box-shadow: none !important;
+              mat-icon { font-size: 15px; width: 15px; height: 15px; margin-right: 3px; }
+              &:hover { background: #ffe4e6 !important; border-color: #fda4af !important; }
             }
           }
         }
@@ -3165,7 +3267,21 @@ export class TenantsComponent implements OnInit {
       affiliationNumber: [''],
       establishedYear: [''],
       whatsAppPhoneId: [''],
+      whatsAppWabaId: [''],
       whatsAppAccessToken: [''],
+      feeDueRemindersEnabled: [true],
+      dailyAbsenteeAlertEnabled: [true],
+      whatsAppFeeReceiptsEnabled: [true],
+      feeDueVoiceNoteEnabled: [true],
+      feeDueReminderStartDay: [5, [Validators.min(1), Validators.max(28)]],
+      feeDueReminderEndDay: [10, [Validators.min(1), Validators.max(28)]],
+      whatsAppDailyMessageLimit: [250, [Validators.min(0)]],
+      whatsAppFeeReminderTemplateName: [''],
+      whatsAppFeeReminderTemplateLanguage: ['en'],
+      whatsAppAbsentAlertTemplateName: [''],
+      whatsAppAbsentAlertTemplateLanguage: ['en'],
+      whatsAppFeeReceiptTemplateName: [''],
+      whatsAppFeeReceiptTemplateLanguage: ['en'],
       upiId: [''],
       upiMerchantName: [''],
       upiMerchantCode: ['8211'],
@@ -3428,6 +3544,9 @@ export class TenantsComponent implements OnInit {
     return false;
   }
 
+  waHasPermanentToken = false;
+  waSentLast24Hours = 0;
+
   openEditModal(tenant: TenantDto): void {
     this.isEditing = true;
     this.editingId = tenant.id;
@@ -3470,7 +3589,21 @@ export class TenantsComponent implements OnInit {
       affiliationNumber: tenant.affiliationNumber || '',
       establishedYear: tenant.establishedYear || '',
       whatsAppPhoneId: tenant.whatsAppPhoneId || '',
+      whatsAppWabaId: '',
       whatsAppAccessToken: '',
+      feeDueRemindersEnabled: true,
+      dailyAbsenteeAlertEnabled: true,
+      whatsAppFeeReceiptsEnabled: true,
+      feeDueVoiceNoteEnabled: true,
+      feeDueReminderStartDay: 5,
+      feeDueReminderEndDay: 10,
+      whatsAppDailyMessageLimit: 250,
+      whatsAppFeeReminderTemplateName: '',
+      whatsAppFeeReminderTemplateLanguage: 'en',
+      whatsAppAbsentAlertTemplateName: '',
+      whatsAppAbsentAlertTemplateLanguage: 'en',
+      whatsAppFeeReceiptTemplateName: '',
+      whatsAppFeeReceiptTemplateLanguage: 'en',
       upiId: tenant.upiId || '',
       upiMerchantName: tenant.upiMerchantName || tenant.name || '',
       upiMerchantCode: tenant.upiMerchantCode || '8211',
@@ -3498,6 +3631,35 @@ export class TenantsComponent implements OnInit {
     this.tenantForm.get('adminPassword')?.clearValidators();
     this.tenantForm.get('adminPassword')?.updateValueAndValidity();
     this.tenantForm.get('code')?.disable();
+
+    if (this.isSuperAdmin) {
+      this.waHasPermanentToken = false;
+      this.waSentLast24Hours = 0;
+      this.tenantService.getWhatsAppAutomation(tenant.id).subscribe({
+        next: (wa) => {
+          this.waHasPermanentToken = wa.hasPermanentToken;
+          this.waSentLast24Hours = wa.sentLast24Hours;
+          this.tenantForm.patchValue({
+            whatsAppPhoneId: wa.whatsAppPhoneNumberId || tenant.whatsAppPhoneId || '',
+            whatsAppWabaId: wa.whatsAppBusinessAccountId || '',
+            feeDueRemindersEnabled: wa.feeDueRemindersEnabled,
+            dailyAbsenteeAlertEnabled: wa.dailyAbsenteeAlertEnabled,
+            whatsAppFeeReceiptsEnabled: wa.whatsAppFeeReceiptsEnabled,
+            feeDueVoiceNoteEnabled: wa.feeDueVoiceNoteEnabled,
+            feeDueReminderStartDay: wa.feeDueReminderStartDay,
+            feeDueReminderEndDay: wa.feeDueReminderEndDay,
+            whatsAppDailyMessageLimit: wa.whatsAppDailyMessageLimit,
+            whatsAppFeeReminderTemplateName: wa.whatsAppFeeReminderTemplateName || '',
+            whatsAppFeeReminderTemplateLanguage: wa.whatsAppFeeReminderTemplateLanguage || 'en',
+            whatsAppAbsentAlertTemplateName: wa.whatsAppAbsentAlertTemplateName || '',
+            whatsAppAbsentAlertTemplateLanguage: wa.whatsAppAbsentAlertTemplateLanguage || 'en',
+            whatsAppFeeReceiptTemplateName: wa.whatsAppFeeReceiptTemplateName || '',
+            whatsAppFeeReceiptTemplateLanguage: wa.whatsAppFeeReceiptTemplateLanguage || 'en'
+          });
+        },
+        error: () => {}
+      });
+    }
 
     if (!this.isSuperAdmin) {
       this.tenantForm.get('hasSchoolModule')?.disable();
@@ -3924,6 +4086,26 @@ export class TenantsComponent implements OnInit {
 
       this.tenantService.updateTenant(targetId, updateDto).subscribe({
         next: (res: any) => {
+          if (this.isSuperAdmin) {
+            this.tenantService.updateWhatsAppAutomation(targetId, {
+              whatsAppPhoneNumberId: val.whatsAppPhoneId?.trim() || null,
+              whatsAppBusinessAccountId: val.whatsAppWabaId?.trim() || null,
+              whatsAppCloudApiToken: val.whatsAppAccessToken?.trim() || null,
+              feeDueRemindersEnabled: val.feeDueRemindersEnabled !== false,
+              dailyAbsenteeAlertEnabled: val.dailyAbsenteeAlertEnabled !== false,
+              whatsAppFeeReceiptsEnabled: val.whatsAppFeeReceiptsEnabled !== false,
+              feeDueVoiceNoteEnabled: val.feeDueVoiceNoteEnabled !== false,
+              feeDueReminderStartDay: Number(val.feeDueReminderStartDay) || 5,
+              feeDueReminderEndDay: Number(val.feeDueReminderEndDay) || 10,
+              whatsAppDailyMessageLimit: Number(val.whatsAppDailyMessageLimit ?? 250),
+              whatsAppFeeReminderTemplateName: val.whatsAppFeeReminderTemplateName?.trim() || null,
+              whatsAppFeeReminderTemplateLanguage: val.whatsAppFeeReminderTemplateLanguage?.trim() || 'en',
+              whatsAppAbsentAlertTemplateName: val.whatsAppAbsentAlertTemplateName?.trim() || null,
+              whatsAppAbsentAlertTemplateLanguage: val.whatsAppAbsentAlertTemplateLanguage?.trim() || 'en',
+              whatsAppFeeReceiptTemplateName: val.whatsAppFeeReceiptTemplateName?.trim() || null,
+              whatsAppFeeReceiptTemplateLanguage: val.whatsAppFeeReceiptTemplateLanguage?.trim() || 'en'
+            }).subscribe({ error: () => {} });
+          }
           this.formSaving = false;
           // Optimistically update tenant card in list
           const idx = this.tenants.findIndex(t => t.id === targetId);

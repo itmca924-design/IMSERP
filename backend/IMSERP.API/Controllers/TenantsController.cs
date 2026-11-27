@@ -1053,4 +1053,130 @@ public class TenantsController : ControllerBase
             digitalSignaturesJson = tenant.DigitalSignaturesJson
         });
     }
+
+    [HttpGet("{id}/whatsapp-automation")]
+    public async Task<ActionResult<TenantWhatsAppAutomationDto>> GetTenantWhatsAppAutomation(Guid id)
+    {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only SuperAdmin Platform can manage tenant WhatsApp automation policies." });
+
+        var tenant = await _dbContext.Tenants.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        var settings = await _dbContext.AutomationSettings
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(s => s.TenantId == id)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+
+        var cutoff24h = DateTime.UtcNow.AddHours(-24);
+        var sentLast24h = await _dbContext.WhatsAppLogs
+            .IgnoreQueryFilters()
+            .CountAsync(l => l.TenantId == id && l.SentAt >= cutoff24h && !l.Status.Contains("Failed"));
+
+        return Ok(new TenantWhatsAppAutomationDto(
+            TenantId: id,
+            WhatsAppPhoneNumberId: settings?.WhatsAppPhoneNumberId ?? tenant.WhatsAppPhoneId,
+            WhatsAppBusinessAccountId: settings?.WhatsAppBusinessAccountId,
+            HasPermanentToken: !string.IsNullOrWhiteSpace(settings?.WhatsAppCloudApiToken ?? tenant.WhatsAppAccessToken),
+            FeeDueRemindersEnabled: settings?.FeeDueRemindersEnabled ?? true,
+            FeeDueVoiceNoteEnabled: settings?.FeeDueVoiceNoteEnabled ?? true,
+            FeeDueReminderStartDay: settings != null && settings.FeeDueReminderStartDay > 0 ? settings.FeeDueReminderStartDay : 5,
+            FeeDueReminderEndDay: settings != null && settings.FeeDueReminderEndDay > 0 ? settings.FeeDueReminderEndDay : 10,
+            WhatsAppDailyMessageLimit: settings != null && settings.WhatsAppDailyMessageLimit >= 0 ? settings.WhatsAppDailyMessageLimit : 250,
+            WhatsAppFeeReminderTemplateName: settings?.WhatsAppFeeReminderTemplateName,
+            WhatsAppFeeReminderTemplateLanguage: !string.IsNullOrWhiteSpace(settings?.WhatsAppFeeReminderTemplateLanguage) ? settings.WhatsAppFeeReminderTemplateLanguage : "en",
+            SentLast24Hours: sentLast24h,
+            WhatsAppFeeReceiptsEnabled: settings?.WhatsAppFeeReceiptsEnabled ?? true,
+            DailyAbsenteeAlertEnabled: settings?.DailyAbsenteeAlertEnabled ?? true,
+            WhatsAppAbsentAlertTemplateName: settings?.WhatsAppAbsentAlertTemplateName,
+            WhatsAppAbsentAlertTemplateLanguage: !string.IsNullOrWhiteSpace(settings?.WhatsAppAbsentAlertTemplateLanguage) ? settings.WhatsAppAbsentAlertTemplateLanguage : "en",
+            WhatsAppFeeReceiptTemplateName: settings?.WhatsAppFeeReceiptTemplateName,
+            WhatsAppFeeReceiptTemplateLanguage: !string.IsNullOrWhiteSpace(settings?.WhatsAppFeeReceiptTemplateLanguage) ? settings.WhatsAppFeeReceiptTemplateLanguage : "en"
+        ));
+    }
+
+    [HttpPut("{id}/whatsapp-automation")]
+    public async Task<ActionResult<TenantWhatsAppAutomationDto>> UpdateTenantWhatsAppAutomation(Guid id, [FromBody] UpdateTenantWhatsAppAutomationDto dto)
+    {
+        var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (!isSuperAdmin)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only SuperAdmin Platform can manage tenant WhatsApp automation policies." });
+
+        var tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant == null) return NotFound(new { message = "Institute not found." });
+
+        var settings = await _dbContext.AutomationSettings
+            .IgnoreQueryFilters()
+            .Where(s => s.TenantId == id)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefaultAsync();
+        if (settings == null)
+        {
+            settings = new AutomationSettings { TenantId = id };
+            _dbContext.AutomationSettings.Add(settings);
+        }
+
+        if (dto.WhatsAppPhoneNumberId != null)
+        {
+            var phoneId = string.IsNullOrWhiteSpace(dto.WhatsAppPhoneNumberId) ? null : dto.WhatsAppPhoneNumberId.Trim();
+            settings.WhatsAppPhoneNumberId = phoneId;
+            tenant.WhatsAppPhoneId = phoneId;
+        }
+        if (dto.WhatsAppBusinessAccountId != null)
+        {
+            settings.WhatsAppBusinessAccountId = string.IsNullOrWhiteSpace(dto.WhatsAppBusinessAccountId) ? null : dto.WhatsAppBusinessAccountId.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(dto.WhatsAppCloudApiToken))
+        {
+            var tok = dto.WhatsAppCloudApiToken.Trim();
+            settings.WhatsAppCloudApiToken = tok;
+            tenant.WhatsAppAccessToken = tok;
+        }
+
+        settings.FeeDueRemindersEnabled = dto.FeeDueRemindersEnabled;
+        settings.FeeDueVoiceNoteEnabled = dto.FeeDueVoiceNoteEnabled;
+        settings.WhatsAppFeeReceiptsEnabled = dto.WhatsAppFeeReceiptsEnabled;
+        settings.DailyAbsenteeAlertEnabled = dto.DailyAbsenteeAlertEnabled;
+        settings.FeeDueReminderStartDay = Math.Clamp(dto.FeeDueReminderStartDay > 0 ? dto.FeeDueReminderStartDay : 5, 1, 28);
+        settings.FeeDueReminderEndDay = Math.Clamp(dto.FeeDueReminderEndDay > 0 ? dto.FeeDueReminderEndDay : 10, 1, 28);
+        settings.WhatsAppDailyMessageLimit = Math.Max(0, dto.WhatsAppDailyMessageLimit);
+        settings.WhatsAppFeeReminderTemplateName = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReminderTemplateName) ? null : dto.WhatsAppFeeReminderTemplateName.Trim();
+        settings.WhatsAppFeeReminderTemplateLanguage = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReminderTemplateLanguage) ? "en" : dto.WhatsAppFeeReminderTemplateLanguage.Trim();
+        settings.WhatsAppAbsentAlertTemplateName = string.IsNullOrWhiteSpace(dto.WhatsAppAbsentAlertTemplateName) ? null : dto.WhatsAppAbsentAlertTemplateName.Trim();
+        settings.WhatsAppAbsentAlertTemplateLanguage = string.IsNullOrWhiteSpace(dto.WhatsAppAbsentAlertTemplateLanguage) ? "en" : dto.WhatsAppAbsentAlertTemplateLanguage.Trim();
+        settings.WhatsAppFeeReceiptTemplateName = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReceiptTemplateName) ? null : dto.WhatsAppFeeReceiptTemplateName.Trim();
+        settings.WhatsAppFeeReceiptTemplateLanguage = string.IsNullOrWhiteSpace(dto.WhatsAppFeeReceiptTemplateLanguage) ? "en" : dto.WhatsAppFeeReceiptTemplateLanguage.Trim();
+        settings.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
+
+        var cutoff24h = DateTime.UtcNow.AddHours(-24);
+        var sentLast24h = await _dbContext.WhatsAppLogs
+            .IgnoreQueryFilters()
+            .CountAsync(l => l.TenantId == id && l.SentAt >= cutoff24h && !l.Status.Contains("Failed"));
+
+        return Ok(new TenantWhatsAppAutomationDto(
+            TenantId: id,
+            WhatsAppPhoneNumberId: settings.WhatsAppPhoneNumberId,
+            WhatsAppBusinessAccountId: settings.WhatsAppBusinessAccountId,
+            HasPermanentToken: !string.IsNullOrWhiteSpace(settings.WhatsAppCloudApiToken),
+            FeeDueRemindersEnabled: settings.FeeDueRemindersEnabled,
+            FeeDueVoiceNoteEnabled: settings.FeeDueVoiceNoteEnabled,
+            FeeDueReminderStartDay: settings.FeeDueReminderStartDay,
+            FeeDueReminderEndDay: settings.FeeDueReminderEndDay,
+            WhatsAppDailyMessageLimit: settings.WhatsAppDailyMessageLimit,
+            WhatsAppFeeReminderTemplateName: settings.WhatsAppFeeReminderTemplateName,
+            WhatsAppFeeReminderTemplateLanguage: settings.WhatsAppFeeReminderTemplateLanguage ?? "en",
+            SentLast24Hours: sentLast24h,
+            WhatsAppFeeReceiptsEnabled: settings.WhatsAppFeeReceiptsEnabled,
+            DailyAbsenteeAlertEnabled: settings.DailyAbsenteeAlertEnabled,
+            WhatsAppAbsentAlertTemplateName: settings.WhatsAppAbsentAlertTemplateName,
+            WhatsAppAbsentAlertTemplateLanguage: settings.WhatsAppAbsentAlertTemplateLanguage ?? "en",
+            WhatsAppFeeReceiptTemplateName: settings.WhatsAppFeeReceiptTemplateName,
+            WhatsAppFeeReceiptTemplateLanguage: settings.WhatsAppFeeReceiptTemplateLanguage ?? "en"
+        ));
+    }
 }

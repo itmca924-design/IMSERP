@@ -308,4 +308,52 @@ export class TenantService {
   deleteTenantAsset(assetType: 'seal' | 'signature', assetId: string): Observable<any> {
     return this.http.delete<any>(`${this.API_URL}/assets/${assetType}/${assetId}`);
   }
+
+  getWhatsAppAutomation(tenantId: string): Observable<TenantWhatsAppAutomationDto> {
+    return this.http.get<TenantWhatsAppAutomationDto>(`${this.API_URL}/${tenantId}/whatsapp-automation`);
+  }
+
+  updateWhatsAppAutomation(tenantId: string, dto: UpdateTenantWhatsAppAutomationDto): Observable<TenantWhatsAppAutomationDto> {
+    return this.http.put<TenantWhatsAppAutomationDto>(`${this.API_URL}/${tenantId}/whatsapp-automation`, dto);
+  }
+}
+
+export interface TenantWhatsAppAutomationDto {
+  tenantId: string;
+  whatsAppPhoneNumberId?: string | null;
+  whatsAppBusinessAccountId?: string | null;
+  hasPermanentToken: boolean;
+  feeDueRemindersEnabled: boolean;
+  feeDueVoiceNoteEnabled: boolean;
+  feeDueReminderStartDay: number;
+  feeDueReminderEndDay: number;
+  whatsAppDailyMessageLimit: number;
+  whatsAppFeeReminderTemplateName?: string | null;
+  whatsAppFeeReminderTemplateLanguage: string;
+  sentLast24Hours: number;
+  whatsAppFeeReceiptsEnabled: boolean;
+  dailyAbsenteeAlertEnabled: boolean;
+  whatsAppAbsentAlertTemplateName?: string | null;
+  whatsAppAbsentAlertTemplateLanguage: string;
+  whatsAppFeeReceiptTemplateName?: string | null;
+  whatsAppFeeReceiptTemplateLanguage: string;
+}
+
+export interface UpdateTenantWhatsAppAutomationDto {
+  whatsAppPhoneNumberId?: string | null;
+  whatsAppBusinessAccountId?: string | null;
+  whatsAppCloudApiToken?: string | null;
+  feeDueRemindersEnabled: boolean;
+  feeDueVoiceNoteEnabled: boolean;
+  feeDueReminderStartDay: number;
+  feeDueReminderEndDay: number;
+  whatsAppDailyMessageLimit: number;
+  whatsAppFeeReminderTemplateName?: string | null;
+  whatsAppFeeReminderTemplateLanguage?: string | null;
+  whatsAppFeeReceiptsEnabled: boolean;
+  dailyAbsenteeAlertEnabled: boolean;
+  whatsAppAbsentAlertTemplateName?: string | null;
+  whatsAppAbsentAlertTemplateLanguage?: string | null;
+  whatsAppFeeReceiptTemplateName?: string | null;
+  whatsAppFeeReceiptTemplateLanguage?: string | null;
 }

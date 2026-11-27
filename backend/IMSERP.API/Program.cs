@@ -960,6 +960,51 @@ using (var scope = app.Services.CreateScope())
                         ALTER TABLE AutomationSettings ADD WhatsAppBusinessAccountId NVARCHAR(100) NULL;
                     END
 
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FeeDueReminderStartDay' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FeeDueReminderStartDay INT NOT NULL CONSTRAINT DF_AutomationSettings_FeeDueReminderStartDay DEFAULT 5;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'FeeDueReminderEndDay' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD FeeDueReminderEndDay INT NOT NULL CONSTRAINT DF_AutomationSettings_FeeDueReminderEndDay DEFAULT 10;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppDailyMessageLimit' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppDailyMessageLimit INT NOT NULL CONSTRAINT DF_AutomationSettings_WhatsAppDailyMessageLimit DEFAULT 250;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppFeeReminderTemplateName' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppFeeReminderTemplateName NVARCHAR(200) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppFeeReminderTemplateLanguage' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppFeeReminderTemplateLanguage NVARCHAR(20) NULL CONSTRAINT DF_AutomationSettings_WhatsAppFeeReminderTemplateLanguage DEFAULT 'en';
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppAbsentAlertTemplateName' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppAbsentAlertTemplateName NVARCHAR(200) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppAbsentAlertTemplateLanguage' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppAbsentAlertTemplateLanguage NVARCHAR(20) NULL CONSTRAINT DF_AutomationSettings_WhatsAppAbsentAlertTemplateLanguage DEFAULT 'en';
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppFeeReceiptTemplateName' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppFeeReceiptTemplateName NVARCHAR(200) NULL;
+                    END
+
+                    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'WhatsAppFeeReceiptTemplateLanguage' AND object_id = OBJECT_ID('AutomationSettings'))
+                    BEGIN
+                        ALTER TABLE AutomationSettings ADD WhatsAppFeeReceiptTemplateLanguage NVARCHAR(20) NULL CONSTRAINT DF_AutomationSettings_WhatsAppFeeReceiptTemplateLanguage DEFAULT 'en';
+                    END
+
                     IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'LateFineMode' AND object_id = OBJECT_ID('AutomationSettings'))
                     BEGIN
                         ALTER TABLE AutomationSettings ADD LateFineMode NVARCHAR(50) NOT NULL CONSTRAINT DF_AutomationSettings_LateFineMode DEFAULT 'MonthlySlab';

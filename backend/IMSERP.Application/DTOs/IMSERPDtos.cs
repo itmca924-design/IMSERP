@@ -4503,7 +4503,12 @@ public record AutomationSettingsDto(
     int AdmissionCutoffDay = 20,
     string AdmissionRolloverPolicy = "NextMonthFull",
     int FinancialYearStartMonth = 4,
-    DateTime? UpdatedAt = null
+    DateTime? UpdatedAt = null,
+    int FeeDueReminderStartDay = 5,
+    int FeeDueReminderEndDay = 10,
+    int WhatsAppDailyMessageLimit = 250,
+    string? WhatsAppFeeReminderTemplateName = null,
+    string? WhatsAppFeeReminderTemplateLanguage = "en_US"
 );
 
 public record SaveAutomationSettingsDto(
@@ -4533,7 +4538,52 @@ public record SaveAutomationSettingsDto(
     string? ReceiptFooterNoteEnglish = null,
     string? ReceiptFooterNoteHindi = null,
     bool ShowFooterNoteOnReceipt = true,
-    bool ShowFooterNoteOnDueSlip = true
+    bool ShowFooterNoteOnDueSlip = true,
+    int FeeDueReminderStartDay = 5,
+    int FeeDueReminderEndDay = 10,
+    int WhatsAppDailyMessageLimit = 250,
+    string? WhatsAppFeeReminderTemplateName = null,
+    string? WhatsAppFeeReminderTemplateLanguage = "en_US"
+);
+
+public record TenantWhatsAppAutomationDto(
+    Guid TenantId,
+    string? WhatsAppPhoneNumberId,
+    string? WhatsAppBusinessAccountId,
+    bool HasPermanentToken,
+    bool FeeDueRemindersEnabled,
+    bool FeeDueVoiceNoteEnabled,
+    int FeeDueReminderStartDay,
+    int FeeDueReminderEndDay,
+    int WhatsAppDailyMessageLimit,
+    string? WhatsAppFeeReminderTemplateName,
+    string WhatsAppFeeReminderTemplateLanguage,
+    int SentLast24Hours,
+    bool WhatsAppFeeReceiptsEnabled = true,
+    bool DailyAbsenteeAlertEnabled = true,
+    string? WhatsAppAbsentAlertTemplateName = null,
+    string WhatsAppAbsentAlertTemplateLanguage = "en",
+    string? WhatsAppFeeReceiptTemplateName = null,
+    string WhatsAppFeeReceiptTemplateLanguage = "en"
+);
+
+public record UpdateTenantWhatsAppAutomationDto(
+    string? WhatsAppPhoneNumberId,
+    string? WhatsAppBusinessAccountId,
+    string? WhatsAppCloudApiToken,
+    bool FeeDueRemindersEnabled,
+    bool FeeDueVoiceNoteEnabled,
+    int FeeDueReminderStartDay,
+    int FeeDueReminderEndDay,
+    int WhatsAppDailyMessageLimit,
+    string? WhatsAppFeeReminderTemplateName,
+    string? WhatsAppFeeReminderTemplateLanguage,
+    bool WhatsAppFeeReceiptsEnabled = true,
+    bool DailyAbsenteeAlertEnabled = true,
+    string? WhatsAppAbsentAlertTemplateName = null,
+    string? WhatsAppAbsentAlertTemplateLanguage = "en",
+    string? WhatsAppFeeReceiptTemplateName = null,
+    string? WhatsAppFeeReceiptTemplateLanguage = "en"
 );
 
 public record RunAutomationJobResultDto(

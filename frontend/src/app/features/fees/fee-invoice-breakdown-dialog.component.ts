@@ -28,6 +28,7 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
   frequencyBadgeClass: string;
   cycleDetail: string;
   cycleTooltip?: string;
+  headMonthSubtext?: string;
   isTuition: boolean;
 }
 
@@ -197,10 +198,15 @@ interface CategorizedHeadItem extends FeeInvoiceItem {
                         <div class="head-icon-circle" [style.background]="it.iconBg" [style.color]="it.iconColor">
                           <mat-icon>{{ it.icon }}</mat-icon>
                         </div>
-                        <div class="head-names">
-                          <span class="head-name" [class.tuition-title]="it.isTuition">{{ cleanHeadName(it.headName) || 'Fee Head' }}</span>
-                          @if (it.isTuition) {
-                            <span class="tuition-pill">TUITION</span>
+                        <div class="head-names" style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
+                          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span class="head-name" [class.tuition-title]="it.isTuition">{{ cleanHeadName(it.headName) || 'Fee Head' }}</span>
+                            @if (it.isTuition) {
+                              <span class="tuition-pill">TUITION</span>
+                            }
+                          </div>
+                          @if (it.headMonthSubtext) {
+                            <span style="font-size:11px; font-weight:500; color:#64748b; line-height:1.2;">{{ it.headMonthSubtext }}</span>
                           }
                         </div>
                       </div>
@@ -1588,15 +1594,15 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
       if (isKit) {
         frequencyBadge = 'One-time Kit';
         frequencyBadgeClass = 'freq-kit';
-        cycleDetail = 'Session Kit & Supplies';
+        cycleDetail = monthRangeStr ? `Session Kit • ${monthRangeStr}` : 'Session Kit & Supplies';
       } else if (isAnnual) {
         frequencyBadge = 'Annual / Session';
         frequencyBadgeClass = 'freq-annual';
-        cycleDetail = 'One-time Academic Session';
+        cycleDetail = monthRangeStr ? `One-time Session • ${monthRangeStr}` : 'One-time Academic Session';
       } else if (isExam) {
         frequencyBadge = 'Term Examination';
         frequencyBadgeClass = 'freq-exam';
-        cycleDetail = 'Evaluation / Exam Fee';
+        cycleDetail = monthRangeStr ? `Evaluation / Exam • ${monthRangeStr}` : 'Evaluation / Exam Fee';
       } else if (isTransport) {
         frequencyBadge = 'Transit Route';
         frequencyBadgeClass = 'freq-transport';
@@ -1633,6 +1639,8 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
         cycleDetail = 'Institutional Head';
       }
 
+      const headMonthSubtext = monthRangeStr ? `Billed Month: ${monthRangeStr}` : '';
+
       return {
         ...it,
         headName: it.headName || 'Fee Head',
@@ -1646,6 +1654,7 @@ export class FeeInvoiceBreakdownDialogComponent implements OnInit {
         frequencyBadgeClass,
         cycleDetail,
         cycleTooltip,
+        headMonthSubtext,
         isTuition
       };
     });

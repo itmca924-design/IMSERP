@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, signal, computed } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -17,6 +17,7 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
@@ -434,7 +435,9 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
                 <!-- Enterprise Trust Footer -->
                 <div class="security-footer">
                   <mat-icon class="sec-icon">verified_user</mat-icon>
-                  <span>256-Bit SSL Encrypted • ISO-Grade Cloud Infrastructure</span>
+                  <span>256-Bit SSL • ISO Cloud</span>
+                  <span>•</span>
+                  <a routerLink="/privacy-policy" class="privacy-link">Privacy Policy</a>
                 </div>
               </form>
             </div>
@@ -1402,11 +1405,13 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      gap: 6px;
       margin-top: 6px;
-      padding-top: 5px;
+      padding-top: 6px;
       border-top: 1px dashed #e2e8f0;
-      font-size: 0.65rem;
+      font-size: 0.68rem;
       color: #475569;
       font-weight: 600;
       .sec-icon {
@@ -1414,6 +1419,14 @@ import { RegisterTrialDialogComponent } from './register-trial-dialog.component'
         width: 13px;
         height: 13px;
         color: #10b981;
+        flex-shrink: 0;
+      }
+      .privacy-link {
+        color: #2563eb;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+        &:hover { text-decoration: underline; }
       }
     }
 
