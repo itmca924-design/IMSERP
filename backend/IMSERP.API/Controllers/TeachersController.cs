@@ -2876,9 +2876,24 @@ public class TeachersController : ControllerBase
         }
 
         // Fetch attendance and approved regularizations for the month
-        var records = await _db.TeacherAttendances.AsNoTracking()
+        // Payroll / Salary Slip uses only the School punching session (plus Leave/Holiday/WeekOff),
+        // grouped 1 record per date so CoachingMorning/CoachingEvening punches never double-count or deduct school salary.
+        var allMonthRecords = await _db.TeacherAttendances.AsNoTracking()
             .Where(a => a.TeacherId == id && a.AttendanceDate.Month == month && a.AttendanceDate.Year == year)
             .ToListAsync();
+
+        var records = allMonthRecords
+            .Where(a => string.IsNullOrWhiteSpace(a.Stream)
+                     || string.Equals(a.Stream, "School", StringComparison.OrdinalIgnoreCase)
+                     || a.Status == TeacherAttendanceStatus.Leave
+                     || a.Status == TeacherAttendanceStatus.Holiday
+                     || a.Status == TeacherAttendanceStatus.WeekOff)
+            .GroupBy(a => a.AttendanceDate.Date)
+            .Select(g => g
+                .OrderByDescending(a => string.Equals(a.Stream, "School", StringComparison.OrdinalIgnoreCase))
+                .ThenBy(a => a.Status)
+                .First())
+            .ToList();
 
         var approvedRegularizations = await _db.TeacherAttendanceRegularizations.AsNoTracking()
             .Where(r => r.TeacherId == id && r.Status == RegularizationStatus.Approved &&
@@ -5495,10 +5510,17 @@ public class TeachersController : ControllerBase
         var gross = salary?.GrossSalary ?? basic;
         var perDayRate = gross > 0 ? Math.Round(gross / 30m, 2) : 0;
 
-        // 6. Current month attendance & salary payment check
+        // 6. Current month attendance & salary payment check (School stream only, distinct dates)
         var now = DateTime.UtcNow;
         var presentDays = await _db.TeacherAttendances
-            .CountAsync(a => a.TeacherId == id && a.AttendanceDate.Year == now.Year && a.AttendanceDate.Month == now.Month && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late));
+            .Where(a => a.TeacherId == id
+                     && a.AttendanceDate.Year == now.Year
+                     && a.AttendanceDate.Month == now.Month
+                     && (string.IsNullOrWhiteSpace(a.Stream) || a.Stream == "School")
+                     && (a.Status == TeacherAttendanceStatus.Present || a.Status == TeacherAttendanceStatus.Late))
+            .Select(a => a.AttendanceDate.Date)
+            .Distinct()
+            .CountAsync();
         var suggestedUnpaid = Math.Round(presentDays * perDayRate, 2);
 
         // Check if regular salary payment already exists for this final month
