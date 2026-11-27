@@ -2092,14 +2092,47 @@ export class FeeDueReceiptDialogComponent implements OnInit {
     const scopeTag = (isSchool && isCoaching) ? 'Hybrid' : (isCoaching ? 'Coaching' : 'School');
 
     let resolvedDueDate: string | Date = new Date();
+    const dueItems = this.dueSlip?.dueItems || [];
+    const now = new Date();
+    const sortedItems = [...dueItems].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    const overdueItems = sortedItems.filter(it => it.dueDate && new Date(it.dueDate) < now);
+    const upcomingItems = sortedItems.filter(it => it.dueDate && new Date(it.dueDate) >= now);
+
     if (inv?.dueDate) {
       resolvedDueDate = inv.dueDate;
-    } else if (this.dueSlip?.dueItems?.length) {
-      resolvedDueDate = this.dueSlip.dueItems[0].dueDate || new Date();
+    } else if (overdueItems.length > 0) {
+      // Use latest overdue dueDate (e.g. 10-Nov-2026) instead of oldest (10-Feb-2026)
+      resolvedDueDate = overdueItems[overdueItems.length - 1].dueDate;
+    } else if (sortedItems.length > 0) {
+      resolvedDueDate = sortedItems[0].dueDate || new Date();
     }
 
-    const totalFee = this.dueSlip?.dueItems?.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0) ?? (inv?.totalAmount || this.dueSlip?.totalOutstandingDue || 0);
-    const totalPaid = this.dueSlip?.dueItems?.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0) ?? (inv?.paidAmount || 0);
+    const fmtEnMo = (dt: string | Date) => new Date(dt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const fmtShortMo = (dt: string | Date) => new Date(dt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    const hiMonths = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
+    const fmtHiMo = (dt: string | Date) => {
+      const d = new Date(dt);
+      return `${hiMonths[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    const overdueFromHi = overdueItems.length > 0 ? fmtHiMo(overdueItems[0].dueDate) : undefined;
+    const overdueToHi = overdueItems.length > 0 ? fmtHiMo(overdueItems[overdueItems.length - 1].dueDate) : undefined;
+    const overdueFromEn = overdueItems.length > 0 ? fmtEnMo(overdueItems[0].dueDate) : undefined;
+    const overdueToEn = overdueItems.length > 0 ? fmtEnMo(overdueItems[overdueItems.length - 1].dueDate) : undefined;
+    const upcomingHi = upcomingItems.length > 0 ? fmtHiMo(upcomingItems[upcomingItems.length - 1].dueDate) : undefined;
+    const upcomingEn = upcomingItems.length > 0 ? fmtEnMo(upcomingItems[upcomingItems.length - 1].dueDate) : undefined;
+
+    let billingPeriodLabel: string | undefined;
+    if (sortedItems.length > 1) {
+      const firstShort = fmtShortMo(sortedItems[0].dueDate);
+      const lastShort = fmtShortMo(sortedItems[sortedItems.length - 1].dueDate);
+      billingPeriodLabel = firstShort === lastShort ? firstShort : `${firstShort} – ${lastShort}`;
+    } else if (sortedItems.length === 1) {
+      billingPeriodLabel = fmtShortMo(sortedItems[0].dueDate);
+    }
+
+    const totalFee = dueItems.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0) || (inv?.totalAmount || this.dueSlip?.totalOutstandingDue || 0);
+    const totalPaid = dueItems.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0) || (inv?.paidAmount || 0);
 
     const reminderItem: FeeReminderDispatchItem = {
       id: inv?.id || this.data.invoiceId,
@@ -2116,7 +2149,15 @@ export class FeeDueReceiptDialogComponent implements OnInit {
       parentWhatsAppPhone: this.dueSlip?.parentPhone || this.data.parentWhatsAppPhone || inv?.parentWhatsAppPhone,
       isSchoolStudent: isSchool,
       isCoachingStudent: isCoaching,
-      scopeTag: scopeTag
+      scopeTag: scopeTag,
+      overdueMonthsCount: overdueItems.length,
+      overdueFromHi,
+      overdueToHi,
+      overdueFromEn,
+      overdueToEn,
+      upcomingHi,
+      upcomingEn,
+      billingPeriodLabel
     };
 
     this.dialog.open(FeeReminderDispatchDialogComponent, {

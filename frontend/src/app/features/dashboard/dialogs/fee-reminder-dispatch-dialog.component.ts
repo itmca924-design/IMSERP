@@ -35,6 +35,14 @@ export interface FeeReminderDispatchItem {
   isSchoolStudent?: boolean;
   isCoachingStudent?: boolean;
   scopeTag?: string;
+  overdueMonthsCount?: number;
+  overdueFromHi?: string;
+  overdueToHi?: string;
+  overdueFromEn?: string;
+  overdueToEn?: string;
+  upcomingHi?: string;
+  upcomingEn?: string;
+  billingPeriodLabel?: string;
 }
 
 export interface FeeReminderDispatchDialogData {
@@ -2163,9 +2171,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
       ? `कुल फीस *₹${total}* में से जमा राशि *₹${paid}* के उपरांत शेष बकाया राशि *₹${amt}* है।`
       : `बकाया फीस राशि *₹${amt}* देय है।`;
 
-    const dueDateHindi = isOverdue2
-      ? `⚠️ *देय तिथि ${dDate} बीत चुकी है — फीस अभी भी बकाया है (OVERDUE)।*`
-      : `📅 नियत देय तिथि (Due Date): *${dDate}*`;
+    const dueDateHindi = (inv.overdueMonthsCount && inv.overdueMonthsCount > 1 && inv.overdueFromHi && inv.overdueToHi)
+      ? `⚠️ *बकाया अवधि: ${inv.overdueFromHi} से ${inv.overdueToHi} तक (OVERDUE)${inv.upcomingHi ? ' + ' + inv.upcomingHi : ''} — अंतिम देय तिथि ${dDate} बीत चुकी है।*`
+      : isOverdue2
+        ? `⚠️ *देय तिथि ${dDate} बीत चुकी है — फीस अभी भी बकाया है (OVERDUE)।*`
+        : `📅 नियत देय तिथि (Due Date): *${dDate}*`;
 
     const urgencyHindi = isOverdue2
       ? `\n\n🚨 *अत्यावश्यक सूचना:* फीस जमा करने की अंतिम तिथि निकल चुकी है। कृपया अविलंब (तुरंत) फीस जमा कराएं अन्यथा बच्चे की पढ़ाई एवं परीक्षा में बाधा उत्पन्न हो सकती है।`
@@ -2315,6 +2325,7 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
 
     const rawDueDate = s.dueDate ? new Date(s.dueDate) : null;
     const isOverdue = rawDueDate ? rawDueDate < new Date() : false;
+    const isMultiMonthOverdue = !!(s.overdueMonthsCount && s.overdueMonthsCount > 1 && s.overdueFromHi && s.overdueToHi);
 
     if (isHindi) {
       let datePhrase = '';
@@ -2324,6 +2335,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
         const month = months[rawDueDate.getMonth()];
         const yr = rawDueDate.getFullYear();
         datePhrase = `${day} ${month} ${yr}`;
+      }
+
+      if (isMultiMonthOverdue) {
+        const upcomingClause = s.upcomingHi ? ` और ${s.upcomingHi}` : '';
+        return `नमस्ते अभिभावक जी! ${inst} से सादर अनुरोध है। संस्थान रिकॉर्ड के अनुसार, आपके बच्चे ${sName} की ${s.overdueFromHi} से ${s.overdueToHi} तक की बकाया${upcomingClause} सहित कुल ${amt} रुपए की फीस देय है। यह एक अत्यावश्यक सूचना है। कृपया अविलंब बकाया फीस का भुगतान करें, ताकि बच्चे की नियमित पढ़ाई और परीक्षा में कोई रुकावट न आए। आप संस्थान काउंटर पर आकर या ऑनलाइन यू पी आई के माध्यम से तुरंत भुगतान कर सकते हैं। धन्यवाद!`;
       }
 
       const overduePhrase = isOverdue && datePhrase
@@ -2336,6 +2352,11 @@ export class FeeReminderDispatchDialogComponent implements OnInit, OnDestroy {
 
       return `नमस्ते अभिभावक जी! ${inst} से सादर अनुरोध है। संस्थान रिकॉर्ड के अनुसार, आपके बच्चे ${sName} की कुल बकाया फीस राशि ${amt} रुपए देय है। ${overduePhrase} ${urgencyPhrase} आप संस्थान काउंटर पर आकर या ऑनलाइन यू पी आई के माध्यम से तुरंत भुगतान कर सकते हैं। धन्यवाद!`;
     } else {
+      if (s.overdueMonthsCount && s.overdueMonthsCount > 1 && s.overdueFromEn && s.overdueToEn) {
+        const upcomingClauseEn = s.upcomingEn ? ` including ${s.upcomingEn}` : '';
+        return `Hello respected parent! This is an important notification from ${inst}. As per our records, your ward ${sName} has overdue fees from ${s.overdueFromEn} to ${s.overdueToEn}${upcomingClauseEn}, totaling ${amt} rupees. This is an urgent reminder. Please clear the pending fee immediately to ensure your child's classes and examinations continue smoothly. You can make the payment conveniently via online UPI or at the campus accounts desk. Thank you!`;
+      }
+
       const dDate = rawDueDate
         ? rawDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
         : '';
