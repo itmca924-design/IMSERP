@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -35,7 +35,7 @@ export interface CopilotQueryResponse {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
@@ -102,7 +102,7 @@ export interface CopilotQueryResponse {
           <mat-icon class="input-lens">search</mat-icon>
           <input
             type="text"
-            [(ngModel)]="queryText"
+            [formControl]="queryControl"
             (keyup.enter)="submitQuery()"
             placeholder="e.g. 'Aaj ka fee collection kitna hua?' or 'Student ki fees check karo'..."
             class="copilot-input"
@@ -112,7 +112,7 @@ export interface CopilotQueryResponse {
             color="primary"
             class="ask-btn"
             (click)="submitQuery()"
-            [disabled]="loading || !queryText.trim()"
+            [disabled]="loading || !queryControl.value.trim()"
           >
             Ask AI
           </button>
@@ -136,6 +136,11 @@ export interface CopilotQueryResponse {
           <button type="button" class="sug-chip" (click)="runQuickQuery('Fee recovery agent par jao')">
             ⚡ Fee Recovery Agent
           </button>
+        </div>
+
+        <!-- Error Banner -->
+        <div *ngIf="errorMessage" style="padding: 10px 14px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 13px;">
+          {{ errorMessage }}
         </div>
 
         <!-- Copilot Response Deck -->
@@ -535,9 +540,10 @@ export class UniversalVoiceCopilotDialogComponent implements OnInit, OnDestroy {
 
   loading = false;
   isListening = false;
-  queryText = '';
+  queryControl = new FormControl('', { nonNullable: true });
   selectedLang = 'hi-IN';
   response: CopilotQueryResponse | null = null;
+  errorMessage = '';
 
   private recognition: any = null;
 
@@ -568,7 +574,7 @@ export class UniversalVoiceCopilotDialogComponent implements OnInit, OnDestroy {
 
     this.recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      this.queryText = transcript;
+      this.queryControl.setValue(transcript);
       this.isListening = false;
       this.submitQuery();
     };
@@ -612,14 +618,15 @@ export class UniversalVoiceCopilotDialogComponent implements OnInit, OnDestroy {
   }
 
   submitQuery(): void {
-    const q = this.queryText.trim();
+    const q = this.queryControl.value.trim();
     if (!q) return;
 
     this.loading = true;
+    this.errorMessage = '';
     this.stopListening();
 
     const branchId = this.authService.selectedBranchId();
-    const url = `${environment.apiUrl}/api/copilot/universal-query`;
+    const url = `${environment.apiUrl}/copilot/universal-query`;
 
     this.http.post<CopilotQueryResponse>(url, {
       query: q,
@@ -631,14 +638,15 @@ export class UniversalVoiceCopilotDialogComponent implements OnInit, OnDestroy {
         this.response = res;
         this.speakAnswer(res);
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
+        this.errorMessage = err?.error?.message || 'Copilot se response nahi mil paaya. Kripya dobara try karein.';
       }
     });
   }
 
   runQuickQuery(prompt: string): void {
-    this.queryText = prompt;
+    this.queryControl.setValue(prompt);
     this.submitQuery();
   }
 

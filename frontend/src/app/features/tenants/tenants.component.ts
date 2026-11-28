@@ -3632,34 +3632,32 @@ export class TenantsComponent implements OnInit {
     this.tenantForm.get('adminPassword')?.updateValueAndValidity();
     this.tenantForm.get('code')?.disable();
 
-    if (this.isSuperAdmin) {
-      this.waHasPermanentToken = false;
-      this.waSentLast24Hours = 0;
-      this.tenantService.getWhatsAppAutomation(tenant.id).subscribe({
-        next: (wa) => {
-          this.waHasPermanentToken = wa.hasPermanentToken;
-          this.waSentLast24Hours = wa.sentLast24Hours;
-          this.tenantForm.patchValue({
-            whatsAppPhoneId: wa.whatsAppPhoneNumberId || tenant.whatsAppPhoneId || '',
-            whatsAppWabaId: wa.whatsAppBusinessAccountId || '',
-            feeDueRemindersEnabled: wa.feeDueRemindersEnabled,
-            dailyAbsenteeAlertEnabled: wa.dailyAbsenteeAlertEnabled,
-            whatsAppFeeReceiptsEnabled: wa.whatsAppFeeReceiptsEnabled,
-            feeDueVoiceNoteEnabled: wa.feeDueVoiceNoteEnabled,
-            feeDueReminderStartDay: wa.feeDueReminderStartDay,
-            feeDueReminderEndDay: wa.feeDueReminderEndDay,
-            whatsAppDailyMessageLimit: wa.whatsAppDailyMessageLimit,
-            whatsAppFeeReminderTemplateName: wa.whatsAppFeeReminderTemplateName || '',
-            whatsAppFeeReminderTemplateLanguage: wa.whatsAppFeeReminderTemplateLanguage || 'en',
-            whatsAppAbsentAlertTemplateName: wa.whatsAppAbsentAlertTemplateName || '',
-            whatsAppAbsentAlertTemplateLanguage: wa.whatsAppAbsentAlertTemplateLanguage || 'en',
-            whatsAppFeeReceiptTemplateName: wa.whatsAppFeeReceiptTemplateName || '',
-            whatsAppFeeReceiptTemplateLanguage: wa.whatsAppFeeReceiptTemplateLanguage || 'en'
-          });
-        },
-        error: () => {}
-      });
-    }
+    this.waHasPermanentToken = false;
+    this.waSentLast24Hours = 0;
+    this.tenantService.getWhatsAppAutomation(tenant.id).subscribe({
+      next: (wa) => {
+        this.waHasPermanentToken = wa.hasPermanentToken;
+        this.waSentLast24Hours = wa.sentLast24Hours;
+        this.tenantForm.patchValue({
+          whatsAppPhoneId: wa.whatsAppPhoneNumberId || tenant.whatsAppPhoneId || '',
+          whatsAppWabaId: wa.whatsAppBusinessAccountId || '',
+          feeDueRemindersEnabled: wa.feeDueRemindersEnabled,
+          dailyAbsenteeAlertEnabled: wa.dailyAbsenteeAlertEnabled,
+          whatsAppFeeReceiptsEnabled: wa.whatsAppFeeReceiptsEnabled,
+          feeDueVoiceNoteEnabled: wa.feeDueVoiceNoteEnabled,
+          feeDueReminderStartDay: wa.feeDueReminderStartDay,
+          feeDueReminderEndDay: wa.feeDueReminderEndDay,
+          whatsAppDailyMessageLimit: wa.whatsAppDailyMessageLimit,
+          whatsAppFeeReminderTemplateName: wa.whatsAppFeeReminderTemplateName || '',
+          whatsAppFeeReminderTemplateLanguage: wa.whatsAppFeeReminderTemplateLanguage || 'en',
+          whatsAppAbsentAlertTemplateName: wa.whatsAppAbsentAlertTemplateName || '',
+          whatsAppAbsentAlertTemplateLanguage: wa.whatsAppAbsentAlertTemplateLanguage || 'en',
+          whatsAppFeeReceiptTemplateName: wa.whatsAppFeeReceiptTemplateName || '',
+          whatsAppFeeReceiptTemplateLanguage: wa.whatsAppFeeReceiptTemplateLanguage || 'en'
+        });
+      },
+      error: () => {}
+    });
 
     if (!this.isSuperAdmin) {
       this.tenantForm.get('hasSchoolModule')?.disable();
@@ -4086,26 +4084,24 @@ export class TenantsComponent implements OnInit {
 
       this.tenantService.updateTenant(targetId, updateDto).subscribe({
         next: (res: any) => {
-          if (this.isSuperAdmin) {
-            this.tenantService.updateWhatsAppAutomation(targetId, {
-              whatsAppPhoneNumberId: val.whatsAppPhoneId?.trim() || null,
-              whatsAppBusinessAccountId: val.whatsAppWabaId?.trim() || null,
-              whatsAppCloudApiToken: val.whatsAppAccessToken?.trim() || null,
-              feeDueRemindersEnabled: val.feeDueRemindersEnabled !== false,
-              dailyAbsenteeAlertEnabled: val.dailyAbsenteeAlertEnabled !== false,
-              whatsAppFeeReceiptsEnabled: val.whatsAppFeeReceiptsEnabled !== false,
-              feeDueVoiceNoteEnabled: val.feeDueVoiceNoteEnabled !== false,
-              feeDueReminderStartDay: Number(val.feeDueReminderStartDay) || 5,
-              feeDueReminderEndDay: Number(val.feeDueReminderEndDay) || 10,
-              whatsAppDailyMessageLimit: Number(val.whatsAppDailyMessageLimit ?? 250),
-              whatsAppFeeReminderTemplateName: val.whatsAppFeeReminderTemplateName?.trim() || null,
-              whatsAppFeeReminderTemplateLanguage: val.whatsAppFeeReminderTemplateLanguage?.trim() || 'en',
-              whatsAppAbsentAlertTemplateName: val.whatsAppAbsentAlertTemplateName?.trim() || null,
-              whatsAppAbsentAlertTemplateLanguage: val.whatsAppAbsentAlertTemplateLanguage?.trim() || 'en',
-              whatsAppFeeReceiptTemplateName: val.whatsAppFeeReceiptTemplateName?.trim() || null,
-              whatsAppFeeReceiptTemplateLanguage: val.whatsAppFeeReceiptTemplateLanguage?.trim() || 'en'
-            }).subscribe({ error: () => {} });
-          }
+          this.tenantService.updateWhatsAppAutomation(targetId, {
+            whatsAppPhoneNumberId: val.whatsAppPhoneId?.trim() || null,
+            whatsAppBusinessAccountId: val.whatsAppWabaId?.trim() || null,
+            whatsAppCloudApiToken: val.whatsAppAccessToken?.trim() || null,
+            feeDueRemindersEnabled: val.feeDueRemindersEnabled !== false,
+            dailyAbsenteeAlertEnabled: val.dailyAbsenteeAlertEnabled !== false,
+            whatsAppFeeReceiptsEnabled: val.whatsAppFeeReceiptsEnabled !== false,
+            feeDueVoiceNoteEnabled: val.feeDueVoiceNoteEnabled !== false,
+            feeDueReminderStartDay: Number(val.feeDueReminderStartDay) || 5,
+            feeDueReminderEndDay: Number(val.feeDueReminderEndDay) || 10,
+            whatsAppDailyMessageLimit: Number(val.whatsAppDailyMessageLimit ?? 250),
+            whatsAppFeeReminderTemplateName: val.whatsAppFeeReminderTemplateName?.trim() || null,
+            whatsAppFeeReminderTemplateLanguage: val.whatsAppFeeReminderTemplateLanguage?.trim() || 'en',
+            whatsAppAbsentAlertTemplateName: val.whatsAppAbsentAlertTemplateName?.trim() || null,
+            whatsAppAbsentAlertTemplateLanguage: val.whatsAppAbsentAlertTemplateLanguage?.trim() || 'en',
+            whatsAppFeeReceiptTemplateName: val.whatsAppFeeReceiptTemplateName?.trim() || null,
+            whatsAppFeeReceiptTemplateLanguage: val.whatsAppFeeReceiptTemplateLanguage?.trim() || 'en'
+          }).subscribe({ error: () => {} });
           this.formSaving = false;
           // Optimistically update tenant card in list
           const idx = this.tenants.findIndex(t => t.id === targetId);

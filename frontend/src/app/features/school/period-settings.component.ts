@@ -2383,9 +2383,13 @@ interface PeriodEditorRow {
 
       mat-icon {
         font-size: 18px;
-        width: 18px;
-        height: 18px;
-        line-height: 18px;
+        width: 22px;
+        height: 22px;
+        line-height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
       }
 
       &.is-break {
@@ -2449,9 +2453,13 @@ interface PeriodEditorRow {
 
       .slot-badge-icon {
         font-size: 15px;
-        width: 15px;
-        height: 15px;
-        line-height: 15px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
       }
       .slot-badge-label {
         font-size: 0.76rem;

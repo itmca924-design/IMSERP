@@ -1058,8 +1058,8 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<TenantWhatsAppAutomationDto>> GetTenantWhatsAppAutomation(Guid id)
     {
         var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
-        if (!isSuperAdmin)
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only SuperAdmin Platform can manage tenant WhatsApp automation policies." });
+        if (!isSuperAdmin && id != _currentUser.TenantId)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only view your own institute WhatsApp automation settings." });
 
         var tenant = await _dbContext.Tenants.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
         if (tenant == null) return NotFound(new { message = "Institute not found." });
@@ -1102,8 +1102,8 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<TenantWhatsAppAutomationDto>> UpdateTenantWhatsAppAutomation(Guid id, [FromBody] UpdateTenantWhatsAppAutomationDto dto)
     {
         var isSuperAdmin = string.Equals(_currentUser.UserRole, nameof(UserRole.SuperAdmin), StringComparison.OrdinalIgnoreCase);
-        if (!isSuperAdmin)
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only SuperAdmin Platform can manage tenant WhatsApp automation policies." });
+        if (!isSuperAdmin && id != _currentUser.TenantId)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only update your own institute WhatsApp automation settings." });
 
         var tenant = await _dbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
         if (tenant == null) return NotFound(new { message = "Institute not found." });

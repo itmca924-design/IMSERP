@@ -110,6 +110,7 @@ public class AiHindiVoiceService : IAiVoiceService
 
         var normalized = text.Trim();
         // Common education entity keywords to Hindi for natural TTS pronunciation across all tenants
+        normalized = Regex.Replace(normalized, @"\bJnandeep\b", "ज्ञानदीप", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bJnan\b", "ज्ञान", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bCampus\b", "कैंपस", RegexOptions.IgnoreCase);
         normalized = Regex.Replace(normalized, @"\bAcademy\b", "एकेडमी", RegexOptions.IgnoreCase);

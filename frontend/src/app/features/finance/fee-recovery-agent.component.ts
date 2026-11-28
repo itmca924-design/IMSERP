@@ -308,12 +308,18 @@ import { environment } from '../../../environments/environment';
       <!-- Reactive Filters Card -->
       <mat-card class="filter-card mat-elevation-z1">
         <form [formGroup]="filterForm" class="filter-form">
-          <mat-form-field appearance="outline" class="filter-field scope-field">
+          <mat-form-field appearance="outline" class="filter-field scope-field" *ngIf="authService.hasSchoolModule() || authService.hasCoachingModule()">
             <mat-label>Division Scope</mat-label>
             <mat-select formControlName="academicScope" (selectionChange)="onScopeChanged()">
-              <mat-option value="All">🏛️ All (Hybrid Consolidated)</mat-option>
-              <mat-option value="School">🏫 School Division Only</mat-option>
-              <mat-option value="Coaching">🎯 Coaching Division Only</mat-option>
+              @if (authService.hasSchoolModule() && authService.hasCoachingModule()) {
+                <mat-option value="All">🏛️ All (Hybrid Consolidated)</mat-option>
+              }
+              @if (authService.hasSchoolModule()) {
+                <mat-option value="School">🏫 School Division Only</mat-option>
+              }
+              @if (authService.hasCoachingModule()) {
+                <mat-option value="Coaching">🎯 Coaching Division Only</mat-option>
+              }
             </mat-select>
           </mat-form-field>
     
@@ -339,7 +345,7 @@ import { environment } from '../../../environments/environment';
             </mat-select>
           </mat-form-field>
     
-          @if (selectedAcademicScope !== 'School') {
+          @if (authService.hasCoachingModule() && selectedAcademicScope !== 'School') {
             <mat-form-field appearance="outline" class="filter-field">
               <mat-label>Coaching Batch</mat-label>
               <mat-select formControlName="batchId" (selectionChange)="onFilterChanged()">
@@ -2089,10 +2095,13 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.branches = this.authService.currentUser()?.branches || [];
     const activeBranch = this.authService.selectedBranchId() || '';
+    const hasSchool = this.authService.hasSchoolModule();
+    const hasCoaching = this.authService.hasCoachingModule();
+    const defaultScope = (hasSchool && hasCoaching) ? 'All' : (hasCoaching ? 'Coaching' : 'School');
 
     this.filterForm = this.fb.group({
       branchId: [activeBranch],
-      academicScope: ['All'],
+      academicScope: [defaultScope],
       classId: [''],
       batchId: [''],
       riskLevel: [''],
@@ -2375,13 +2384,15 @@ export class FeeRecoveryAgentComponent implements OnInit, OnDestroy {
       error: (err) => console.error('Failed to load classes', err)
     });
 
-    this.batchesService.getBatches().subscribe({
-      next: (b) => {
-        this.batches = b;
-        this.filteredBatches = b;
-      },
-      error: (err) => console.error('Failed to load batches', err)
-    });
+    if (this.authService.hasCoachingModule()) {
+      this.batchesService.getBatches().subscribe({
+        next: (b) => {
+          this.batches = b;
+          this.filteredBatches = b;
+        },
+        error: (err) => console.error('Failed to load batches', err)
+      });
+    }
   }
 
   onClassChanged(): void {

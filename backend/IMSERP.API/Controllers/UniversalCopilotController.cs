@@ -53,8 +53,7 @@ public class UniversalCopilotController : ControllerBase
 
     private static DateTime GetIstToday()
     {
-        var istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
+        return DateTime.UtcNow.AddHours(5.5).Date;
     }
 
     [HttpPost("universal-query")]

@@ -102,11 +102,12 @@ import {
       <!-- Reactive Filter & Scope Deck -->
       <mat-card class="filter-deck-card">
         <form [formGroup]="filterForm" class="filter-form-grid">
-          <!-- Tri-Modal Division Scope -->
-          <div class="scope-toggle-group">
+          <!-- Tri-Modal Division Scope (Dynamically driven by Tenant Licensed Modules) -->
+          <div class="scope-toggle-group" *ngIf="authService.hasSchoolModule() || authService.hasCoachingModule()">
             <label class="scope-label">Operational Division:</label>
             <div class="scope-buttons">
               <button
+                *ngIf="authService.hasSchoolModule() && authService.hasCoachingModule()"
                 type="button"
                 mat-button
                 [class.active-scope]="filterForm.get('divisionScope')?.value === 'all'"
@@ -115,6 +116,7 @@ import {
                 <mat-icon>hub</mat-icon> All / Hybrid
               </button>
               <button
+                *ngIf="authService.hasSchoolModule()"
                 type="button"
                 mat-button
                 [class.active-scope]="filterForm.get('divisionScope')?.value === 'school'"
@@ -123,6 +125,7 @@ import {
                 <mat-icon>school</mat-icon> School
               </button>
               <button
+                *ngIf="authService.hasCoachingModule()"
                 type="button"
                 mat-button
                 [class.active-scope]="filterForm.get('divisionScope')?.value === 'coaching'"
@@ -1418,11 +1421,16 @@ export class AiAttendanceScannerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    const hasSchool = this.authService.hasSchoolModule();
+    const hasCoaching = this.authService.hasCoachingModule();
+    const defaultScope = (hasSchool && hasCoaching) ? 'all' : (hasCoaching ? 'coaching' : 'school');
+
     this.branches = this.authService.currentUser()?.branches || [];
     const activeBranchId = this.authService.selectedBranchId();
-    if (activeBranchId) {
-      this.filterForm.patchValue({ branchId: activeBranchId }, { emitEvent: false });
-    }
+    this.filterForm.patchValue({
+      divisionScope: defaultScope,
+      ...(activeBranchId ? { branchId: activeBranchId } : {})
+    }, { emitEvent: false });
 
     this.loadClassesAndBatches();
     this.setupCascadeListeners();
@@ -1441,13 +1449,15 @@ export class AiAttendanceScannerComponent implements OnInit, OnDestroy {
       error: () => {}
     });
 
-    this.batchesService.getBatches().subscribe({
-      next: (res: any) => {
-        this.batches = Array.isArray(res) ? res : res?.data || [];
-        this.updateFilteredBatches();
-      },
-      error: () => {}
-    });
+    if (this.authService.hasCoachingModule()) {
+      this.batchesService.getBatches().subscribe({
+        next: (res: any) => {
+          this.batches = Array.isArray(res) ? res : res?.data || [];
+          this.updateFilteredBatches();
+        },
+        error: () => {}
+      });
+    }
   }
 
   private setupCascadeListeners(): void {

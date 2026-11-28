@@ -1,9 +1,12 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
@@ -23,9 +26,12 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
   imports: [
     CommonModule,
     RouterModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
     MatProgressBarModule,
     MatTooltipModule,
     MatChipsModule,
@@ -109,10 +115,31 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
                     Speaking...
                   </span>
                 }
+                <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+                  <button type="button" mat-stroked-button style="height:28px; line-height:28px; font-size:12px; padding:0 10px;" (click)="isEditingScript = !isEditingScript">
+                    <mat-icon style="font-size:15px; width:15px; height:15px; margin-right:4px;">{{ isEditingScript ? 'check' : 'edit' }}</mat-icon>
+                    <span>{{ isEditingScript ? 'Done' : 'Edit Text' }}</span>
+                  </button>
+                  @if (isEditingScript) {
+                    <button type="button" mat-stroked-button style="height:28px; line-height:28px; font-size:12px; padding:0 10px;" (click)="resetBriefingScript()">
+                      <mat-icon style="font-size:15px; width:15px; height:15px; margin-right:4px;">restart_alt</mat-icon>
+                      <span>Reset</span>
+                    </button>
+                  }
+                </div>
               </div>
-              <p class="voice-transcript">
-                "{{ currentVoiceLang === 'Hindi' ? briefing.aiSpokenScriptHindi : briefing.aiSpokenScriptEnglish }}"
-              </p>
+              @if (isEditingScript) {
+                <form [formGroup]="scriptForm" style="margin-top:8px;">
+                  <mat-form-field appearance="outline" style="width:100%;" subscriptSizing="dynamic">
+                    <mat-label>Editable {{ currentVoiceLang }} Briefing Script</mat-label>
+                    <textarea matInput rows="3" [formControlName]="currentVoiceLang === 'Hindi' ? 'hindiScript' : 'englishScript'"></textarea>
+                  </mat-form-field>
+                </form>
+              } @else {
+                <p class="voice-transcript">
+                  "{{ currentVoiceLang === 'Hindi' ? scriptForm.get('hindiScript')?.value : scriptForm.get('englishScript')?.value }}"
+                </p>
+              }
             </div>
           </div>
         </mat-card>
@@ -986,6 +1013,13 @@ export class PrincipalBriefingComponent implements OnInit, OnDestroy {
 
   isPlayingVoice = false;
   currentVoiceLang: 'Hindi' | 'English' = 'Hindi';
+  private fb = inject(FormBuilder);
+  isEditingScript = false;
+  scriptForm: FormGroup = this.fb.group({
+    hindiScript: [''],
+    englishScript: ['']
+  });
+
   private speechUtterance: SpeechSynthesisUtterance | null = null;
 
   ngOnInit(): void {
@@ -1005,6 +1039,10 @@ export class PrincipalBriefingComponent implements OnInit, OnDestroy {
     this.briefingService.getTodayBriefing(activeBranchId).subscribe({
       next: (data) => {
         this.briefing = data;
+        this.scriptForm.patchValue({
+          hindiScript: data?.aiSpokenScriptHindi || '',
+          englishScript: data?.aiSpokenScriptEnglish || ''
+        });
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -1031,12 +1069,16 @@ export class PrincipalBriefingComponent implements OnInit, OnDestroy {
     }
 
     const script = lang === 'Hindi'
-      ? (this.briefing?.aiSpokenScriptHindi || '')
-      : (this.briefing?.aiSpokenScriptEnglish || '');
+      ? (this.scriptForm.get('hindiScript')?.value || this.briefing?.aiSpokenScriptHindi || '')
+      : (this.scriptForm.get('englishScript')?.value || this.briefing?.aiSpokenScriptEnglish || '');
 
     if (!script) return;
 
-    this.speechUtterance = new SpeechSynthesisUtterance(script);
+    const spokenScript = lang === 'Hindi'
+      ? script.replace(/\bJnandeep\b/gi, 'ज्ञानदीप').replace(/\bJnan\b/gi, 'ज्ञान')
+      : script.replace(/\bJnandeep\b/gi, 'Gyandeep').replace(/\bJnan\b/gi, 'Gyan');
+
+    this.speechUtterance = new SpeechSynthesisUtterance(spokenScript);
     this.speechUtterance.lang = lang === 'Hindi' ? 'hi-IN' : 'en-IN';
     this.speechUtterance.rate = 0.95;
     this.speechUtterance.pitch = 1.0;
@@ -1074,6 +1116,14 @@ export class PrincipalBriefingComponent implements OnInit, OnDestroy {
       window.speechSynthesis.cancel();
     }
     this.isPlayingVoice = false;
+    this.cdr.markForCheck();
+  }
+
+  resetBriefingScript(): void {
+    this.scriptForm.patchValue({
+      hindiScript: this.briefing?.aiSpokenScriptHindi || '',
+      englishScript: this.briefing?.aiSpokenScriptEnglish || ''
+    });
     this.cdr.markForCheck();
   }
 
